@@ -137,7 +137,7 @@ function createSupabaseClient(): SupabaseClient<Database> {
     
     console.warn('⚠️ Using fallback Supabase configuration')
     
-    return createClient(fallbackUrl, fallbackKey, getClientOptions())
+    return createClient(fallbackUrl, fallbackKey, getMinimalClientOptions())
   }
 
   console.log('🔗 Initializing Supabase client with:', {
@@ -146,10 +146,34 @@ function createSupabaseClient(): SupabaseClient<Database> {
   })
 
   try {
+    // Try with full options first
     return createClient(supabaseConfig.url, supabaseConfig.anonKey, getClientOptions())
   } catch (error) {
-    console.error('❌ Failed to initialize Supabase client:', error)
-    throw new Error('Failed to initialize database connection. Please check your configuration.')
+    console.warn('⚠️ Full client options failed, trying minimal options:', error)
+    
+    try {
+      // Fallback to minimal options
+      return createClient(supabaseConfig.url, supabaseConfig.anonKey, getMinimalClientOptions())
+    } catch (minimalError) {
+      console.warn('⚠️ Minimal client options failed, trying bare client:', minimalError)
+      
+      try {
+        // Fallback to bare client with no options
+        return createClient(supabaseConfig.url, supabaseConfig.anonKey)
+      } catch (bareError) {
+        console.error('❌ All Supabase client creation attempts failed:', bareError)
+        throw new Error('Failed to initialize database connection. Please check your configuration.')
+      }
+    }
+  }
+}
+
+function getMinimalClientOptions() {
+  return {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
   }
 }
 
@@ -160,26 +184,17 @@ function getClientOptions() {
       persistSession: true,
       detectSessionInUrl: false,
       // Custom authentication storage for wallet-based auth
-      storage: {
-        getItem: (key: string) => {
-          if (typeof window === 'undefined') return null
-          return localStorage.getItem(key)
-        },
-        setItem: (key: string, value: string) => {
-          if (typeof window === 'undefined') return
-          localStorage.setItem(key, value)
-        },
-        removeItem: (key: string) => {
-          if (typeof window === 'undefined') return
-          localStorage.removeItem(key)
-        }
-      }
+      storage: typeof window !== 'undefined' ? {
+        getItem: (key: string) => localStorage.getItem(key),
+        setItem: (key: string, value: string) => localStorage.setItem(key, value),
+        removeItem: (key: string) => localStorage.removeItem(key)
+      } : undefined
     },
     // Global configuration for all requests
     global: {
       headers: {
-        'X-Client-Info': 'pump-fun-clone@1.0.0',
-      },
+        'X-Client-Info': 'pump-fun-clone@1.0.0'
+      }
     },
     // Real-time subscription configuration
     realtime: {
