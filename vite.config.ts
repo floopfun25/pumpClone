@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
-// Vite configuration for the pump.fun clone Vue.js application
+// Vite configuration for FloppFun Vue.js application
 export default defineConfig({
   plugins: [vue()],
   base: process.env.NODE_ENV === 'production' ? '/pumpClone/' : '/',

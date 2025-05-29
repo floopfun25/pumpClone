@@ -9,7 +9,7 @@
             <span class="text-white font-bold text-sm">P</span>
           </div>
           <span class="text-xl font-bold text-gray-900 dark:text-white">
-            Pump.fun Clone
+            FloppFun
           </span>
         </router-link>
         

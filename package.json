@@ -1,7 +1,7 @@
 {
-  "name": "pump-fun-clone",
+  "name": "floppfun",
   "version": "1.0.0",
-  "description": "A Vue.js clone of pump.fun with Supabase backend",
+  "description": "FloppFun - A decentralized meme token launchpad on Solana",
   "private": true,
   "scripts": {
     "dev": "vite",

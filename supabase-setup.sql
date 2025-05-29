@@ -1,4 +1,4 @@
--- Pump.fun Clone Database Schema
+-- FloppFun Database Schema
 -- Run this in your Supabase SQL Editor
 
 -- Enable Row Level Security

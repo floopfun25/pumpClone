@@ -1,6 +1,6 @@
-# Pump.fun Clone - Meme Token Launchpad
+# FloppFun - Meme Token Launchpad
 
-A Vue.js clone of pump.fun with Supabase backend for creating and trading meme tokens on Solana blockchain with fair launch bonding curves.
+FloppFun is a decentralized meme token launchpad built on Solana blockchain for creating and trading meme tokens with fair launch bonding curves.
 
 ## 🚀 Features
 
@@ -277,7 +277,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## ⚠️ Disclaimer
 
-This is an educational project for learning purposes. It is not affiliated with the original pump.fun platform. Use at your own risk and always do your own research before trading cryptocurrencies.
+This is an educational project for learning purposes. FloppFun is an independent decentralized platform for meme token creation and trading. Use at your own risk and always do your own research before trading cryptocurrencies.
 
 ## 🆘 Support
 

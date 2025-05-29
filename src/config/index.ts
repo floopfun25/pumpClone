@@ -15,7 +15,7 @@ export const config = {
   
   // Application constants
   app: {
-    name: 'Pump.fun Clone',
+    name: 'FloppFun',
     version: '1.0.0',
     description: 'Create and trade meme tokens on Solana'
   },

@@ -1,14 +1,14 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-pump-dark py-8">
     <div class="container mx-auto px-4 max-w-4xl">
-      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">About Pump.fun Clone</h1>
+      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">About FloppFun</h1>
       
       <div class="space-y-8">
         <!-- What is it -->
         <div class="card">
-          <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">What is Pump.fun Clone?</h2>
+          <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">What is FloppFun?</h2>
           <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
-            Pump.fun Clone is a decentralized meme token launchpad built on the Solana blockchain. 
+            FloppFun is a decentralized meme token launchpad built on the Solana blockchain. 
             It enables anyone to create and trade meme tokens with fair launch mechanics using bonding curves. 
             No presales, no team allocations - just pure community-driven tokens.
           </p>
@@ -87,11 +87,10 @@
         </div>
 
         <!-- Disclaimer -->
-        <div class="card bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-          <h2 class="text-xl font-semibold text-yellow-800 dark:text-yellow-200 mb-4">⚠️ Disclaimer</h2>
-          <p class="text-yellow-700 dark:text-yellow-300 text-sm">
-            This is an educational project for learning purposes. It is not affiliated with the original pump.fun platform. 
-            Cryptocurrency trading involves substantial risk. Always do your own research before trading.
+        <div class="card border-l-4 border-yellow-500">
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">⚠️ Disclaimer</h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            This is an educational project for learning purposes. FloppFun is an independent platform inspired by decentralized token launchpads.
           </p>
         </div>
       </div>

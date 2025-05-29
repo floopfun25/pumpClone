@@ -1,4 +1,4 @@
-# Docker Compose configuration for pump.fun clone
+# Docker Compose configuration for FloppFun
 version: '3.8'
 
 services:
@@ -20,7 +20,7 @@ services:
       - VITE_SOLANA_NETWORK=devnet
       
       # Application configuration
-      - VITE_APP_NAME=Pump.fun Clone
+      - VITE_APP_NAME=FloppFun
       - VITE_APP_VERSION=1.0.0
     
     volumes:

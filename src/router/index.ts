@@ -19,7 +19,7 @@ const router = createRouter({
       // Lazy load components for better performance
       component: () => import('@/views/HomePage.vue'),
       meta: {
-        title: 'Pump.fun Clone - Meme Token Launchpad',
+        title: 'FloppFun - Meme Token Launchpad',
         description: 'Create, trade, and discover meme tokens on Solana'
       }
     },
@@ -28,7 +28,7 @@ const router = createRouter({
       name: 'create-token',
       component: () => import('@/views/CreateTokenPage.vue'),
       meta: {
-        title: 'Create Token - Pump.fun Clone',
+        title: 'Create Token - FloppFun',
         description: 'Launch your own meme token with fair launch mechanics',
         requiresAuth: true // Requires wallet connection
       }
@@ -38,7 +38,7 @@ const router = createRouter({
       name: 'token-detail',
       component: () => import('@/views/TokenDetailPage.vue'),
       meta: {
-        title: 'Token Details - Pump.fun Clone',
+        title: 'Token Details - FloppFun',
         description: 'View token information, charts, and trade'
       },
       props: true // Pass route params as props
@@ -48,7 +48,7 @@ const router = createRouter({
       name: 'profile',
       component: () => import('@/views/ProfilePage.vue'),
       meta: {
-        title: 'User Profile - Pump.fun Clone',
+        title: 'User Profile - FloppFun',
         description: 'View user profile, created tokens, and trading history',
         requiresAuth: true
       },
@@ -59,7 +59,7 @@ const router = createRouter({
       name: 'portfolio',
       component: () => import('@/views/PortfolioPage.vue'),
       meta: {
-        title: 'Portfolio - Pump.fun Clone',
+        title: 'Portfolio - FloppFun',
         description: 'Manage your token holdings and track performance',
         requiresAuth: true
       }
@@ -69,7 +69,7 @@ const router = createRouter({
       name: 'leaderboard',
       component: () => import('@/views/LeaderboardPage.vue'),
       meta: {
-        title: 'Leaderboard - Pump.fun Clone',
+        title: 'Leaderboard - FloppFun',
         description: 'Top traders and most successful tokens'
       }
     },
@@ -78,7 +78,7 @@ const router = createRouter({
       name: 'search',
       component: () => import('@/views/SearchPage.vue'),
       meta: {
-        title: 'Search Tokens - Pump.fun Clone',
+        title: 'Search Tokens - FloppFun',
         description: 'Find tokens by name, symbol, or creator'
       }
     },
@@ -87,7 +87,7 @@ const router = createRouter({
       name: 'about',
       component: () => import('@/views/AboutPage.vue'),
       meta: {
-        title: 'About - Pump.fun Clone',
+        title: 'About - FloppFun',
         description: 'Learn about our platform and how it works'
       }
     },
@@ -97,7 +97,7 @@ const router = createRouter({
       name: 'not-found',
       component: () => import('@/views/NotFoundPage.vue'),
       meta: {
-        title: 'Page Not Found - Pump.fun Clone',
+        title: 'Page Not Found - FloppFun',
         description: 'The page you are looking for does not exist'
       }
     }

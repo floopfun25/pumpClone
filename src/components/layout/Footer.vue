@@ -9,9 +9,9 @@
             <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">P</span>
             </div>
-            <span class="text-lg font-bold text-gray-900 dark:text-white">
-              Pump.fun Clone
-            </span>
+            <h3 class="text-lg font-semibold text-white mb-4">
+              FloppFun
+            </h3>
           </div>
           <p class="text-gray-600 dark:text-gray-400 text-sm">
             The easiest way to create and trade meme tokens on Solana with fair launch bonding curves.
@@ -88,7 +88,7 @@
       <!-- Bottom Bar -->
       <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          © 2024 Pump.fun Clone. Built for educational purposes.
+          © 2024 FloppFun. Built for educational purposes.
         </p>
         <div class="flex space-x-6 mt-4 md:mt-0">
           <a href="#" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
