@@ -13,13 +13,12 @@
     // Storage key
     authKey: 'gh-pages-auth',
     
+    // Session flag to prevent reload loops
+    sessionFlag: 'gh-pages-session-active',
+    
     // Allowed paths that don't need authentication (optional)
     allowedPaths: ['/login.html', '/favicon.ico']
   };
-  
-  // Store original body content before hiding
-  let originalBodyContent = null;
-  let originalBodyClass = null;
   
   // Check if current path is allowed without auth
   function isPathAllowed() {
@@ -52,13 +51,14 @@
     }
   }
   
-  // Show the original content
-  function showContent() {
-    if (originalBodyContent && originalBodyClass) {
-      document.body.innerHTML = originalBodyContent;
-      document.body.className = originalBodyClass;
-    }
-    document.body.style.visibility = 'visible';
+  // Check if this is a fresh session (not a reload from auth)
+  function isFreshSession() {
+    return !sessionStorage.getItem(CONFIG.sessionFlag);
+  }
+  
+  // Mark session as active
+  function markSessionActive() {
+    sessionStorage.setItem(CONFIG.sessionFlag, 'true');
   }
   
   // Authenticate user
@@ -73,8 +73,9 @@
       };
       localStorage.setItem(CONFIG.authKey, JSON.stringify(authData));
       
-      // Show content instead of reloading
-      showContent();
+      // Mark session and reload to show full content
+      markSessionActive();
+      window.location.reload();
       return true;
     } else if (password !== null) {
       // Wrong password (null means cancelled)
@@ -124,11 +125,7 @@
   }
   
   // Hide content with loading screen
-  function hideContent() {
-    // Store original content before hiding
-    originalBodyContent = document.body.innerHTML;
-    originalBodyClass = document.body.className;
-    
+  function hideContentAndAuth() {
     document.body.style.visibility = 'hidden';
     document.body.innerHTML = `
       <div style="
@@ -152,6 +149,11 @@
         </div>
       </div>
     `;
+    
+    // Show auth prompt after a delay
+    setTimeout(() => {
+      authenticate();
+    }, 1000);
   }
   
   // Main authentication check
@@ -161,19 +163,21 @@
       return;
     }
     
-    // Check authentication status first
+    // If user is authenticated, let the page load normally
     if (isAuthenticated()) {
-      // Already authenticated - just ensure content is visible
+      // Mark session as active to prevent future interruptions
+      markSessionActive();
       document.body.style.visibility = 'visible';
       return;
     }
     
-    // Not authenticated - hide content and show auth prompt
-    hideContent();
-    
-    setTimeout(() => {
-      authenticate();
-    }, 1000); // Small delay for better UX
+    // If this is a fresh session (not a reload from auth), show auth
+    if (isFreshSession()) {
+      hideContentAndAuth();
+    } else {
+      // This shouldn't happen, but fallback to showing content
+      document.body.style.visibility = 'visible';
+    }
   }
   
   // Run authentication check when page loads
