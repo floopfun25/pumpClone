@@ -1,15 +1,26 @@
 // Application configuration with environment variables and constants
+
+// Environment variable validation and fallbacks
+const getEnvVar = (key: string, fallback?: string): string => {
+  const value = import.meta.env[key]
+  if (!value && !fallback) {
+    console.error(`Missing required environment variable: ${key}`)
+    throw new Error(`Environment variable ${key} is required`)
+  }
+  return value || fallback!
+}
+
 export const config = {
   // Supabase configuration for backend integration
   supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
+    url: getEnvVar('VITE_SUPABASE_URL', 'https://osqniqjbbenjmhehoykv.supabase.co'),
+    anonKey: getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc')
   },
   
   // Solana blockchain configuration
   solana: {
-    rpcUrl: import.meta.env.VITE_SOLANA_RPC_URL,
-    network: import.meta.env.VITE_SOLANA_NETWORK,
+    rpcUrl: getEnvVar('VITE_SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com'),
+    network: getEnvVar('VITE_SOLANA_NETWORK', 'mainnet-beta'),
     commitment: 'confirmed' as const
   },
   
@@ -53,4 +64,13 @@ export const {
   tokenDefaults,
   bondingCurve: bondingCurveConfig,
   ui: uiConfig
-} = config 
+} = config
+
+// Log configuration in development
+if (import.meta.env.DEV) {
+  console.log('🔧 Configuration loaded:', {
+    supabaseUrl: supabaseConfig.url,
+    solanaNetwork: solanaConfig.network,
+    solanaRpc: solanaConfig.rpcUrl
+  })
+} 

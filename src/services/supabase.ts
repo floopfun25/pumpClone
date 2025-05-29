@@ -114,11 +114,47 @@ export interface Database {
   }
 }
 
-// Create and configure Supabase client
-export const supabase: SupabaseClient<Database> = createClient(
-  supabaseConfig.url,
-  supabaseConfig.anonKey,
-  {
+// Safe Supabase client creation with fallbacks
+let supabaseClient: SupabaseClient<Database> | null = null
+
+function createSupabaseClient(): SupabaseClient<Database> {
+  // Validate configuration exists
+  if (!supabaseConfig?.url || !supabaseConfig?.anonKey) {
+    console.error('❌ Supabase configuration is invalid:', {
+      url: supabaseConfig?.url ? '✅ Present' : '❌ Missing',
+      anonKey: supabaseConfig?.anonKey ? '✅ Present' : '❌ Missing',
+      config: supabaseConfig
+    })
+    
+    // For development, throw error immediately
+    if (import.meta.env.DEV) {
+      throw new Error('Supabase configuration is incomplete. Please check your environment variables.')
+    }
+    
+    // For production, use fallback values (should not happen with proper GitHub secrets)
+    const fallbackUrl = 'https://osqniqjbbenjmhehoykv.supabase.co'
+    const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc'
+    
+    console.warn('⚠️ Using fallback Supabase configuration')
+    
+    return createClient(fallbackUrl, fallbackKey, getClientOptions())
+  }
+
+  console.log('🔗 Initializing Supabase client with:', {
+    url: supabaseConfig.url,
+    hasAnonKey: !!supabaseConfig.anonKey
+  })
+
+  try {
+    return createClient(supabaseConfig.url, supabaseConfig.anonKey, getClientOptions())
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase client:', error)
+    throw new Error('Failed to initialize database connection. Please check your configuration.')
+  }
+}
+
+function getClientOptions() {
+  return {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
@@ -152,7 +188,15 @@ export const supabase: SupabaseClient<Database> = createClient(
       }
     }
   }
-)
+}
+
+// Export the Supabase client with lazy initialization
+export const supabase: SupabaseClient<Database> = (() => {
+  if (!supabaseClient) {
+    supabaseClient = createSupabaseClient()
+  }
+  return supabaseClient
+})()
 
 // Utility functions for common database operations
 export class SupabaseService {
