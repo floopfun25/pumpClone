@@ -64,13 +64,4 @@ export const {
   tokenDefaults,
   bondingCurve: bondingCurveConfig,
   ui: uiConfig
-} = config
-
-// Log configuration in development
-if (import.meta.env.DEV) {
-  console.log('🔧 Configuration loaded:', {
-    supabaseUrl: supabaseConfig.url,
-    solanaNetwork: solanaConfig.network,
-    solanaRpc: solanaConfig.rpcUrl
-  })
-} 
+} = config 
