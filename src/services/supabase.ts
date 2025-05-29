@@ -114,21 +114,104 @@ export interface Database {
   }
 }
 
-// Simple Supabase client creation with better error handling
+// Enhanced Supabase client creation with GitHub Pages compatibility
+function createSupabaseClient(): SupabaseClient<Database> {
+  console.log('🔧 Creating Supabase client...')
+  
+  // Environment detection
+  const isGitHubPages = window.location.hostname.includes('github.io')
+  const isHTTPS = window.location.protocol === 'https:'
+  const hasWebCrypto = !!(window.crypto && window.crypto.subtle)
+  
+  console.log('Environment:', {
+    hostname: window.location.hostname,
+    isGitHubPages,
+    isHTTPS,
+    hasWebCrypto,
+    userAgent: navigator.userAgent.substring(0, 50) + '...'
+  })
+  
+  // Validate configuration
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    throw new Error('Missing Supabase configuration - check environment variables')
+  }
+  
+  // GitHub Pages specific configuration
+  const clientConfig = {
+    auth: {
+      // Disable auth features that may cause issues on static hosting
+      persistSession: false,
+      autoRefreshToken: false, 
+      detectSessionInUrl: false,
+      
+      // GitHub Pages specific settings
+      flowType: 'implicit' as const, // Avoid PKCE issues on static hosting
+      debug: false // Disable auth debugging in production
+    },
+    
+    // Enhanced fetch configuration for GitHub Pages
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        // Ensure headers are properly set for Supabase API
+        const headers = new Headers(init?.headers)
+        
+        // Add required headers if missing
+        if (!headers.has('Content-Type') && init?.method !== 'GET') {
+          headers.set('Content-Type', 'application/json')
+        }
+        
+        return fetch(input, {
+          ...init,
+          headers
+        })
+      }
+    }
+  }
+  
+  console.log('Supabase config:', {
+    url: supabaseConfig.url.substring(0, 30) + '...',
+    hasAnonKey: !!supabaseConfig.anonKey,
+    authConfig: clientConfig.auth
+  })
+  
+  try {
+    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, clientConfig)
+    
+    // Test basic connectivity
+    client.from('users').select('count', { count: 'exact', head: true }).then(
+      () => console.log('✅ Supabase connectivity test passed'),
+      (error) => console.warn('⚠️ Supabase connectivity test failed:', error.message)
+    )
+    
+    console.log('✅ Supabase client created successfully')
+    return client
+    
+  } catch (error) {
+    console.error('❌ Failed to create Supabase client:', error)
+    
+    // Enhanced error reporting
+    if (error instanceof Error) {
+      if (error.message.includes('headers')) {
+        throw new Error(`Supabase headers error (likely polyfill issue): ${error.message}`)
+      } else if (error.message.includes('fetch')) {
+        throw new Error(`Supabase fetch error (network/CORS issue): ${error.message}`)
+      } else if (error.message.includes('crypto')) {
+        throw new Error(`Supabase crypto error (WebCrypto not available): ${error.message}`)
+      }
+    }
+    
+    throw new Error(`Supabase client creation failed: ${error}`)
+  }
+}
+
+// Initialize the client
 let supabaseClient: SupabaseClient<Database>
 
 try {
-  supabaseClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-    auth: {
-      persistSession: false, // Disable auth persistence for GitHub Pages
-      autoRefreshToken: false,
-      detectSessionInUrl: false
-    }
-  })
-  console.log('✅ Supabase client created successfully')
+  supabaseClient = createSupabaseClient()
 } catch (error) {
-  console.error('❌ Failed to create Supabase client:', error)
-  throw new Error(`Supabase client creation failed: ${error}`)
+  console.error('💥 Critical error initializing Supabase:', error)
+  throw error
 }
 
 export const supabase = supabaseClient
