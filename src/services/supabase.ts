@@ -114,81 +114,32 @@ export interface Database {
   }
 }
 
-// Safe Supabase client creation with graceful error handling
-let supabaseClient: SupabaseClient<Database> | null = null
-let initializationFailed = false
+// Simple Supabase client creation with better error handling
+let supabaseClient: SupabaseClient<Database>
 
-function createSupabaseClient(): SupabaseClient<Database> | null {
-  if (supabaseClient) return supabaseClient
-  if (initializationFailed) return null
-
-  try {
-    supabaseClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    })
-    console.log('✅ Supabase client created successfully')
-    return supabaseClient
-  } catch (error) {
-    console.warn('⚠️ Supabase client creation failed, app will continue without database features:', error)
-    initializationFailed = true
-    return null
-  }
+try {
+  supabaseClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    auth: {
+      persistSession: false, // Disable auth persistence for GitHub Pages
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  })
+  console.log('✅ Supabase client created successfully')
+} catch (error) {
+  console.error('❌ Failed to create Supabase client:', error)
+  throw new Error(`Supabase client creation failed: ${error}`)
 }
 
-// Safe client access with fallback
-export const supabase = new Proxy({} as SupabaseClient<Database>, {
-  get(target, prop) {
-    const client = createSupabaseClient()
-    if (!client) {
-      // Return safe fallback methods that don't crash the app
-      if (prop === 'from') {
-        return () => ({
-          select: () => ({ data: [], error: null }),
-          insert: () => ({ data: null, error: { message: 'Database unavailable' } }),
-          upsert: () => ({ data: null, error: { message: 'Database unavailable' } }),
-          update: () => ({ data: null, error: { message: 'Database unavailable' } }),
-          delete: () => ({ data: null, error: { message: 'Database unavailable' } })
-        })
-      }
-      if (prop === 'channel') {
-        return () => ({
-          on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
-        })
-      }
-      return undefined
-    }
-    
-    const value = (client as any)[prop]
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    return value
-  }
-})
+export const supabase = supabaseClient
 
 // Utility functions for common database operations
 export class SupabaseService {
-  /**
-   * Check if database is available
-   */
-  static isDatabaseAvailable(): boolean {
-    return !initializationFailed && createSupabaseClient() !== null
-  }
-
   /**
    * Get user by wallet address
    * Used for authentication and profile loading
    */
   static async getUserByWallet(walletAddress: string) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, cannot fetch user')
-      return null
-    }
-
     try {
       const { data, error } = await supabase
         .from('users')
@@ -212,11 +163,6 @@ export class SupabaseService {
    * Used during wallet authentication
    */
   static async upsertUser(userData: Database['public']['Tables']['users']['Insert']) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, cannot create/update user')
-      return null
-    }
-
     try {
       const { data, error } = await supabase
         .from('users')
@@ -247,11 +193,6 @@ export class SupabaseService {
     status?: string
     search?: string
   } = {}) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, returning empty tokens list')
-      return []
-    }
-
     try {
       const {
         page = 1,
@@ -298,11 +239,6 @@ export class SupabaseService {
    * Used for token detail pages
    */
   static async getTokenByMint(mintAddress: string) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, cannot fetch token')
-      return null
-    }
-
     try {
       const { data, error } = await supabase
         .from('tokens')
@@ -326,11 +262,6 @@ export class SupabaseService {
    * Used for portfolio display
    */
   static async getUserHoldings(userId: string) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, returning empty holdings')
-      return []
-    }
-
     try {
       const { data, error } = await supabase
         .from('user_holdings')
@@ -354,11 +285,6 @@ export class SupabaseService {
    * Used for trading activity display
    */
   static async getTokenTransactions(tokenId: string, limit = 50) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, returning empty transactions')
-      return []
-    }
-
     try {
       const { data, error } = await supabase
         .from('transactions')
@@ -383,11 +309,6 @@ export class SupabaseService {
    * Used for live price feeds
    */
   static subscribeToTokenUpdates(tokenId: string, callback: (token: any) => void) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, subscriptions disabled')
-      return { unsubscribe: () => {} }
-    }
-
     try {
       return supabase
         .channel(`token-${tokenId}`)
@@ -413,11 +334,6 @@ export class SupabaseService {
    * Used for live trading activity
    */
   static subscribeToTransactions(tokenId: string, callback: (transaction: any) => void) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, subscriptions disabled')
-      return { unsubscribe: () => {} }
-    }
-
     try {
       return supabase
         .channel(`transactions-${tokenId}`)
@@ -443,16 +359,6 @@ export class SupabaseService {
    * Used for homepage stats display
    */
   static async getDashboardStats() {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, returning zero stats')
-      return {
-        totalTokens: 0,
-        totalVolume: 0,
-        totalUsers: 0,
-        graduatedTokens: 0
-      }
-    }
-
     try {
       // Get total tokens count
       const { count: totalTokens, error: tokensError } = await supabase
@@ -508,16 +414,6 @@ export class SupabaseService {
    * Used for portfolio page
    */
   static async getUserPortfolio(userId: string) {
-    if (!this.isDatabaseAvailable()) {
-      console.warn('Database unavailable, returning empty portfolio')
-      return {
-        totalValue: 0,
-        totalTokens: 0,
-        holdings: [],
-        change24h: 0
-      }
-    }
-
     try {
       const holdings = await this.getUserHoldings(userId)
       
