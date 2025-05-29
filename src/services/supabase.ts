@@ -115,12 +115,6 @@ export interface Database {
 }
 
 // Simple Supabase client creation with better error handling
-console.log('🔗 Creating Supabase client with:', {
-  url: supabaseConfig.url,
-  hasAnonKey: !!supabaseConfig.anonKey,
-  anonKeyLength: supabaseConfig.anonKey?.length
-})
-
 let supabaseClient: SupabaseClient<Database>
 
 try {
