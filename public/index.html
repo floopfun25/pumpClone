@@ -1,0 +1,25 @@
+  <!-- Process polyfill for Supabase compatibility -->
+  <script>
+    if (typeof global === 'undefined') {
+      window.global = window;
+    }
+    if (typeof process === 'undefined') {
+      window.process = { env: {} };
+    }
+  </script>
+  
+  <!-- Buffer polyfill for Solana -->
+  <script>
+    if (typeof Buffer === 'undefined') {
+      window.Buffer = (function() {
+        try {
+          return require('buffer').Buffer;
+        } catch (e) {
+          return window.BufferPolyfill || {};
+        }
+      })();
+    }
+  </script>
+  
+  <!-- Authentication script -->
+  <script src="/auth.js"></script> 
