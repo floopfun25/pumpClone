@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from 'node:url'
 // Vite configuration for the pump.fun clone Vue.js application
 export default defineConfig({
   plugins: [vue()],
+  base: process.env.NODE_ENV === 'production' ? '/pumpClone/' : '/',
   resolve: {
     alias: {
       // Set up path alias for cleaner imports
