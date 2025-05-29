@@ -1,10 +1,57 @@
-  <!-- Process polyfill for Supabase compatibility -->
+  <!-- Comprehensive polyfills for Supabase and Node.js compatibility -->
   <script>
+    // Global polyfill
     if (typeof global === 'undefined') {
       window.global = window;
     }
+    
+    // Process polyfill with environment variables
     if (typeof process === 'undefined') {
-      window.process = { env: {} };
+      window.process = { 
+        env: {
+          NODE_ENV: 'production'
+        },
+        browser: true,
+        nextTick: function(fn) { 
+          setTimeout(fn, 0); 
+        }
+      };
+    }
+    
+    // Headers polyfill for fetch API
+    if (typeof Headers === 'undefined' && typeof fetch !== 'undefined') {
+      // Ensure Headers constructor is available
+      window.Headers = window.Headers || function Headers(init) {
+        this._headers = {};
+        if (init) {
+          if (typeof init === 'object') {
+            for (let key in init) {
+              this.set(key, init[key]);
+            }
+          }
+        }
+      };
+      
+      window.Headers.prototype.get = function(name) {
+        return this._headers[name.toLowerCase()] || null;
+      };
+      
+      window.Headers.prototype.set = function(name, value) {
+        this._headers[name.toLowerCase()] = String(value);
+      };
+      
+      window.Headers.prototype.has = function(name) {
+        return name.toLowerCase() in this._headers;
+      };
+      
+      window.Headers.prototype.append = function(name, value) {
+        const existing = this._headers[name.toLowerCase()];
+        this._headers[name.toLowerCase()] = existing ? existing + ', ' + value : String(value);
+      };
+      
+      window.Headers.prototype.delete = function(name) {
+        delete this._headers[name.toLowerCase()];
+      };
     }
   </script>
   
