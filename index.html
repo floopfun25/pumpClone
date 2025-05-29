@@ -55,6 +55,11 @@
               init._headers.forEach((value, key) => {
                 this._headers.set(key.toLowerCase(), value);
               });
+            } else if (init && typeof init.forEach === 'function') {
+              // Handle native Headers object
+              init.forEach((value, key) => {
+                this._headers.set(key.toLowerCase(), value);
+              });
             } else if (typeof init === 'object' && init !== null) {
               Object.keys(init).forEach(key => {
                 this._headers.set(key.toLowerCase(), String(init[key]));
@@ -88,19 +93,21 @@
           this._headers.forEach((value, key) => callback.call(thisArg, value, key, this));
         };
         
-        // Override Headers constructor
-        window.Headers = EnhancedHeaders;
+        // Override Headers constructor only if it doesn't exist or is incomplete
+        if (!window.Headers || typeof window.Headers.prototype.get !== 'function') {
+          window.Headers = EnhancedHeaders;
+        }
         
-        // Enhanced fetch wrapper
+        // Enhanced fetch wrapper - only modify responses, preserve requests
         window.fetch = function(input, init) {
+          // Don't modify the request, pass it through as-is
           return originalFetch.call(this, input, init).then(response => {
-            // Ensure response has proper headers object
-            if (response && typeof response.headers === 'object') {
-              // If headers is not our enhanced version, wrap it
-              if (!(response.headers instanceof EnhancedHeaders)) {
-                const enhancedHeaders = new EnhancedHeaders();
-                
-                // Copy existing headers
+            // Only enhance response headers if they don't already work properly
+            if (response && response.headers && typeof response.headers.get !== 'function') {
+              const enhancedHeaders = new EnhancedHeaders();
+              
+              // Copy existing headers safely
+              try {
                 if (response.headers.forEach) {
                   response.headers.forEach((value, key) => {
                     enhancedHeaders.set(key, value);
@@ -116,16 +123,22 @@
                   });
                 }
                 
-                // Replace headers with enhanced version
+                // Replace headers with enhanced version only if necessary
                 Object.defineProperty(response, 'headers', {
                   value: enhancedHeaders,
                   writable: false,
                   enumerable: true,
                   configurable: false
                 });
+              } catch (e) {
+                // If anything fails, leave the response as-is
+                console.warn('Header polyfill failed, using original headers:', e);
               }
             }
             return response;
+          }).catch(error => {
+            // Pass through any fetch errors unchanged
+            throw error;
           });
         };
       }
