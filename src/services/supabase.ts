@@ -136,72 +136,109 @@ function createSupabaseClient(): SupabaseClient<Database> {
     throw new Error('Missing Supabase configuration - check environment variables')
   }
   
-  // GitHub Pages specific configuration
-  const clientConfig = {
-    auth: {
-      // Disable auth features that may cause issues on static hosting
-      persistSession: false,
-      autoRefreshToken: false, 
-      detectSessionInUrl: false,
-      
-      // GitHub Pages specific settings
-      flowType: 'implicit' as const, // Avoid PKCE issues on static hosting
-      debug: false // Disable auth debugging in production
+  // Multiple configuration strategies for maximum compatibility
+  const configs = [
+    // Strategy 1: GitHub Pages optimized with custom fetch
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false, 
+        detectSessionInUrl: false,
+        flowType: 'implicit' as const,
+        debug: false
+      },
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+          console.log('Custom fetch called for:', typeof input === 'string' ? input.substring(0, 50) : input);
+          
+          // Ensure headers are properly constructed
+          const headers = new Headers(init?.headers);
+          
+          // Add required headers
+          if (!headers.has('Content-Type') && init?.method !== 'GET') {
+            headers.set('Content-Type', 'application/json');
+          }
+          
+          return fetch(input, {
+            ...init,
+            headers
+          }).then(response => {
+            // Validate response immediately
+            if (!response || !response.headers || typeof response.headers.get !== 'function') {
+              console.warn('Invalid response detected, creating safe response');
+              return new Response(response?.body || null, {
+                status: response?.status || 200,
+                statusText: response?.statusText || 'OK',
+                headers: new Headers()
+              });
+            }
+            return response;
+          });
+        }
+      }
     },
     
-    // Enhanced fetch configuration for GitHub Pages
-    global: {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-        // Ensure headers are properly set for Supabase API
-        const headers = new Headers(init?.headers)
+    // Strategy 2: Minimal configuration without custom fetch
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false, 
+        detectSessionInUrl: false,
+        debug: false
+      }
+    },
+    
+    // Strategy 3: Bare minimum configuration
+    {
+      auth: {
+        persistSession: false
+      }
+    }
+  ];
+  
+  // Try each configuration strategy
+  for (let i = 0; i < configs.length; i++) {
+    const config = configs[i];
+    console.log(`Attempting Supabase client creation - Strategy ${i + 1}`);
+    
+    try {
+      const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, config);
+      
+      // Test the client immediately
+      console.log('Testing client connectivity...');
+      client.from('users').select('count', { count: 'exact', head: true }).then(
+        () => console.log('✅ Supabase connectivity test passed'),
+        (error) => console.warn('⚠️ Supabase connectivity test failed:', error.message)
+      );
+      
+      console.log(`✅ Supabase client created successfully with Strategy ${i + 1}`);
+      return client;
+      
+    } catch (error) {
+      console.warn(`Strategy ${i + 1} failed:`, error);
+      
+      // If this is the last strategy, throw the error
+      if (i === configs.length - 1) {
+        console.error('❌ All Supabase client creation strategies failed');
         
-        // Add required headers if missing
-        if (!headers.has('Content-Type') && init?.method !== 'GET') {
-          headers.set('Content-Type', 'application/json')
+        // Enhanced error reporting
+        if (error instanceof Error) {
+          if (error.message.includes('headers')) {
+            throw new Error(`Supabase headers error (polyfill failed): ${error.message}`);
+          } else if (error.message.includes('fetch')) {
+            throw new Error(`Supabase fetch error (network issue): ${error.message}`);
+          } else if (error.message.includes('crypto')) {
+            throw new Error(`Supabase crypto error (WebCrypto issue): ${error.message}`);
+          }
         }
         
-        return fetch(input, {
-          ...init,
-          headers
-        })
+        throw new Error(`All Supabase strategies failed. Last error: ${error}`);
       }
     }
   }
   
-  console.log('Supabase config:', {
-    url: supabaseConfig.url.substring(0, 30) + '...',
-    hasAnonKey: !!supabaseConfig.anonKey,
-    authConfig: clientConfig.auth
-  })
-  
-  try {
-    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, clientConfig)
-    
-    // Test basic connectivity
-    client.from('users').select('count', { count: 'exact', head: true }).then(
-      () => console.log('✅ Supabase connectivity test passed'),
-      (error) => console.warn('⚠️ Supabase connectivity test failed:', error.message)
-    )
-    
-    console.log('✅ Supabase client created successfully')
-    return client
-    
-  } catch (error) {
-    console.error('❌ Failed to create Supabase client:', error)
-    
-    // Enhanced error reporting
-    if (error instanceof Error) {
-      if (error.message.includes('headers')) {
-        throw new Error(`Supabase headers error (likely polyfill issue): ${error.message}`)
-      } else if (error.message.includes('fetch')) {
-        throw new Error(`Supabase fetch error (network/CORS issue): ${error.message}`)
-      } else if (error.message.includes('crypto')) {
-        throw new Error(`Supabase crypto error (WebCrypto not available): ${error.message}`)
-      }
-    }
-    
-    throw new Error(`Supabase client creation failed: ${error}`)
-  }
+  // This should never be reached, but TypeScript requires it
+  throw new Error('Unexpected error in Supabase client creation');
 }
 
 // Initialize the client
@@ -534,4 +571,4 @@ export class SupabaseService {
 }
 
 // Export the configured client as default
-export default supabase 
+export default supabase

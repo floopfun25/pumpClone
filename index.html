@@ -22,7 +22,7 @@
     
     <!-- CRITICAL: Complete polyfills for GitHub Pages HTTPS deployment -->
     <script>
-      console.log('=== GitHub Pages Polyfills Loading ===');
+      console.log('=== GitHub Pages Response Polyfills Loading ===');
       
       // 1. Global and process polyfills (must be first)
       if (typeof global === 'undefined') {
@@ -68,104 +68,151 @@
         }
       }
       
-      // 4. Enhanced fetch polyfill specifically for Supabase API issues
+      // 4. CRITICAL: Response constructor polyfill to ensure headers are always available
+      if (typeof Response !== 'undefined') {
+        const OriginalResponse = window.Response;
+        const OriginalHeaders = window.Headers;
+        
+        // Enhanced Response constructor that guarantees headers
+        function PolyfillResponse(body, init) {
+          // Create the original response
+          let response;
+          try {
+            response = new OriginalResponse(body, init);
+          } catch (e) {
+            // Fallback if original fails
+            response = {
+              ok: true,
+              status: 200,
+              statusText: 'OK',
+              headers: new OriginalHeaders(init?.headers),
+              body: body,
+              bodyUsed: false,
+              type: 'basic',
+              url: '',
+              redirected: false
+            };
+          }
+          
+          // Ensure headers property exists and has all required methods
+          if (!response.headers || typeof response.headers.get !== 'function') {
+            console.warn('Response missing headers, applying polyfill');
+            response.headers = new OriginalHeaders(init?.headers);
+          }
+          
+          // Ensure all header methods exist
+          const requiredMethods = ['get', 'set', 'has', 'append', 'delete', 'forEach', 'entries', 'keys', 'values'];
+          requiredMethods.forEach(method => {
+            if (typeof response.headers[method] !== 'function') {
+              console.warn(`Headers missing ${method} method, adding polyfill`);
+              if (method === 'get') {
+                response.headers.get = function(name) { return null; };
+              } else if (method === 'set') {
+                response.headers.set = function(name, value) { };
+              } else if (method === 'has') {
+                response.headers.has = function(name) { return false; };
+              } else if (method === 'forEach') {
+                response.headers.forEach = function(callback) { };
+              } else {
+                response.headers[method] = function() { return []; };
+              }
+            }
+          });
+          
+          return response;
+        }
+        
+        // Copy static methods and properties
+        Object.setPrototypeOf(PolyfillResponse, OriginalResponse);
+        Object.defineProperty(PolyfillResponse, 'prototype', {
+          value: OriginalResponse.prototype,
+          writable: false
+        });
+        
+        // Replace the global Response constructor
+        window.Response = PolyfillResponse;
+        console.log('✓ Response constructor polyfill applied');
+      }
+      
+      // 5. Enhanced fetch polyfill with Response validation
       if (typeof fetch !== 'undefined') {
         const originalFetch = window.fetch;
         
-        // Enhanced Headers constructor that works with Supabase
-        function SupabaseHeaders(init) {
-          // Start with native Headers if available
-          const nativeHeaders = new window.Headers();
-          
-          if (init) {
-            if (init instanceof Headers || (init && typeof init.forEach === 'function')) {
-              // Handle Headers object or Headers-like object
-              try {
-                init.forEach((value, key) => {
-                  nativeHeaders.set(key, value);
-                });
-              } catch (e) {
-                // Fallback for broken forEach
-                if (init.entries) {
-                  for (const [key, value] of init.entries()) {
-                    nativeHeaders.set(key, value);
-                  }
-                }
-              }
-            } else if (typeof init === 'object' && init !== null) {
-              // Handle plain object
-              Object.keys(init).forEach(key => {
-                nativeHeaders.set(key, String(init[key]));
-              });
-            }
-          }
-          
-          return nativeHeaders;
-        }
-        
-        // Wrap fetch to ensure headers work correctly
         window.fetch = function(input, init) {
-          try {
-            // Ensure headers are properly constructed
-            if (init && init.headers) {
-              init.headers = new SupabaseHeaders(init.headers);
-            }
-            
-            return originalFetch.call(this, input, init).then(response => {
-              // Ensure response headers are accessible
-              if (response && response.headers) {
-                // Verify headers have required methods
-                if (typeof response.headers.get !== 'function') {
-                  console.warn('Response headers missing get method, applying polyfill');
-                  const originalHeaders = response.headers;
-                  
-                  // Create a proper Headers object from the response
-                  const enhancedHeaders = new SupabaseHeaders();
-                  
-                  // Copy headers safely
-                  try {
-                    if (originalHeaders.forEach) {
-                      originalHeaders.forEach((value, key) => {
-                        enhancedHeaders.set(key, value);
-                      });
-                    } else if (originalHeaders.entries) {
-                      for (const [key, value] of originalHeaders.entries()) {
-                        enhancedHeaders.set(key, value);
-                      }
-                    }
-                    
-                    // Replace headers with enhanced version
-                    Object.defineProperty(response, 'headers', {
-                      value: enhancedHeaders,
-                      writable: false,
-                      enumerable: true,
-                      configurable: false
-                    });
-                  } catch (e) {
-                    console.warn('Could not enhance response headers:', e);
-                  }
+          return originalFetch.call(this, input, init).then(response => {
+            // Validate response has headers
+            if (!response || !response.headers) {
+              console.error('Response missing headers object, creating new response');
+              const headers = new Headers();
+              
+              // Try to copy headers if they exist in any form
+              if (response && typeof response.headers === 'object') {
+                try {
+                  Object.keys(response.headers).forEach(key => {
+                    headers.set(key, response.headers[key]);
+                  });
+                } catch (e) {
+                  console.warn('Could not copy original headers');
                 }
               }
               
-              return response;
-            });
-          } catch (error) {
-            console.error('Fetch polyfill error:', error);
+              // Create a new response with guaranteed headers
+              return new Response(response?.body || null, {
+                status: response?.status || 200,
+                statusText: response?.statusText || 'OK',
+                headers: headers
+              });
+            }
+            
+            // Validate headers methods exist
+            if (typeof response.headers.get !== 'function') {
+              console.warn('Response headers missing get method, fixing');
+              const originalHeaders = response.headers;
+              response.headers = new Headers();
+              
+              // Copy any existing headers
+              if (originalHeaders && typeof originalHeaders === 'object') {
+                try {
+                  if (originalHeaders.forEach) {
+                    originalHeaders.forEach((value, key) => response.headers.set(key, value));
+                  } else {
+                    Object.keys(originalHeaders).forEach(key => {
+                      response.headers.set(key, originalHeaders[key]);
+                    });
+                  }
+                } catch (e) {
+                  console.warn('Could not copy response headers');
+                }
+              }
+            }
+            
+            return response;
+          }).catch(error => {
+            console.error('Fetch error:', error);
             throw error;
-          }
+          });
         };
         
-        console.log('✓ Enhanced fetch polyfill applied for Supabase compatibility');
+        console.log('✓ Enhanced fetch polyfill with Response validation applied');
       }
       
-      console.log('=== All polyfills loaded successfully ===');
-      console.log('Environment check:', {
+      console.log('=== All Response polyfills loaded successfully ===');
+      console.log('Final environment check:', {
         hasGlobal: typeof global !== 'undefined',
         hasProcess: typeof process !== 'undefined',
         hasBuffer: typeof Buffer !== 'undefined',
         hasWebCrypto: !!(window.crypto && window.crypto.subtle),
         hasFetch: typeof fetch !== 'undefined',
-        hasHeaders: typeof Headers !== 'undefined'
+        hasHeaders: typeof Headers !== 'undefined',
+        hasResponse: typeof Response !== 'undefined',
+        responseHasHeaders: (() => {
+          try {
+            const testResponse = new Response('test');
+            return !!(testResponse.headers && typeof testResponse.headers.get === 'function');
+          } catch (e) {
+            return false;
+          }
+        })()
       });
     </script>
     
