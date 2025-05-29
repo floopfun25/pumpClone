@@ -62,19 +62,6 @@ onMounted(async () => {
       await authStore.initializeUser()
     }
     
-    // Add wallet connection event listeners if wallet exists
-    if (walletStore.wallet) {
-      walletStore.wallet.on('connect', async () => {
-        console.log('Wallet connected:', walletStore.publicKey?.toString())
-        await authStore.signInWithWallet()
-      })
-      
-      walletStore.wallet.on('disconnect', () => {
-        console.log('Wallet disconnected')
-        authStore.signOut()
-      })
-    }
-    
   } catch (error) {
     console.error('App initialization error:', error)
     uiStore.showToast({

@@ -1,23 +1,22 @@
+// Import polyfills FIRST before anything else
+import './polyfills'
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import router from './router'
 import App from './App.vue'
+import router from './router'
 
 // Import global styles
 import './style.css'
 
-// Create the Vue.js application instance
+// Create Vue application instance
 const app = createApp(App)
 
-// Configure state management with Pinia
-// Pinia provides reactive state management for the entire application
-const pinia = createPinia()
-app.use(pinia)
+// Setup Pinia state management
+app.use(createPinia())
 
-// Configure routing with Vue Router
-// Handles navigation between different pages/views
+// Setup Vue Router
 app.use(router)
 
-// Mount the application to the DOM
-// This starts the Vue.js application and renders it to the #app element
+// Mount application to the DOM
 app.mount('#app') 

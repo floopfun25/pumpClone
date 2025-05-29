@@ -29,8 +29,7 @@ const router = createRouter({
       component: () => import('@/views/CreateTokenPage.vue'),
       meta: {
         title: 'Create Token - FloppFun',
-        description: 'Launch your own meme token with fair launch mechanics',
-        requiresAuth: true // Requires wallet connection
+        description: 'Launch your own meme token with fair launch mechanics'
       }
     },
     {

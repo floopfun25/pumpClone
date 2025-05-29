@@ -6,7 +6,7 @@
         <!-- Logo and Brand -->
         <router-link to="/" class="flex items-center space-x-3">
           <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-sm">P</span>
+            <span class="text-white font-bold text-sm">F</span>
           </div>
           <span class="text-xl font-bold text-gray-900 dark:text-white">
             FloppFun
@@ -47,6 +47,7 @@
           <div class="hidden lg:block">
             <div class="relative">
               <input
+                v-model="searchQuery"
                 type="text"
                 placeholder="Search tokens..."
                 class="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -65,7 +66,7 @@
             class="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
             title="Toggle dark mode"
           >
-            <svg v-if="isDarkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +76,7 @@
           
           <!-- Wallet Connection Button -->
           <button 
-            v-if="!isWalletConnected"
+            v-if="!isConnected"
             @click="connectWallet"
             class="btn-primary px-6 py-2 font-medium"
           >
@@ -91,9 +92,14 @@
               <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                 <span class="text-white text-xs font-bold">{{ walletInitials }}</span>
               </div>
-              <span class="hidden sm:block text-sm font-medium text-gray-900 dark:text-white">
-                {{ shortWalletAddress }}
-              </span>
+              <div class="hidden sm:block text-left">
+                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                  {{ shortWalletAddress }}
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ balance }}
+                </div>
+              </div>
               <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
@@ -147,6 +153,7 @@
         <!-- Mobile Search -->
         <div class="lg:hidden">
           <input
+            v-model="searchQuery"
             type="text"
             placeholder="Search tokens..."
             class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -185,19 +192,39 @@
       </div>
     </div>
   </nav>
+  
+  <!-- Wallet Selection Modal -->
+  <WalletModal 
+    :is-open="showWalletModal"
+    @close="showWalletModal = false"
+    @connected="handleWalletConnected"
+  />
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
+import { useUIStore } from '@/stores/ui'
+import WalletModal from '@/components/common/WalletModal.vue'
+
+const authStore = useAuthStore()
+const walletStore = useWalletStore()
+const uiStore = useUIStore()
+
+// State
+const searchQuery = ref('')
+const darkMode = ref(false)
+const showMobileMenu = ref(false)
+const showWalletModal = ref(false)
+
+// Computed properties
+const isConnected = computed(() => walletStore.isConnected)
+const walletAddress = computed(() => walletStore.walletAddress)
+const balance = computed(() => walletStore.formattedBalance)
 
 // Reactive state
 const showUserMenu = ref(false)
-const showMobileMenu = ref(false)
-const isDarkMode = ref(false)
-
-// Mock wallet state (replace with actual wallet store)
-const isWalletConnected = ref(false)
-const walletAddress = ref('')
 
 // Computed properties
 const walletInitials = computed(() => {
@@ -212,29 +239,58 @@ const shortWalletAddress = computed(() => {
 
 // Methods
 const toggleDarkMode = () => {
-  isDarkMode.value = !isDarkMode.value
+  darkMode.value = !darkMode.value
   // TODO: Update UI store and apply dark mode
-  if (isDarkMode.value) {
+  if (darkMode.value) {
     document.documentElement.classList.add('dark')
   } else {
     document.documentElement.classList.remove('dark')
   }
 }
 
+/**
+ * Connect wallet
+ * Opens wallet selection modal
+ */
 const connectWallet = () => {
-  // TODO: Integrate with actual wallet connection
-  console.log('Connecting wallet...')
-  // Mock connection for now
-  isWalletConnected.value = true
-  walletAddress.value = 'ABC123def456ghi789jkl'
+  showWalletModal.value = true
 }
 
-const disconnectWallet = () => {
-  // TODO: Integrate with actual wallet disconnection
-  console.log('Disconnecting wallet...')
-  isWalletConnected.value = false
-  walletAddress.value = ''
-  closeUserMenu()
+/**
+ * Disconnect wallet
+ */
+const disconnectWallet = async () => {
+  try {
+    await walletStore.disconnectWallet()
+    await authStore.signOut()
+    
+    uiStore.showToast({
+      type: 'success',
+      title: 'Wallet Disconnected',
+      message: 'Successfully disconnected wallet'
+    })
+  } catch (error) {
+    console.error('Failed to disconnect wallet:', error)
+    uiStore.showToast({
+      type: 'error',
+      title: 'Disconnection Failed',
+      message: 'Failed to disconnect wallet'
+    })
+  }
+}
+
+/**
+ * Handle wallet connection success
+ */
+const handleWalletConnected = async (walletName) => {
+  showWalletModal.value = false
+  
+  try {
+    // Sign in with the connected wallet
+    await authStore.signInWithWallet()
+  } catch (error) {
+    console.error('Failed to sign in with wallet:', error)
+  }
 }
 
 const toggleUserMenu = () => {

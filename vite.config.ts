@@ -19,16 +19,18 @@ export default defineConfig({
       port: 3001
     }
   },
-  // Define global constants for the application
+  // Define global constants and polyfills for the application
   define: {
     global: 'globalThis',
+    'process.env': {},
   },
   // Optimize dependencies for faster development
   optimizeDeps: {
     include: [
       '@solana/web3.js',
       '@solana/wallet-adapter-base',
-      '@supabase/supabase-js'
+      '@supabase/supabase-js',
+      'buffer'
     ]
   }
 }) 

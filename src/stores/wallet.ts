@@ -1,42 +1,57 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { walletService, formatWalletAddress, formatSOL } from '@/services/wallet'
+import type { WalletAdapter } from '@/services/wallet'
 
-// Wallet store for managing Solana wallet connections
+// Enhanced wallet store using real wallet service
 export const useWalletStore = defineStore('wallet', () => {
-  // State
-  const isConnected = ref(false)
-  const publicKey = ref<string | null>(null)
-  const wallet = ref<any>(null)
+  // Reactive state from wallet service
+  const walletState = ref(walletService.getState())
+
+  // Update state when wallet service changes
+  const updateState = () => {
+    walletState.value = walletService.getState()
+  }
+
+  // Computed properties for easy access
+  const isConnected = computed(() => walletState.value.connected)
+  const isConnecting = computed(() => walletState.value.connecting)
+  const isDisconnecting = computed(() => walletState.value.disconnecting)
+  const publicKey = computed(() => walletState.value.publicKey)
+  const wallet = computed(() => walletState.value.wallet)
+  const balance = computed(() => walletState.value.balance)
+  
+  // Formatted computed properties
+  const walletAddress = computed(() => 
+    publicKey.value ? formatWalletAddress(publicKey.value.toBase58()) : null
+  )
+  
+  const formattedBalance = computed(() => 
+    formatSOL(balance.value)
+  )
 
   /**
-   * Initialize wallet connection
-   * Called on app startup
+   * Initialize wallet on app startup
+   * Attempts to auto-reconnect to previously connected wallet
    */
   async function initializeWallet() {
     try {
-      // TODO: Check for existing wallet connection
-      // TODO: Initialize wallet adapter
       console.log('Initializing wallet...')
+      await walletService.autoConnect()
+      updateState()
     } catch (error) {
       console.error('Failed to initialize wallet:', error)
     }
   }
 
   /**
-   * Connect wallet
-   * Shows wallet selection modal and connects
+   * Connect to wallet
+   * @param walletName - Optional specific wallet name to connect to
    */
-  async function connectWallet() {
+  async function connectWallet(walletName?: string) {
     try {
-      // TODO: Show wallet selection modal
-      // TODO: Connect to selected wallet
-      // TODO: Update state
-      console.log('Connecting wallet...')
-      
-      // Mock connection for now
-      isConnected.value = true
-      publicKey.value = 'ABC123def456ghi789jkl'
-      
+      await walletService.connect(walletName)
+      updateState()
     } catch (error) {
       console.error('Failed to connect wallet:', error)
       throw error
@@ -47,22 +62,86 @@ export const useWalletStore = defineStore('wallet', () => {
    * Disconnect wallet
    * Clears wallet connection state
    */
-  function disconnectWallet() {
-    isConnected.value = false
-    publicKey.value = null
-    wallet.value = null
-    console.log('Wallet disconnected')
+  async function disconnectWallet() {
+    try {
+      await walletService.disconnect()
+      updateState()
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error)
+      throw error
+    }
   }
 
+  /**
+   * Get available wallets
+   * Returns wallets that are installed and ready
+   */
+  function getAvailableWallets(): WalletAdapter[] {
+    return walletService.getAvailableWallets()
+  }
+
+  /**
+   * Get all wallets
+   * Returns all supported wallets (including not installed)
+   */
+  function getAllWallets(): WalletAdapter[] {
+    return walletService.getAllWallets()
+  }
+
+  /**
+   * Update wallet balance
+   * Refreshes the current wallet balance
+   */
+  async function updateBalance() {
+    try {
+      await walletService.updateBalance()
+      updateState()
+    } catch (error) {
+      console.error('Failed to update balance:', error)
+    }
+  }
+
+  /**
+   * Sign message with wallet
+   * @param message - Message to sign as Uint8Array
+   */
+  async function signMessage(message: Uint8Array): Promise<Uint8Array> {
+    return await walletService.signMessage(message)
+  }
+
+  /**
+   * Send transaction
+   * @param transaction - Transaction to send
+   * @param options - Optional send options
+   */
+  async function sendTransaction(transaction: any, options?: any): Promise<string> {
+    const signature = await walletService.sendTransaction(transaction, options)
+    updateState() // Update balance after transaction
+    return signature
+  }
+
+  // Return store interface
   return {
     // State
+    walletState,
     isConnected,
+    isConnecting,
+    isDisconnecting,
     publicKey,
     wallet,
-    
+    balance,
+    walletAddress,
+    formattedBalance,
+
     // Actions
     initializeWallet,
     connectWallet,
-    disconnectWallet
+    disconnectWallet,
+    getAvailableWallets,
+    getAllWallets,
+    updateBalance,
+    signMessage,
+    sendTransaction,
+    updateState
   }
 }) 
