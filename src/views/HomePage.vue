@@ -148,7 +148,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import TokenCard from '@/components/token/TokenCard.vue'
-// import { SupabaseService } from '@/services/supabase'
+import { SupabaseService } from '@/services/supabase'
 
 const router = useRouter()
 
@@ -161,12 +161,12 @@ const filterBy = ref('all')
 const page = ref(1)
 const hasMore = ref(true)
 
-// Mock stats data (replace with real data from Supabase)
+// Real stats data from Supabase
 const stats = ref({
-  totalTokens: 1234,
-  totalVolume: 45678,
-  totalUsers: 890,
-  graduatedTokens: 123
+  totalTokens: 0,
+  totalVolume: 0,
+  totalUsers: 0,
+  graduatedTokens: 0
 })
 
 /**
@@ -182,6 +182,18 @@ const formatNumber = (num: number): string => {
 }
 
 /**
+ * Load dashboard statistics from database
+ */
+const loadStats = async () => {
+  try {
+    const dashboardStats = await SupabaseService.getDashboardStats()
+    stats.value = dashboardStats
+  } catch (error) {
+    console.error('Failed to load dashboard stats:', error)
+  }
+}
+
+/**
  * Load tokens from the database
  * Fetches tokens based on current sort and filter settings
  */
@@ -190,19 +202,20 @@ const loadTokens = async () => {
     loading.value = true
     page.value = 1
     
-    // TODO: Replace with actual Supabase call
-    // const tokenData = await SupabaseService.getTokens({
-    //   page: page.value,
-    //   sortBy: sortBy.value,
-    //   status: filterBy.value === 'all' ? undefined : filterBy.value
-    // })
+    const tokenData = await SupabaseService.getTokens({
+      page: page.value,
+      limit: 20,
+      sortBy: sortBy.value as 'created_at' | 'market_cap' | 'volume_24h',
+      status: filterBy.value === 'all' ? undefined : filterBy.value
+    })
     
-    // Mock data for now
-    tokens.value = []
-    hasMore.value = false
+    tokens.value = tokenData
+    hasMore.value = tokenData.length === 20 // If we got a full page, there might be more
     
   } catch (error) {
     console.error('Failed to load tokens:', error)
+    tokens.value = []
+    hasMore.value = false
   } finally {
     loading.value = false
   }
@@ -216,15 +229,15 @@ const loadMoreTokens = async () => {
     loadingMore.value = true
     page.value += 1
     
-    // TODO: Replace with actual Supabase call
-    // const moreTokens = await SupabaseService.getTokens({
-    //   page: page.value,
-    //   sortBy: sortBy.value,
-    //   status: filterBy.value === 'all' ? undefined : filterBy.value
-    // })
+    const moreTokens = await SupabaseService.getTokens({
+      page: page.value,
+      limit: 20,
+      sortBy: sortBy.value as 'created_at' | 'market_cap' | 'volume_24h',
+      status: filterBy.value === 'all' ? undefined : filterBy.value
+    })
     
-    // tokens.value.push(...moreTokens)
-    // hasMore.value = moreTokens.length === 20
+    tokens.value.push(...moreTokens)
+    hasMore.value = moreTokens.length === 20
     
   } catch (error) {
     console.error('Failed to load more tokens:', error)
@@ -251,8 +264,11 @@ const scrollToTokens = () => {
 }
 
 // Load initial data when component mounts
-onMounted(() => {
-  loadTokens()
+onMounted(async () => {
+  await Promise.all([
+    loadStats(),
+    loadTokens()
+  ])
 })
 </script>
 

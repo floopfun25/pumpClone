@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useWalletStore } from './wallet'
+import { SupabaseService } from '@/services/supabase'
 
 // User interface for type safety
 export interface User {
@@ -29,11 +31,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       isLoading.value = true
       
-      // TODO: Check for existing session in Supabase
-      // TODO: Validate wallet connection
-      // TODO: Load user profile data
+      // Get wallet store to check connection
+      const walletStore = useWalletStore()
       
-      console.log('Initializing user session...')
+      if (walletStore.isConnected && walletStore.walletAddress) {
+        // Check if user exists in database
+        const existingUser = await SupabaseService.getUserByWallet(walletStore.walletAddress)
+        
+        if (existingUser) {
+          user.value = existingUser
+          isAuthenticated.value = true
+          console.log('User session restored:', existingUser.username || existingUser.wallet_address)
+        }
+      }
       
     } catch (error) {
       console.error('Failed to initialize user:', error)
@@ -50,26 +60,37 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       isLoading.value = true
       
-      // TODO: Get wallet address from wallet store
-      // TODO: Generate sign-in message
-      // TODO: Request wallet signature
-      // TODO: Verify signature on backend
-      // TODO: Create/update user profile
-      // TODO: Set authentication state
+      // Get wallet address from wallet store
+      const walletStore = useWalletStore()
       
-      console.log('Signing in with wallet...')
-      
-      // Mock authentication for now
-      user.value = {
-        id: '1',
-        wallet_address: 'ABC123def456ghi789jkl',
-        username: 'TestUser',
-        created_at: new Date().toISOString(),
-        total_volume_traded: 0,
-        tokens_created: 0,
-        reputation_score: 0
+      if (!walletStore.isConnected || !walletStore.walletAddress) {
+        throw new Error('Wallet not connected')
       }
-      isAuthenticated.value = true
+
+      const walletAddress = walletStore.walletAddress
+      
+      // Check if user already exists
+      let existingUser = await SupabaseService.getUserByWallet(walletAddress)
+      
+      if (existingUser) {
+        // User exists, just sign them in
+        user.value = existingUser
+        isAuthenticated.value = true
+        console.log('User signed in:', existingUser.username || walletAddress)
+      } else {
+        // Create new user profile
+        const newUser = await SupabaseService.upsertUser({
+          wallet_address: walletAddress,
+          username: `user_${walletAddress.slice(0, 8)}`,
+          total_volume_traded: 0,
+          tokens_created: 0,
+          reputation_score: 0
+        })
+        
+        user.value = newUser
+        isAuthenticated.value = true
+        console.log('New user created:', newUser.username)
+      }
       
     } catch (error) {
       console.error('Failed to sign in with wallet:', error)
@@ -87,9 +108,6 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     isAuthenticated.value = false
     
-    // TODO: Clear Supabase session
-    // TODO: Disconnect wallet
-    
     console.log('User signed out')
   }
 
@@ -103,13 +121,16 @@ export const useAuthStore = defineStore('auth', () => {
       
       isLoading.value = true
       
-      // TODO: Update user profile in Supabase
-      // TODO: Update local user state
+      // Update user profile in Supabase
+      const updatedUser = await SupabaseService.upsertUser({
+        ...user.value,
+        ...updates
+      })
       
-      console.log('Updating user profile:', updates)
+      // Update local user state
+      user.value = updatedUser
       
-      // Mock update for now
-      user.value = { ...user.value, ...updates }
+      console.log('User profile updated:', updates)
       
     } catch (error) {
       console.error('Failed to update profile:', error)

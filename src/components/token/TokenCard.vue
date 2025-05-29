@@ -3,8 +3,17 @@
   <div class="token-card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-lg">
     <!-- Token Image and Header -->
     <div class="flex items-start gap-4 mb-4">
-      <div class="w-12 h-12 bg-gradient-to-br from-primary-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-        {{ tokenSymbol }}
+      <!-- Token Image -->
+      <div class="w-12 h-12 rounded-full overflow-hidden">
+        <img 
+          v-if="token?.image_url" 
+          :src="token.image_url" 
+          :alt="tokenName"
+          class="w-full h-full object-cover"
+        />
+        <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+          {{ tokenSymbol.slice(0, 2) }}
+        </div>
       </div>
       
       <div class="flex-1 min-w-0">
@@ -17,8 +26,15 @@
       </div>
       
       <!-- Status Badge -->
-      <span class="px-2 py-1 text-xs font-medium rounded-full bg-pump-green text-white">
-        Active
+      <span 
+        :class="[
+          'px-2 py-1 text-xs font-medium rounded-full',
+          token?.status === 'graduated' ? 'bg-purple-500 text-white' :
+          token?.status === 'active' ? 'bg-pump-green text-white' :
+          'bg-gray-500 text-white'
+        ]"
+      >
+        {{ (token?.status || 'active').charAt(0).toUpperCase() + (token?.status || 'active').slice(1) }}
       </span>
     </div>
     
@@ -28,7 +44,7 @@
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-600 dark:text-gray-400">Price</span>
         <span class="font-medium text-gray-900 dark:text-white">
-          $0.0001234
+          ${{ currentPrice }}
         </span>
       </div>
       
@@ -36,7 +52,7 @@
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-600 dark:text-gray-400">Market Cap</span>
         <span class="font-medium text-gray-900 dark:text-white">
-          $12.3K
+          ${{ marketCap }}
         </span>
       </div>
       
@@ -44,7 +60,7 @@
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-600 dark:text-gray-400">24h Volume</span>
         <span class="font-medium text-pump-green">
-          $456
+          ${{ volume24h }}
         </span>
       </div>
       
@@ -52,10 +68,13 @@
       <div class="pt-2">
         <div class="flex justify-between items-center mb-1">
           <span class="text-xs text-gray-600 dark:text-gray-400">Progress</span>
-          <span class="text-xs text-gray-600 dark:text-gray-400">15%</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">{{ progress }}%</span>
         </div>
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-          <div class="bg-gradient-to-r from-pump-green to-primary-500 h-2 rounded-full" style="width: 15%"></div>
+          <div 
+            class="bg-gradient-to-r from-pump-green to-primary-500 h-2 rounded-full transition-all duration-300" 
+            :style="`width: ${progress}%`"
+          ></div>
         </div>
       </div>
     </div>
@@ -72,31 +91,67 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { computed } from 'vue'
+
 // Component props for token data
-const props = defineProps({
+const props = defineProps<{
   token: {
-    type: Object,
-    default: () => ({
-      id: '1',
-      name: 'Sample Token',
-      symbol: 'SAMPLE',
-      mint_address: 'ABC123...',
-      creator_address: '123...456',
-      current_price: 0.0001234,
-      market_cap: 12300,
-      volume_24h: 456,
-      bonding_curve_progress: 15
-    })
+    id: string
+    name: string
+    symbol: string
+    image_url?: string
+    creator_address?: string
+    current_price: number
+    market_cap: number
+    volume_24h: number
+    bonding_curve_progress: number
+    status: string
+    creator?: {
+      username?: string
+      wallet_address: string
+    }
   }
+}>()
+
+// Computed properties for display with proper fallbacks
+const tokenName = computed(() => props.token?.name || 'Unknown Token')
+const tokenSymbol = computed(() => props.token?.symbol || 'N/A')
+
+const creatorAddress = computed(() => {
+  if (props.token?.creator?.username) {
+    return props.token.creator.username
+  }
+  if (props.token?.creator?.wallet_address) {
+    return `${props.token.creator.wallet_address.slice(0, 4)}...${props.token.creator.wallet_address.slice(-4)}`
+  }
+  if (props.token?.creator_address) {
+    return `${props.token.creator_address.slice(0, 4)}...${props.token.creator_address.slice(-4)}`
+  }
+  return 'Unknown'
 })
 
-// Computed properties for display
-const tokenName = props.token?.name || 'Sample Token'
-const tokenSymbol = props.token?.symbol || 'SAMPLE'
-const creatorAddress = props.token?.creator_address 
-  ? `${props.token.creator_address.slice(0, 4)}...${props.token.creator_address.slice(-4)}`
-  : '123...456'
+const currentPrice = computed(() => {
+  return props.token?.current_price?.toFixed(6) || '0.000000'
+})
+
+const marketCap = computed(() => {
+  const cap = props.token?.market_cap || 0
+  if (cap >= 1000000) return `${(cap / 1000000).toFixed(1)}M`
+  if (cap >= 1000) return `${(cap / 1000).toFixed(1)}K`
+  return cap.toString()
+})
+
+const volume24h = computed(() => {
+  const volume = props.token?.volume_24h || 0
+  if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`
+  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
+  return volume.toString()
+})
+
+const progress = computed(() => {
+  return Math.round(props.token?.bonding_curve_progress || 0)
+})
 </script>
 
 <style scoped>

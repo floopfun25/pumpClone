@@ -9,12 +9,27 @@
     <!-- Token Content -->
     <div v-else class="py-8">
       <div class="container mx-auto px-4">
+        <!-- Error State -->
+        <div v-if="error" class="text-center py-12">
+          <div class="text-6xl mb-4">❌</div>
+          <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{{ error }}</h2>
+          <router-link to="/" class="btn-primary">Back to Home</router-link>
+        </div>
+
         <!-- Token Header -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <div class="flex flex-col md:flex-row items-start gap-6">
             <!-- Token Image -->
-            <div class="w-20 h-20 bg-gradient-to-br from-primary-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-2xl">
-              {{ tokenSymbol }}
+            <div class="w-20 h-20 rounded-full overflow-hidden">
+              <img 
+                v-if="token?.image_url" 
+                :src="token.image_url" 
+                :alt="tokenName"
+                class="w-full h-full object-cover"
+              />
+              <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-2xl">
+                {{ tokenSymbol.slice(0, 2) }}
+              </div>
             </div>
             
             <!-- Token Info -->
@@ -28,23 +43,33 @@
               <p class="text-gray-700 dark:text-gray-300">
                 {{ tokenDescription }}
               </p>
+              
+              <!-- Creator Info -->
+              <div v-if="token?.creator" class="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span>Created by</span>
+                <span class="font-medium text-primary-600 dark:text-primary-400">
+                  {{ token.creator.username || `${token.creator.wallet_address.slice(0, 4)}...${token.creator.wallet_address.slice(-4)}` }}
+                </span>
+              </div>
             </div>
             
             <!-- Token Stats -->
             <div class="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div class="text-2xl font-bold text-gray-900 dark:text-white">$0.001234</div>
+                <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                  ${{ token?.current_price?.toFixed(6) || '0.000000' }}
+                </div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">Price</div>
               </div>
               <div>
-                <div class="text-2xl font-bold text-pump-green">+12.5%</div>
+                <div class="text-2xl font-bold text-gray-500">-</div>
                 <div class="text-sm text-gray-600 dark:text-gray-400">24h Change</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div v-if="!error" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Left Column: Chart & Trading -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Price Chart -->
@@ -120,19 +145,27 @@
               <div class="space-y-3">
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Market Cap</span>
-                  <span class="font-medium text-gray-900 dark:text-white">$123.4K</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ token?.market_cap ? formatNumber(token.market_cap) : '0' }}
+                  </span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">24h Volume</span>
-                  <span class="font-medium text-gray-900 dark:text-white">$45.6K</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ token?.volume_24h ? formatNumber(token.volume_24h) : '0' }}
+                  </span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Holders</span>
-                  <span class="font-medium text-gray-900 dark:text-white">234</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ token?.holders_count || 0 }}
+                  </span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Total Supply</span>
-                  <span class="font-medium text-gray-900 dark:text-white">1B</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ token?.total_supply ? formatNumber(token.total_supply) : '0' }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -143,10 +176,15 @@
               <div class="space-y-2">
                 <div class="flex justify-between text-sm">
                   <span class="text-gray-600 dark:text-gray-400">Bonding Curve Progress</span>
-                  <span class="font-medium text-gray-900 dark:text-white">15%</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ token?.bonding_curve_progress || 0 }}%
+                  </span>
                 </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                  <div class="bg-gradient-to-r from-pump-green to-primary-500 h-3 rounded-full" style="width: 15%"></div>
+                  <div 
+                    class="bg-gradient-to-r from-pump-green to-primary-500 h-3 rounded-full transition-all duration-300" 
+                    :style="`width: ${token?.bonding_curve_progress || 0}%`"
+                  ></div>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   When the market cap reaches $69K, all liquidity will be deposited to DEX.
@@ -157,7 +195,7 @@
             <!-- Recent Trades -->
             <div class="card">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Trades</h3>
-              <div class="space-y-3">
+              <div v-if="recentTrades.length > 0" class="space-y-3">
                 <div v-for="trade in recentTrades" :key="trade.id" class="flex justify-between items-center">
                   <div class="flex items-center space-x-2">
                     <span :class="trade.type === 'buy' ? 'text-pump-green' : 'text-pump-red'" class="text-sm font-medium">
@@ -166,11 +204,18 @@
                     <span class="text-sm text-gray-600 dark:text-gray-400">
                       {{ trade.amount }}
                     </span>
+                    <span v-if="trade.user" class="text-xs text-gray-400">
+                      by {{ trade.user }}
+                    </span>
                   </div>
                   <span class="text-xs text-gray-500 dark:text-gray-400">
                     {{ trade.time }}
                   </span>
                 </div>
+              </div>
+              <div v-else class="text-center py-8">
+                <div class="text-4xl mb-2">📊</div>
+                <p class="text-gray-500 dark:text-gray-400">No trades yet</p>
               </div>
             </div>
           </div>
@@ -181,27 +226,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { SupabaseService } from '@/services/supabase'
 
 const route = useRoute()
+const router = useRouter()
 
 // State
 const loading = ref(true)
 const tradeType = ref<'buy' | 'sell'>('buy')
 const tradeAmount = ref('')
+const error = ref('')
 
-// Mock token data
-const tokenName = ref('Sample Token')
-const tokenSymbol = ref('SAMPLE')
-const tokenDescription = ref('A sample meme token for demonstration purposes.')
+// Real token data from Supabase
+const token = ref<any>(null)
+const recentTrades = ref<any[]>([])
 
-// Mock recent trades
-const recentTrades = ref([
-  { id: 1, type: 'buy', amount: '0.5 SOL', time: '2m ago' },
-  { id: 2, type: 'sell', amount: '0.3 SOL', time: '5m ago' },
-  { id: 3, type: 'buy', amount: '1.2 SOL', time: '8m ago' },
-])
+// Computed properties for display
+const tokenName = computed(() => token.value?.name || 'Unknown Token')
+const tokenSymbol = computed(() => token.value?.symbol || 'N/A')
+const tokenDescription = computed(() => token.value?.description || 'No description available.')
 
 /**
  * Execute trade
@@ -210,32 +255,84 @@ const recentTrades = ref([
 const executeTrade = async () => {
   try {
     console.log(`${tradeType.value} ${tradeAmount.value} SOL worth of ${tokenSymbol.value}`)
-    // TODO: Implement actual trading logic
+    // TODO: Implement actual trading logic with bonding curve
   } catch (error) {
     console.error('Trade failed:', error)
   }
 }
 
 /**
- * Load token data
- * TODO: Fetch from Supabase
+ * Load token data from Supabase
  */
 const loadTokenData = async () => {
   try {
-    const mintAddress = route.params.mintAddress
+    const mintAddress = route.params.mintAddress as string
     console.log('Loading token:', mintAddress)
     
-    // TODO: Fetch token data from Supabase
-    // TODO: Subscribe to real-time updates
+    if (!mintAddress) {
+      throw new Error('No mint address provided')
+    }
     
-    // Mock delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Fetch token data from Supabase
+    const tokenData = await SupabaseService.getTokenByMint(mintAddress)
     
-  } catch (error) {
-    console.error('Failed to load token:', error)
+    if (!tokenData) {
+      throw new Error('Token not found')
+    }
+    
+    token.value = tokenData
+    
+    // Load recent transactions for this token
+    const transactions = await SupabaseService.getTokenTransactions(tokenData.id, 10)
+    
+    // Format transactions for display
+    recentTrades.value = transactions.map((tx: any) => ({
+      id: tx.id,
+      type: tx.transaction_type,
+      amount: `${(tx.sol_amount / 1e9).toFixed(3)} SOL`,
+      time: formatTimeAgo(tx.created_at),
+      user: tx.user?.username || `${tx.user?.wallet_address?.slice(0, 4)}...${tx.user?.wallet_address?.slice(-4)}`
+    }))
+    
+  } catch (err) {
+    console.error('Failed to load token:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to load token'
+    
+    // Redirect to 404 if token not found
+    if (err instanceof Error && err.message.includes('not found')) {
+      router.push('/404')
+    }
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * Format time ago helper
+ */
+const formatTimeAgo = (dateString: string): string => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+  
+  if (diffInMinutes < 1) return 'just now'
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+  
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) return `${diffInHours}h ago`
+  
+  const diffInDays = Math.floor(diffInHours / 24)
+  return `${diffInDays}d ago`
+}
+
+/**
+ * Format number helper for large numbers
+ */
+const formatNumber = (num: number): string => {
+  if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B'
+  if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
+  if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
+  return num.toString()
 }
 
 onMounted(() => {

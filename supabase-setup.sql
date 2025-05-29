@@ -163,36 +163,4 @@ CREATE TRIGGER update_user_holdings_updated_at BEFORE UPDATE ON user_holdings
 CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert sample data
-INSERT INTO users (wallet_address, username, bio) VALUES 
-('11111111111111111111111111111112', 'demo_user', 'Demo user for testing'),
-('22222222222222222222222222222223', 'meme_creator', 'Professional meme token creator')
-ON CONFLICT (wallet_address) DO NOTHING;
-
-INSERT INTO tokens (
-  mint_address, name, symbol, description, creator_id, 
-  current_price, market_cap, volume_24h, status
-) VALUES 
-(
-  'So11111111111111111111111111111111111111112',
-  'PEPE Clone',
-  'PEPEC',
-  'The funniest meme token on Solana',
-  (SELECT id FROM users WHERE username = 'demo_user' LIMIT 1),
-  0.000001,
-  50000,
-  10000,
-  'active'
-),
-(
-  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  'Doge Pump',
-  'DOGEP',
-  'Such wow, much pump!',
-  (SELECT id FROM users WHERE username = 'meme_creator' LIMIT 1),
-  0.000005,
-  100000,
-  25000,
-  'active'
-)
-ON CONFLICT (mint_address) DO NOTHING; 
+-- Sample data has been removed - use the application to create real data 

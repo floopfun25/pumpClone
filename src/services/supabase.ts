@@ -334,6 +334,101 @@ export class SupabaseService {
       )
       .subscribe()
   }
+
+  /**
+   * Get dashboard statistics
+   * Used for homepage stats display
+   */
+  static async getDashboardStats() {
+    try {
+      // Get total tokens count
+      const { count: totalTokens, error: tokensError } = await supabase
+        .from('tokens')
+        .select('*', { count: 'exact', head: true })
+
+      if (tokensError) throw tokensError
+
+      // Get total users count
+      const { count: totalUsers, error: usersError } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+
+      if (usersError) throw usersError
+
+      // Get graduated tokens count
+      const { count: graduatedTokens, error: graduatedError } = await supabase
+        .from('tokens')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'graduated')
+
+      if (graduatedError) throw graduatedError
+
+      // Get total volume (sum of all transaction amounts)
+      const { data: volumeData, error: volumeError } = await supabase
+        .from('transactions')
+        .select('sol_amount')
+
+      if (volumeError) throw volumeError
+
+      const totalVolume = volumeData?.reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) || 0
+      const totalVolumeInSOL = totalVolume / 1e9 // Convert lamports to SOL
+
+      return {
+        totalTokens: totalTokens || 0,
+        totalVolume: Math.round(totalVolumeInSOL),
+        totalUsers: totalUsers || 0,
+        graduatedTokens: graduatedTokens || 0
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error)
+      return {
+        totalTokens: 0,
+        totalVolume: 0,
+        totalUsers: 0,
+        graduatedTokens: 0
+      }
+    }
+  }
+
+  /**
+   * Get user portfolio value and holdings
+   * Used for portfolio page
+   */
+  static async getUserPortfolio(userId: string) {
+    try {
+      const holdings = await this.getUserHoldings(userId)
+      
+      let totalValue = 0
+      let totalTokens = 0
+
+      const portfolioItems = holdings.map((holding: any) => {
+        const tokenValue = (holding.amount / Math.pow(10, holding.token.decimals)) * holding.token.current_price
+        totalValue += tokenValue
+        totalTokens += 1
+
+        return {
+          ...holding,
+          currentValue: tokenValue,
+          token: holding.token
+        }
+      })
+
+      return {
+        totalValue,
+        totalTokens,
+        holdings: portfolioItems,
+        change24h: 0 // TODO: Calculate 24h change based on price history
+      }
+    } catch (error) {
+      console.error('Failed to fetch user portfolio:', error)
+      return {
+        totalValue: 0,
+        totalTokens: 0,
+        holdings: [],
+        change24h: 0
+      }
+    }
+  }
 }
 
 // Export the configured client as default
