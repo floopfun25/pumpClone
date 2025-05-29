@@ -42,39 +42,91 @@
         };
       }
       
-      // Headers polyfill for fetch API
-      if (typeof Headers === 'undefined' && typeof fetch !== 'undefined') {
-        // Ensure Headers constructor is available
-        window.Headers = window.Headers || function Headers(init) {
-          this._headers = {};
+      // Enhanced fetch Response polyfill for Supabase compatibility
+      if (typeof fetch !== 'undefined') {
+        // Store original fetch
+        const originalFetch = window.fetch;
+        
+        // Create enhanced Headers constructor
+        function EnhancedHeaders(init) {
+          this._headers = new Map();
           if (init) {
-            if (typeof init === 'object') {
-              for (let key in init) {
-                this.set(key, init[key]);
-              }
+            if (init instanceof EnhancedHeaders) {
+              init._headers.forEach((value, key) => {
+                this._headers.set(key.toLowerCase(), value);
+              });
+            } else if (typeof init === 'object' && init !== null) {
+              Object.keys(init).forEach(key => {
+                this._headers.set(key.toLowerCase(), String(init[key]));
+              });
             }
           }
+        }
+        
+        EnhancedHeaders.prototype.get = function(name) {
+          return this._headers.get(name.toLowerCase()) || null;
         };
         
-        window.Headers.prototype.get = function(name) {
-          return this._headers[name.toLowerCase()] || null;
+        EnhancedHeaders.prototype.set = function(name, value) {
+          this._headers.set(name.toLowerCase(), String(value));
         };
         
-        window.Headers.prototype.set = function(name, value) {
-          this._headers[name.toLowerCase()] = String(value);
+        EnhancedHeaders.prototype.has = function(name) {
+          return this._headers.has(name.toLowerCase());
         };
         
-        window.Headers.prototype.has = function(name) {
-          return name.toLowerCase() in this._headers;
+        EnhancedHeaders.prototype.append = function(name, value) {
+          const existing = this._headers.get(name.toLowerCase());
+          this._headers.set(name.toLowerCase(), existing ? existing + ', ' + value : String(value));
         };
         
-        window.Headers.prototype.append = function(name, value) {
-          const existing = this._headers[name.toLowerCase()];
-          this._headers[name.toLowerCase()] = existing ? existing + ', ' + value : String(value);
+        EnhancedHeaders.prototype.delete = function(name) {
+          this._headers.delete(name.toLowerCase());
         };
         
-        window.Headers.prototype.delete = function(name) {
-          delete this._headers[name.toLowerCase()];
+        EnhancedHeaders.prototype.forEach = function(callback, thisArg) {
+          this._headers.forEach((value, key) => callback.call(thisArg, value, key, this));
+        };
+        
+        // Override Headers constructor
+        window.Headers = EnhancedHeaders;
+        
+        // Enhanced fetch wrapper
+        window.fetch = function(input, init) {
+          return originalFetch.call(this, input, init).then(response => {
+            // Ensure response has proper headers object
+            if (response && typeof response.headers === 'object') {
+              // If headers is not our enhanced version, wrap it
+              if (!(response.headers instanceof EnhancedHeaders)) {
+                const enhancedHeaders = new EnhancedHeaders();
+                
+                // Copy existing headers
+                if (response.headers.forEach) {
+                  response.headers.forEach((value, key) => {
+                    enhancedHeaders.set(key, value);
+                  });
+                } else if (response.headers.entries) {
+                  for (const [key, value] of response.headers.entries()) {
+                    enhancedHeaders.set(key, value);
+                  }
+                } else {
+                  // Fallback for basic header objects
+                  Object.keys(response.headers).forEach(key => {
+                    enhancedHeaders.set(key, response.headers[key]);
+                  });
+                }
+                
+                // Replace headers with enhanced version
+                Object.defineProperty(response, 'headers', {
+                  value: enhancedHeaders,
+                  writable: false,
+                  enumerable: true,
+                  configurable: false
+                });
+              }
+            }
+            return response;
+          });
         };
       }
       
