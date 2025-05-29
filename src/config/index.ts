@@ -19,8 +19,8 @@ export const config = {
   
   // Solana blockchain configuration
   solana: {
-    rpcUrl: getEnvVar('VITE_SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com'),
-    network: getEnvVar('VITE_SOLANA_NETWORK', 'mainnet-beta'),
+    rpcUrl: getEnvVar('VITE_SOLANA_RPC_URL', 'https://api.devnet.solana.com'),
+    network: getEnvVar('VITE_SOLANA_NETWORK', 'devnet'),
     commitment: 'confirmed' as const
   },
   

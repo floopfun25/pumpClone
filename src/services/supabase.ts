@@ -114,102 +114,33 @@ export interface Database {
   }
 }
 
-// Mock client for fallback when Supabase fails
-class MockSupabaseClient {
-  from() {
-    return {
-      select: () => ({
-        eq: () => ({
-          single: () => ({ data: null, error: { code: 'MOCK_ERROR', message: 'Supabase client failed to initialize' } }),
-          range: () => ({ data: [], error: null }),
-          limit: () => ({ data: [], error: null }),
-          order: () => ({ data: [], error: null }),
-          or: () => ({ data: [], error: null })
-        }),
-        count: () => ({ count: 0, error: null }),
-        head: () => ({ count: 0, error: null }),
-        gt: () => ({ data: [], error: null })
-      }),
-      insert: () => ({ data: null, error: { message: 'Mock mode - database operations disabled' } }),
-      upsert: () => ({ select: () => ({ single: () => ({ data: null, error: { message: 'Mock mode - database operations disabled' } }) }) }),
-      update: () => ({ data: null, error: { message: 'Mock mode - database operations disabled' } }),
-      delete: () => ({ data: null, error: { message: 'Mock mode - database operations disabled' } })
-    }
-  }
-
-  channel() {
-    return {
-      on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
-    }
-  }
-}
-
-// Lazy client initialization
-let supabaseClient: SupabaseClient<Database> | MockSupabaseClient | null = null
-let initializationAttempted = false
-
-function getSupabaseClient(): SupabaseClient<Database> | MockSupabaseClient {
-  if (supabaseClient) {
-    return supabaseClient
-  }
-
-  if (initializationAttempted) {
-    // Return mock client if initialization already failed
-    console.warn('🔄 Using mock Supabase client (initialization previously failed)')
-    const mockClient = new MockSupabaseClient() as any
-    supabaseClient = mockClient
-    return mockClient
-  }
-
-  initializationAttempted = true
-
-  // Validate configuration
-  if (!supabaseConfig?.url || !supabaseConfig?.anonKey) {
-    console.error('❌ Supabase configuration missing')
-    const mockClient = new MockSupabaseClient() as any
-    supabaseClient = mockClient
-    return mockClient
-  }
-
-  console.log('🔗 Attempting Supabase client initialization...')
-
-  try {
-    // Try to create the client
-    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey)
-    supabaseClient = client
-    console.log('✅ Supabase client created successfully')
-    return client
-  } catch (error) {
-    console.warn('⚠️ Supabase client creation failed, using mock client:', error)
-    const mockClient = new MockSupabaseClient() as any
-    supabaseClient = mockClient
-    return mockClient
-  }
-}
-
-// Export the lazy-loaded client
-export const supabase = new Proxy({} as SupabaseClient<Database>, {
-  get(target, prop) {
-    const client = getSupabaseClient()
-    const value = (client as any)[prop]
-    
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    
-    return value
-  }
+// Simple Supabase client creation with better error handling
+console.log('🔗 Creating Supabase client with:', {
+  url: supabaseConfig.url,
+  hasAnonKey: !!supabaseConfig.anonKey,
+  anonKeyLength: supabaseConfig.anonKey?.length
 })
 
-// Utility functions for common database operations with error handling
-export class SupabaseService {
-  /**
-   * Check if we're running in mock mode
-   */
-  static isMockMode(): boolean {
-    return supabaseClient instanceof MockSupabaseClient
-  }
+let supabaseClient: SupabaseClient<Database>
 
+try {
+  supabaseClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    auth: {
+      persistSession: false, // Disable auth persistence for GitHub Pages
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  })
+  console.log('✅ Supabase client created successfully')
+} catch (error) {
+  console.error('❌ Failed to create Supabase client:', error)
+  throw new Error(`Supabase client creation failed: ${error}`)
+}
+
+export const supabase = supabaseClient
+
+// Utility functions for common database operations
+export class SupabaseService {
   /**
    * Get user by wallet address
    * Used for authentication and profile loading
@@ -223,10 +154,6 @@ export class SupabaseService {
         .single()
       
       if (error && error.code !== 'PGRST116') {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: returning null user')
-          return null
-        }
         throw error
       }
       
@@ -252,13 +179,7 @@ export class SupabaseService {
         .select()
         .single()
       
-      if (error) {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: user upsert disabled')
-          return null
-        }
-        throw error
-      }
+      if (error) throw error
       return data
     } catch (error) {
       console.error('Failed to upsert user:', error)
@@ -311,13 +232,7 @@ export class SupabaseService {
       
       const { data, error } = await query
       
-      if (error) {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: returning empty tokens array')
-          return []
-        }
-        throw error
-      }
+      if (error) throw error
       return data || []
     } catch (error) {
       console.error('Failed to get tokens:', error)
@@ -340,13 +255,7 @@ export class SupabaseService {
         .eq('mint_address', mintAddress)
         .single()
       
-      if (error) {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: returning null token')
-          return null
-        }
-        throw error
-      }
+      if (error) throw error
       return data
     } catch (error) {
       console.error('Failed to get token by mint:', error)
@@ -369,13 +278,7 @@ export class SupabaseService {
         .eq('user_id', userId)
         .gt('amount', 0)
       
-      if (error) {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: returning empty holdings array')
-          return []
-        }
-        throw error
-      }
+      if (error) throw error
       return data || []
     } catch (error) {
       console.error('Failed to get user holdings:', error)
@@ -399,13 +302,7 @@ export class SupabaseService {
         .order('created_at', { ascending: false })
         .limit(limit)
       
-      if (error) {
-        if (this.isMockMode()) {
-          console.warn('🔄 Mock mode: returning empty transactions array')
-          return []
-        }
-        throw error
-      }
+      if (error) throw error
       return data || []
     } catch (error) {
       console.error('Failed to get token transactions:', error)
@@ -418,11 +315,6 @@ export class SupabaseService {
    * Used for live price feeds
    */
   static subscribeToTokenUpdates(tokenId: string, callback: (token: any) => void) {
-    if (this.isMockMode()) {
-      console.warn('🔄 Mock mode: subscriptions disabled')
-      return { unsubscribe: () => {} }
-    }
-
     try {
       return supabase
         .channel(`token-${tokenId}`)
@@ -448,11 +340,6 @@ export class SupabaseService {
    * Used for live trading activity
    */
   static subscribeToTransactions(tokenId: string, callback: (transaction: any) => void) {
-    if (this.isMockMode()) {
-      console.warn('🔄 Mock mode: subscriptions disabled')
-      return { unsubscribe: () => {} }
-    }
-
     try {
       return supabase
         .channel(`transactions-${tokenId}`)
@@ -479,16 +366,6 @@ export class SupabaseService {
    */
   static async getDashboardStats() {
     try {
-      if (this.isMockMode()) {
-        console.warn('🔄 Mock mode: returning mock dashboard stats')
-        return {
-          totalTokens: 0,
-          totalVolume: 0,
-          totalUsers: 0,
-          graduatedTokens: 0
-        }
-      }
-
       // Get total tokens count
       const { count: totalTokens, error: tokensError } = await supabase
         .from('tokens')
@@ -544,16 +421,6 @@ export class SupabaseService {
    */
   static async getUserPortfolio(userId: string) {
     try {
-      if (this.isMockMode()) {
-        console.warn('🔄 Mock mode: returning empty portfolio')
-        return {
-          totalValue: 0,
-          totalTokens: 0,
-          holdings: [],
-          change24h: 0
-        }
-      }
-
       const holdings = await this.getUserHoldings(userId)
       
       let totalValue = 0
