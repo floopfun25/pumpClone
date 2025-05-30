@@ -194,6 +194,13 @@
       </div>
     </div>
   </div>
+
+  <!-- Wallet Modal -->
+  <WalletModal
+    :is-open="showWalletModal"
+    @close="showWalletModal = false"
+    @connected="handleWalletConnected"
+  />
 </template>
 
 <script setup lang="ts">
@@ -203,6 +210,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { tokenService } from '@/services/tokenService'
 import type { TokenCreationData } from '@/services/tokenService'
+import WalletModal from '@/components/common/WalletModal.vue'
 
 const router = useRouter()
 const walletStore = useWalletStore()
@@ -224,6 +232,9 @@ const isCreating = ref(false)
 const validationErrors = ref<string[]>([])
 const creationCost = ref<any>(null)
 
+// Wallet modal state
+const showWalletModal = ref(false)
+
 // Computed properties
 const isConnected = computed(() => walletStore.isConnected)
 const canCreate = computed(() => 
@@ -234,11 +245,18 @@ const canCreate = computed(() =>
 
 // Methods
 const connectWallet = () => {
-  // This will be handled by the WalletModal in Navbar
+  showWalletModal.value = true
+}
+
+/**
+ * Handle wallet connection success
+ */
+const handleWalletConnected = (walletName: string) => {
+  showWalletModal.value = false
   uiStore.showToast({
-    type: 'info',
-    title: 'Connect Wallet',
-    message: 'Please use the Connect Wallet button in the navigation'
+    type: 'success',
+    title: 'Wallet Connected',
+    message: `Successfully connected to ${walletName}`
   })
 }
 
