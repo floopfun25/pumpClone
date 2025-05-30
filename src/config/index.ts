@@ -17,10 +17,10 @@ export const config = {
     anonKey: getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc')
   },
   
-  // Solana blockchain configuration
+  // Solana blockchain configuration - FORCED TO DEVNET
   solana: {
-    rpcUrl: 'https://api.devnet.solana.com', // Force devnet for GitHub Pages compatibility
-    network: 'devnet' as const,
+    rpcUrl: 'https://api.devnet.solana.com', // Completely hardcoded - no env vars
+    network: 'devnet' as const, // Completely hardcoded - no env vars
     commitment: 'confirmed' as const
   },
   
@@ -55,6 +55,16 @@ export const config = {
     toastDuration: 5000 // 5 seconds
   }
 } as const
+
+// Debug logging for environment variables
+console.log('=== CONFIG DEBUG ===')
+console.log('Environment MODE:', import.meta.env.MODE)
+console.log('Environment PROD:', import.meta.env.PROD)
+console.log('Environment DEV:', import.meta.env.DEV)
+console.log('VITE_SOLANA_RPC_URL env var:', import.meta.env.VITE_SOLANA_RPC_URL)
+console.log('VITE_SOLANA_NETWORK env var:', import.meta.env.VITE_SOLANA_NETWORK)
+console.log('Final solana config:', config.solana)
+console.log('=== CONFIG DEBUG END ===')
 
 // Export individual configurations for easier imports
 export const {
