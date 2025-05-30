@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watchEffect } from 'vue'
 import { walletService, formatWalletAddress, formatSOL } from '@/services/wallet'
 import type { WalletAdapter } from '@/services/wallet'
 
@@ -7,6 +7,11 @@ import type { WalletAdapter } from '@/services/wallet'
 export const useWalletStore = defineStore('wallet', () => {
   // Reactive state from wallet service
   const walletState = ref(walletService.getState())
+
+  // Auto-update state when wallet service changes
+  watchEffect(() => {
+    walletState.value = walletService.getState()
+  })
 
   // Update state when wallet service changes
   const updateState = () => {
@@ -38,7 +43,7 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       console.log('Initializing wallet...')
       await walletService.autoConnect()
-      updateState()
+      // State will be updated automatically via watchEffect
     } catch (error) {
       console.error('Failed to initialize wallet:', error)
     }
@@ -51,7 +56,7 @@ export const useWalletStore = defineStore('wallet', () => {
   async function connectWallet(walletName?: string) {
     try {
       await walletService.connect(walletName)
-      updateState()
+      // State will be updated automatically via watchEffect
     } catch (error) {
       console.error('Failed to connect wallet:', error)
       throw error
@@ -65,7 +70,7 @@ export const useWalletStore = defineStore('wallet', () => {
   async function disconnectWallet() {
     try {
       await walletService.disconnect()
-      updateState()
+      // State will be updated automatically via watchEffect
     } catch (error) {
       console.error('Failed to disconnect wallet:', error)
       throw error
@@ -95,7 +100,7 @@ export const useWalletStore = defineStore('wallet', () => {
   async function updateBalance() {
     try {
       await walletService.updateBalance()
-      updateState()
+      // State will be updated automatically via watchEffect
     } catch (error) {
       console.error('Failed to update balance:', error)
     }
@@ -116,7 +121,7 @@ export const useWalletStore = defineStore('wallet', () => {
    */
   async function sendTransaction(transaction: any, options?: any): Promise<string> {
     const signature = await walletService.sendTransaction(transaction, options)
-    updateState() // Update balance after transaction
+    // State will be updated automatically via watchEffect
     return signature
   }
 

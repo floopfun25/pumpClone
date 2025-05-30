@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { resolve } from 'path'
 
 // Vite configuration for FloppFun Vue.js application
 export default defineConfig({
@@ -33,5 +34,17 @@ export default defineConfig({
       '@supabase/supabase-js',
       'buffer'
     ]
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia'],
+          solana: ['@solana/web3.js', '@solana/wallet-adapter-base', '@solana/wallet-adapter-phantom', '@solana/wallet-adapter-solflare'],
+          ui: ['@headlessui/vue', '@heroicons/vue']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   }
 }) 

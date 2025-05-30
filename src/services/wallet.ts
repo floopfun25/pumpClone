@@ -63,6 +63,10 @@ class WalletService {
   private _disconnecting = ref(false)
   private _publicKey = ref<PublicKey | null>(null)
   private _balance = ref(0)
+  private _connected = computed(() => 
+    !!this.currentWallet.value?.connected && 
+    !!this._publicKey.value
+  )
 
   constructor() {
     this.connection = new Connection(
@@ -85,10 +89,7 @@ class WalletService {
   }
 
   get connected() {
-    return computed(() => 
-      !!this.currentWallet.value?.connected && 
-      !!this._publicKey.value
-    ).value
+    return this._connected.value
   }
 
   get publicKey() {
