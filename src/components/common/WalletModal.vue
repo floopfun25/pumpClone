@@ -220,7 +220,7 @@ const closeModal = () => {
 
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement
-  img.src = '/wallet-fallback.svg' // Fallback icon
+  img.src = `${import.meta.env.BASE_URL}wallet-fallback.svg` // Fallback icon with proper base path
 }
 </script>
 
