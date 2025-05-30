@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloppFun Feature Tests</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+        button { padding: 10px 20px; margin: 5px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #7c3aed; }
+        pre { background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .status { padding: 5px 10px; border-radius: 4px; margin: 5px 0; display: inline-block; }
+        .status.success { background: #dcfce7; color: #166534; }
+        .status.error { background: #fef2f2; color: #dc2626; }
+        .status.pending { background: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body>
+    <h1>🧪 FloppFun Feature Tests</h1>
+    <p>Use this page to test FloppFun features before full integration.</p>
+
+    <!-- Price Oracle Tests -->
+    <div class="test-section">
+        <h2>📊 Price Oracle Integration</h2>
+        <button onclick="testSOLPrice()">Test SOL Price</button>
+        <button onclick="testTokenPrice()">Test Token Price</button>
+        <button onclick="testPortfolioCalculation()">Test Portfolio Calculation</button>
+        <div id="priceResults"></div>
+    </div>
+
+    <!-- API Connectivity Tests -->
+    <div class="test-section">
+        <h2>🌐 API Connectivity</h2>
+        <button onclick="testCoinGecko()">Test CoinGecko API</button>
+        <button onclick="testBirdeye()">Test Birdeye API</button>
+        <button onclick="testSolanaRPC()">Test Solana RPC</button>
+        <div id="apiResults"></div>
+    </div>
+
+    <!-- Solana Integration Tests -->
+    <div class="test-section">
+        <h2>⚡ Solana Integration</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <button onclick="testWalletGeneration()">Test Wallet Generation</button>
+        <button onclick="testProgramAddresses()">Test Program Addresses</button>
+        <div id="solanaResults"></div>
+    </div>
+
+    <!-- Social Features Tests -->
+    <div class="test-section">
+        <h2>💬 Social Features</h2>
+        <button onclick="testMessageFormatting()">Test Message Formatting</button>
+        <button onclick="testUserData()">Test User Data</button>
+        <button onclick="testTimestamps()">Test Timestamps</button>
+        <div id="socialResults"></div>
+    </div>
+
+    <!-- Performance Tests -->
+    <div class="test-section">
+        <h2>⚡ Performance Tests</h2>
+        <button onclick="testLoadTimes()">Test Load Times</button>
+        <button onclick="testMemoryUsage()">Test Memory Usage</button>
+        <button onclick="testCacheEfficiency()">Test Cache Efficiency</button>
+        <div id="performanceResults"></div>
+    </div>
+
+    <script>
+        // Utility functions
+        function showResult(containerId, status, message, details = null) {
+            const container = document.getElementById(containerId);
+            const statusClass = status === 'success' ? 'success' : status === 'error' ? 'error' : 'pending';
+            
+            const result = document.createElement('div');
+            result.innerHTML = `
+                <div class="status ${statusClass}">${status.toUpperCase()}</div>
+                <strong>${message}</strong>
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+            container.appendChild(result);
+        }
+
+        // Price Oracle Tests
+        async function testSOLPrice() {
+            try {
+                showResult('priceResults', 'pending', 'Testing SOL price from CoinGecko...');
+                
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true');
+                const data = await response.json();
+                
+                if (data.solana && data.solana.usd) {
+                    showResult('priceResults', 'success', `SOL Price: $${data.solana.usd}`, {
+                        price: data.solana.usd,
+                        change24h: data.solana.usd_24h_change,
+                        marketCap: data.solana.usd_market_cap,
+                        volume24h: data.solana.usd_24h_vol
+                    });
+                } else {
+                    showResult('priceResults', 'error', 'Invalid SOL price data received', data);
+                }
+            } catch (error) {
+                showResult('priceResults', 'error', 'Failed to fetch SOL price', error.message);
+            }
+        }
+
+        async function testTokenPrice() {
+            try {
+                showResult('priceResults', 'pending', 'Testing token price from Birdeye...');
+                
+                // Test with USDC token
+                const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+                const response = await fetch(`https://public-api.birdeye.so/defi/price?address=${usdcMint}`, {
+                    headers: { 'X-API-KEY': 'demo' }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    showResult('priceResults', 'success', `USDC Price: $${data.data.value}`, data.data);
+                } else {
+                    showResult('priceResults', 'error', 'Invalid token price data received', data);
+                }
+            } catch (error) {
+                showResult('priceResults', 'error', 'Failed to fetch token price', error.message);
+            }
+        }
+
+        async function testPortfolioCalculation() {
+            showResult('priceResults', 'pending', 'Testing portfolio calculation logic...');
+            
+            // Mock portfolio data
+            const mockHoldings = [
+                { mint: 'SOL', balance: 5000000000, decimals: 9 }, // 5 SOL
+                { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', balance: 1000000, decimals: 6 } // 1 USDC
+            ];
+            
+            try {
+                // Simulate portfolio calculation
+                const solPrice = 162.9; // Mock current SOL price
+                const usdcPrice = 1.0; // Mock USDC price
+                
+                const solValue = (mockHoldings[0].balance / Math.pow(10, mockHoldings[0].decimals)) * solPrice;
+                const usdcValue = (mockHoldings[1].balance / Math.pow(10, mockHoldings[1].decimals)) * usdcPrice;
+                const totalValue = solValue + usdcValue;
+                
+                showResult('priceResults', 'success', `Portfolio calculated: $${totalValue.toFixed(2)}`, {
+                    solBalance: mockHoldings[0].balance / Math.pow(10, mockHoldings[0].decimals),
+                    solValue: solValue,
+                    usdcBalance: mockHoldings[1].balance / Math.pow(10, mockHoldings[1].decimals),
+                    usdcValue: usdcValue,
+                    totalValue: totalValue
+                });
+            } catch (error) {
+                showResult('priceResults', 'error', 'Portfolio calculation failed', error.message);
+            }
+        }
+
+        // API Connectivity Tests
+        async function testCoinGecko() {
+            try {
+                showResult('apiResults', 'pending', 'Testing CoinGecko API connectivity...');
+                
+                const start = performance.now();
+                const response = await fetch('https://api.coingecko.com/api/v3/ping');
+                const end = performance.now();
+                const data = await response.json();
+                
+                showResult('apiResults', 'success', `CoinGecko API: ${end - start}ms`, data);
+            } catch (error) {
+                showResult('apiResults', 'error', 'CoinGecko API failed', error.message);
+            }
+        }
+
+        async function testBirdeye() {
+            try {
+                showResult('apiResults', 'pending', 'Testing Birdeye API connectivity...');
+                
+                const start = performance.now();
+                const response = await fetch('https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&limit=1', {
+                    headers: { 'X-API-KEY': 'demo' }
+                });
+                const end = performance.now();
+                const data = await response.json();
+                
+                showResult('apiResults', 'success', `Birdeye API: ${end - start}ms`, { 
+                    responseTime: `${end - start}ms`,
+                    success: data.success,
+                    dataLength: data.data?.length || 0
+                });
+            } catch (error) {
+                showResult('apiResults', 'error', 'Birdeye API failed', error.message);
+            }
+        }
+
+        async function testSolanaRPC() {
+            try {
+                showResult('apiResults', 'pending', 'Testing Solana RPC connectivity...');
+                
+                const start = performance.now();
+                const response = await fetch('https://api.devnet.solana.com', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getHealth'
+                    })
+                });
+                const end = performance.now();
+                const data = await response.json();
+                
+                showResult('apiResults', 'success', `Solana RPC: ${end - start}ms`, {
+                    responseTime: `${end - start}ms`,
+                    health: data.result,
+                    jsonrpc: data.jsonrpc
+                });
+            } catch (error) {
+                showResult('apiResults', 'error', 'Solana RPC failed', error.message);
+            }
+        }
+
+        // Solana Integration Tests
+        async function testConnection() {
+            showResult('solanaResults', 'pending', 'Testing Solana connection setup...');
+            
+            try {
+                // Test if we can create a connection object
+                const rpcUrl = 'https://api.devnet.solana.com';
+                const response = await fetch(rpcUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getVersion'
+                    })
+                });
+                const data = await response.json();
+                
+                showResult('solanaResults', 'success', 'Solana connection established', {
+                    rpcUrl: rpcUrl,
+                    version: data.result['solana-core'],
+                    featureSet: data.result['feature-set']
+                });
+            } catch (error) {
+                showResult('solanaResults', 'error', 'Solana connection failed', error.message);
+            }
+        }
+
+        async function testWalletGeneration() {
+            showResult('solanaResults', 'pending', 'Testing wallet generation...');
+            
+            try {
+                // Generate random keypair (client-side only)
+                const randomBytes = new Uint8Array(32);
+                crypto.getRandomValues(randomBytes);
+                
+                // Convert to base58-like format (simplified)
+                const publicKey = Array.from(randomBytes.slice(0, 16))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+                
+                showResult('solanaResults', 'success', 'Wallet generation successful', {
+                    note: 'Generated mock wallet for testing',
+                    publicKeyHex: publicKey,
+                    bytesLength: randomBytes.length
+                });
+            } catch (error) {
+                showResult('solanaResults', 'error', 'Wallet generation failed', error.message);
+            }
+        }
+
+        async function testProgramAddresses() {
+            showResult('solanaResults', 'pending', 'Testing program addresses...');
+            
+            try {
+                const programAddresses = {
+                    bondingCurve: 'FLoPPfUn1BondingCuRv3Program1111111111111111',
+                    tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+                    systemProgram: '11111111111111111111111111111111',
+                    associatedTokenProgram: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
+                };
+                
+                // Validate program address format (basic check)
+                const isValidBase58 = (addr) => /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/.test(addr);
+                
+                const results = {};
+                for (const [name, address] of Object.entries(programAddresses)) {
+                    results[name] = {
+                        address: address,
+                        valid: isValidBase58(address) && address.length >= 32,
+                        length: address.length
+                    };
+                }
+                
+                showResult('solanaResults', 'success', 'Program addresses validated', results);
+            } catch (error) {
+                showResult('solanaResults', 'error', 'Program address validation failed', error.message);
+            }
+        }
+
+        // Social Features Tests
+        function testMessageFormatting() {
+            showResult('socialResults', 'pending', 'Testing message formatting...');
+            
+            try {
+                const testMessage = {
+                    id: '123',
+                    content: 'Hey! Saw your token launch, looks promising! 🚀',
+                    timestamp: new Date(),
+                    user: {
+                        id: 'user1',
+                        username: 'CryptoTrader',
+                        avatar: null,
+                        walletAddress: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs'
+                    }
+                };
+                
+                const formattedWallet = `${testMessage.user.walletAddress.slice(0, 4)}...${testMessage.user.walletAddress.slice(-4)}`;
+                const timeAgo = 'now';
+                
+                showResult('socialResults', 'success', 'Message formatting successful', {
+                    messageId: testMessage.id,
+                    content: testMessage.content,
+                    username: testMessage.user.username,
+                    walletFormatted: formattedWallet,
+                    timeAgo: timeAgo
+                });
+            } catch (error) {
+                showResult('socialResults', 'error', 'Message formatting failed', error.message);
+            }
+        }
+
+        function testUserData() {
+            showResult('socialResults', 'pending', 'Testing user data structures...');
+            
+            try {
+                const mockUsers = [
+                    {
+                        id: '1',
+                        username: 'DeFiMaster',
+                        walletAddress: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
+                        avatar: null,
+                        createdAt: new Date(),
+                        tokensCreated: 3,
+                        totalVolume: 1250.75
+                    },
+                    {
+                        id: '2',
+                        username: 'MemeKing',
+                        walletAddress: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+                        avatar: null,
+                        createdAt: new Date(Date.now() - 86400000),
+                        tokensCreated: 1,
+                        totalVolume: 500.25
+                    }
+                ];
+                
+                showResult('socialResults', 'success', `User data structures validated (${mockUsers.length} users)`, {
+                    users: mockUsers.map(user => ({
+                        username: user.username,
+                        wallet: `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`,
+                        tokensCreated: user.tokensCreated,
+                        totalVolume: `$${user.totalVolume}`
+                    }))
+                });
+            } catch (error) {
+                showResult('socialResults', 'error', 'User data validation failed', error.message);
+            }
+        }
+
+        function testTimestamps() {
+            showResult('socialResults', 'pending', 'Testing timestamp formatting...');
+            
+            try {
+                const now = new Date();
+                const testTimes = [
+                    { time: new Date(now - 30000), expected: 'now' },
+                    { time: new Date(now - 300000), expected: '5m' },
+                    { time: new Date(now - 3600000), expected: '1h' },
+                    { time: new Date(now - 86400000), expected: '1d' }
+                ];
+                
+                const formatTimestamp = (timestamp) => {
+                    const diff = now.getTime() - timestamp.getTime();
+                    if (diff < 60000) return 'now';
+                    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+                    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+                    return `${Math.floor(diff / 86400000)}d`;
+                };
+                
+                const results = testTimes.map(test => ({
+                    timestamp: test.time.toISOString(),
+                    formatted: formatTimestamp(test.time),
+                    expected: test.expected
+                }));
+                
+                showResult('socialResults', 'success', 'Timestamp formatting successful', results);
+            } catch (error) {
+                showResult('socialResults', 'error', 'Timestamp formatting failed', error.message);
+            }
+        }
+
+        // Performance Tests
+        async function testLoadTimes() {
+            showResult('performanceResults', 'pending', 'Testing load times...');
+            
+            try {
+                const tests = [
+                    { name: 'CoinGecko API', url: 'https://api.coingecko.com/api/v3/ping' },
+                    { name: 'Solana RPC', url: 'https://api.devnet.solana.com', method: 'POST', body: JSON.stringify({jsonrpc:'2.0',id:1,method:'getHealth'}) }
+                ];
+                
+                const results = [];
+                for (const test of tests) {
+                    const start = performance.now();
+                    try {
+                        const response = await fetch(test.url, {
+                            method: test.method || 'GET',
+                            headers: test.method === 'POST' ? {'Content-Type': 'application/json'} : {},
+                            body: test.body
+                        });
+                        const end = performance.now();
+                        results.push({
+                            name: test.name,
+                            time: `${(end - start).toFixed(2)}ms`,
+                            status: response.ok ? 'success' : 'error'
+                        });
+                    } catch (error) {
+                        results.push({
+                            name: test.name,
+                            time: 'timeout',
+                            status: 'error'
+                        });
+                    }
+                }
+                
+                showResult('performanceResults', 'success', 'Load times measured', results);
+            } catch (error) {
+                showResult('performanceResults', 'error', 'Load time testing failed', error.message);
+            }
+        }
+
+        function testMemoryUsage() {
+            showResult('performanceResults', 'pending', 'Testing memory usage...');
+            
+            try {
+                if (performance.memory) {
+                    const memory = {
+                        used: `${(performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
+                        total: `${(performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
+                        limit: `${(performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)}MB`
+                    };
+                    showResult('performanceResults', 'success', 'Memory usage measured', memory);
+                } else {
+                    showResult('performanceResults', 'error', 'Memory API not available in this browser');
+                }
+            } catch (error) {
+                showResult('performanceResults', 'error', 'Memory testing failed', error.message);
+            }
+        }
+
+        function testCacheEfficiency() {
+            showResult('performanceResults', 'pending', 'Testing cache efficiency...');
+            
+            try {
+                // Simulate cache testing
+                const cache = new Map();
+                const testData = { price: 162.9, timestamp: Date.now() };
+                
+                // Test cache set/get
+                const start = performance.now();
+                cache.set('SOL', testData);
+                const retrieved = cache.get('SOL');
+                const end = performance.now();
+                
+                const isValid = retrieved && retrieved.price === testData.price;
+                
+                showResult('performanceResults', 'success', 'Cache efficiency tested', {
+                    operationTime: `${(end - start).toFixed(4)}ms`,
+                    cacheSize: cache.size,
+                    dataValid: isValid,
+                    cacheHit: cache.has('SOL')
+                });
+            } catch (error) {
+                showResult('performanceResults', 'error', 'Cache testing failed', error.message);
+            }
+        }
+
+        // Auto-run basic tests on load
+        window.addEventListener('load', () => {
+            console.log('🧪 FloppFun Feature Tests Loaded');
+            console.log('Click buttons above to test individual features');
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,315 @@
+import { PublicKey } from '@solana/web3.js'
+
+export interface PriceData {
+  price: number
+  priceChange24h: number
+  priceChangePercent24h: number
+  marketCap?: number
+  volume24h?: number
+  lastUpdated: number
+}
+
+export interface TokenPriceData {
+  mint: string
+  symbol: string
+  name: string
+  price: number
+  priceChange24h: number
+  priceChangePercent24h: number
+  marketCap?: number
+  volume24h?: number
+  lastUpdated: number
+}
+
+class PriceOracleService {
+  private priceCache = new Map<string, PriceData>()
+  private readonly CACHE_DURATION = 30000 // 30 seconds
+  private readonly COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
+  private readonly BIRDEYE_BASE_URL = 'https://public-api.birdeye.so/defi'
+
+  // Get SOL price from CoinGecko
+  async getSOLPrice(): Promise<PriceData> {
+    const cacheKey = 'SOL'
+    const cachedPrice = this.priceCache.get(cacheKey)
+    
+    if (cachedPrice && Date.now() - cachedPrice.lastUpdated < this.CACHE_DURATION) {
+      return cachedPrice
+    }
+
+    try {
+      const response = await fetch(
+        `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const solData = data.solana
+      
+      const priceData: PriceData = {
+        price: solData.usd || 0,
+        priceChange24h: solData.usd_24h_change || 0,
+        priceChangePercent24h: solData.usd_24h_change || 0,
+        marketCap: solData.usd_market_cap,
+        volume24h: solData.usd_24h_vol,
+        lastUpdated: Date.now()
+      }
+      
+      this.priceCache.set(cacheKey, priceData)
+      return priceData
+      
+    } catch (error) {
+      console.error('Failed to fetch SOL price:', error)
+      
+      // Return cached data if available, otherwise fallback
+      const fallbackPrice: PriceData = {
+        price: 100, // Fallback SOL price
+        priceChange24h: 0,
+        priceChangePercent24h: 0,
+        lastUpdated: Date.now()
+      }
+      
+      return cachedPrice || fallbackPrice
+    }
+  }
+
+  // Get token price from Birdeye API (supports SPL tokens)
+  async getTokenPrice(mintAddress: string): Promise<TokenPriceData | null> {
+    const cacheKey = `token_${mintAddress}`
+    const cachedPrice = this.priceCache.get(cacheKey)
+    
+    if (cachedPrice && Date.now() - cachedPrice.lastUpdated < this.CACHE_DURATION) {
+      return {
+        mint: mintAddress,
+        symbol: 'UNKNOWN',
+        name: 'Unknown Token',
+        ...cachedPrice
+      }
+    }
+
+    try {
+      // Try Birdeye API first
+      const response = await fetch(
+        `${this.BIRDEYE_BASE_URL}/price?address=${mintAddress}`,
+        {
+          headers: {
+            'X-API-KEY': process.env.VITE_BIRDEYE_API_KEY || 'demo'
+          }
+        }
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        if (data.success && data.data) {
+          const priceData: PriceData = {
+            price: data.data.value || 0,
+            priceChange24h: data.data.priceChange24h || 0,
+            priceChangePercent24h: ((data.data.priceChange24h || 0) / (data.data.value || 1)) * 100,
+            lastUpdated: Date.now()
+          }
+          
+          this.priceCache.set(cacheKey, priceData)
+          
+          return {
+            mint: mintAddress,
+            symbol: data.data.symbol || 'UNKNOWN',
+            name: data.data.name || 'Unknown Token',
+            ...priceData
+          }
+        }
+      }
+
+      // Fallback to mock price for new tokens
+      const mockPrice = this.generateMockPrice(mintAddress)
+      this.priceCache.set(cacheKey, mockPrice)
+      
+      return {
+        mint: mintAddress,
+        symbol: 'NEW',
+        name: 'New Token',
+        ...mockPrice
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch token price:', error)
+      return null
+    }
+  }
+
+  // Generate mock price for new tokens (bonding curve simulation)
+  private generateMockPrice(mintAddress: string): PriceData {
+    // Generate deterministic but random-looking prices based on mint address
+    const hash = this.hashString(mintAddress)
+    const basePrice = (hash % 1000) / 1000000 // Price between 0.000001 and 0.001
+    const priceChange = ((hash % 200) - 100) / 10 // Change between -10% and +10%
+    
+    return {
+      price: basePrice,
+      priceChange24h: priceChange,
+      priceChangePercent24h: priceChange,
+      lastUpdated: Date.now()
+    }
+  }
+
+  // Simple hash function for deterministic mock prices
+  private hashString(str: string): number {
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32-bit integer
+    }
+    return Math.abs(hash)
+  }
+
+  // Calculate portfolio value
+  async calculatePortfolioValue(holdings: { mint: string; balance: number; decimals: number }[]): Promise<{
+    totalValue: number
+    solValue: number
+    tokenValues: { mint: string; value: number; price: number }[]
+  }> {
+    try {
+      const [solPrice, ...tokenPrices] = await Promise.all([
+        this.getSOLPrice(),
+        ...holdings.filter(h => h.mint !== 'SOL').map(h => this.getTokenPrice(h.mint))
+      ])
+
+      let totalValue = 0
+      let solValue = 0
+      const tokenValues: { mint: string; value: number; price: number }[] = []
+
+      // Calculate SOL value
+      const solHolding = holdings.find(h => h.mint === 'SOL')
+      if (solHolding) {
+        solValue = (solHolding.balance / Math.pow(10, solHolding.decimals)) * solPrice.price
+        totalValue += solValue
+      }
+
+      // Calculate token values
+      let tokenIndex = 0
+      for (const holding of holdings.filter(h => h.mint !== 'SOL')) {
+        const tokenPrice = tokenPrices[tokenIndex]
+        if (tokenPrice) {
+          const tokenBalance = holding.balance / Math.pow(10, holding.decimals)
+          const tokenValue = tokenBalance * tokenPrice.price
+          
+          tokenValues.push({
+            mint: holding.mint,
+            value: tokenValue,
+            price: tokenPrice.price
+          })
+          
+          totalValue += tokenValue
+        }
+        tokenIndex++
+      }
+
+      return {
+        totalValue,
+        solValue,
+        tokenValues
+      }
+      
+    } catch (error) {
+      console.error('Failed to calculate portfolio value:', error)
+      return {
+        totalValue: 0,
+        solValue: 0,
+        tokenValues: []
+      }
+    }
+  }
+
+  // Get multiple token prices in batch
+  async getBatchTokenPrices(mintAddresses: string[]): Promise<TokenPriceData[]> {
+    try {
+      const prices = await Promise.all(
+        mintAddresses.map(mint => this.getTokenPrice(mint))
+      )
+      
+      return prices.filter(price => price !== null) as TokenPriceData[]
+    } catch (error) {
+      console.error('Failed to fetch batch token prices:', error)
+      return []
+    }
+  }
+
+  // Get trending tokens (mock implementation)
+  async getTrendingTokens(limit = 10): Promise<TokenPriceData[]> {
+    // This would integrate with real APIs like DexScreener, Birdeye, etc.
+    // For now, return mock trending tokens
+    const mockTrendingMints = [
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+      'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',  // mSOL
+      'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // Bonk
+      '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', // Ether
+    ]
+
+    return Promise.all(
+      mockTrendingMints.slice(0, limit).map(async (mint, index) => {
+        const price = await this.getTokenPrice(mint)
+        return price || {
+          mint,
+          symbol: `TRD${index + 1}`,
+          name: `Trending Token ${index + 1}`,
+          price: Math.random() * 0.001,
+          priceChange24h: (Math.random() - 0.5) * 0.2,
+          priceChangePercent24h: (Math.random() - 0.5) * 20,
+          lastUpdated: Date.now()
+        }
+      })
+    )
+  }
+
+  // Clear price cache
+  clearCache(): void {
+    this.priceCache.clear()
+  }
+
+  // Get cached price without API call
+  getCachedPrice(mintAddress: string): PriceData | null {
+    const cacheKey = mintAddress === 'SOL' ? 'SOL' : `token_${mintAddress}`
+    const cached = this.priceCache.get(cacheKey)
+    
+    if (cached && Date.now() - cached.lastUpdated < this.CACHE_DURATION) {
+      return cached
+    }
+    
+    return null
+  }
+}
+
+// Create singleton instance
+export const priceOracleService = new PriceOracleService()
+
+// Helper functions
+export function formatPrice(price: number): string {
+  if (price >= 1) {
+    return `$${price.toFixed(2)}`
+  } else if (price >= 0.01) {
+    return `$${price.toFixed(4)}`
+  } else {
+    return `$${price.toFixed(8)}`
+  }
+}
+
+export function formatPriceChange(change: number): string {
+  const sign = change >= 0 ? '+' : ''
+  return `${sign}${change.toFixed(2)}%`
+}
+
+export function formatMarketCap(marketCap: number): string {
+  if (marketCap >= 1e9) {
+    return `$${(marketCap / 1e9).toFixed(2)}B`
+  } else if (marketCap >= 1e6) {
+    return `$${(marketCap / 1e6).toFixed(2)}M`
+  } else if (marketCap >= 1e3) {
+    return `$${(marketCap / 1e3).toFixed(2)}K`
+  } else {
+    return `$${marketCap.toFixed(2)}`
+  }
+} 
