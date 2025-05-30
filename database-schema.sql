@@ -49,11 +49,22 @@ ADD COLUMN IF NOT EXISTS reputation_score INTEGER DEFAULT 0;
 ALTER TABLE token_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist, then create new ones
+DROP POLICY IF EXISTS "Anyone can view comments" ON token_comments;
+DROP POLICY IF EXISTS "Authenticated users can create comments" ON token_comments;
+DROP POLICY IF EXISTS "Users can update their own comments" ON token_comments;
+DROP POLICY IF EXISTS "Users can delete their own comments" ON token_comments;
+
 -- Comments policies
 CREATE POLICY "Anyone can view comments" ON token_comments FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can create comments" ON token_comments FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Users can update their own comments" ON token_comments FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Users can delete their own comments" ON token_comments FOR DELETE USING (user_id = auth.uid());
+
+-- Drop existing comment likes policies
+DROP POLICY IF EXISTS "Anyone can view comment likes" ON comment_likes;
+DROP POLICY IF EXISTS "Authenticated users can like comments" ON comment_likes;
+DROP POLICY IF EXISTS "Users can remove their own likes" ON comment_likes;
 
 -- Comment likes policies
 CREATE POLICY "Anyone can view comment likes" ON comment_likes FOR SELECT USING (true);
@@ -61,6 +72,8 @@ CREATE POLICY "Authenticated users can like comments" ON comment_likes FOR INSER
 CREATE POLICY "Users can remove their own likes" ON comment_likes FOR DELETE USING (user_id = auth.uid());
 
 -- Function to update updated_at timestamp
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -68,6 +81,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+-- Drop existing trigger if it exists, then create new one
+DROP TRIGGER IF EXISTS update_token_comments_updated_at ON token_comments;
 
 -- Trigger for token_comments updated_at
 CREATE TRIGGER update_token_comments_updated_at 
@@ -85,11 +101,15 @@ CREATE TABLE IF NOT EXISTS public.conversations (
   user1_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   user2_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  
-  -- Ensure unique conversation between two users
-  CONSTRAINT unique_conversation UNIQUE (LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Create indexes to prevent duplicate conversations (both directions)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_user1_user2 
+ON public.conversations (user1_id, user2_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_user2_user1 
+ON public.conversations (user2_id, user1_id);
 
 -- Add messages table
 CREATE TABLE IF NOT EXISTS public.messages (
@@ -112,12 +132,21 @@ CREATE INDEX IF NOT EXISTS idx_messages_unread ON public.messages(receiver_id, r
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies for conversations
+DROP POLICY IF EXISTS "Users can view their own conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can create conversations" ON public.conversations;
+
 -- RLS Policies for conversations
 CREATE POLICY "Users can view their own conversations" ON public.conversations
   FOR SELECT USING (auth.uid() = user1_id OR auth.uid() = user2_id);
 
 CREATE POLICY "Users can create conversations" ON public.conversations
   FOR INSERT WITH CHECK (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- Drop existing policies for messages
+DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.messages;
+DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can update their received messages" ON public.messages;
 
 -- RLS Policies for messages
 CREATE POLICY "Users can view messages in their conversations" ON public.messages
@@ -158,6 +187,10 @@ CREATE TABLE IF NOT EXISTS public.token_shares (
 -- Enable RLS for shares
 ALTER TABLE public.token_shares ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies for token_shares
+DROP POLICY IF EXISTS "Anyone can view share counts" ON public.token_shares;
+DROP POLICY IF EXISTS "Users can track their shares" ON public.token_shares;
+
 CREATE POLICY "Anyone can view share counts" ON public.token_shares
   FOR SELECT USING (true);
 
@@ -170,6 +203,8 @@ CREATE INDEX IF NOT EXISTS idx_token_shares_user ON public.token_shares(user_id)
 CREATE INDEX IF NOT EXISTS idx_token_shares_platform ON public.token_shares(platform);
 
 -- Update function to automatically update conversation timestamps
+DROP FUNCTION IF EXISTS update_conversation_timestamp() CASCADE;
+
 CREATE OR REPLACE FUNCTION update_conversation_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
