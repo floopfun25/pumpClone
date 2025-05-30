@@ -26,24 +26,24 @@ export const config = {
   
   // FloppFun Program Addresses (Devnet)
   programs: {
-    // Bonding curve program (we'll create this)
-    bondingCurve: 'FLoPPfUn1BondingCuRv3Program1111111111111111',
-    // Token factory program 
-    tokenFactory: 'FLoPPfUn1TokenFactoRy1111111111111111111',
-    // Platform fee collection
-    feeCollector: 'FLoPPfUn1F33Co11ector1111111111111111111',
+    // Bonding curve program (placeholder - will be replaced when deployed)
+    bondingCurve: '11111111111111111111111111111111',
+    // Token factory program (placeholder)
+    tokenFactory: '11111111111111111111111111111111',
+    // Platform fee collection (placeholder)
+    feeCollector: '11111111111111111111111111111111',
     // Metadata program (Metaplex)
     metadata: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
   },
   
   // Platform Configuration
   platform: {
-    // Platform fee collection wallet (devnet)
-    feeWallet: 'FLoPPfUn1F33Co11ector1111111111111111111',
+    // Platform fee collection wallet (devnet) - using System Program ID as placeholder
+    feeWallet: '11111111111111111111111111111111',
     // Authority wallet for program operations
-    authority: 'FLoPPfUn1Authority1111111111111111111111',
+    authority: '11111111111111111111111111111111',
     // Treasury for rewards and incentives
-    treasury: 'FLoPPfUn1Treasury1111111111111111111111111'
+    treasury: '11111111111111111111111111111111'
   },
   
   // Application constants
