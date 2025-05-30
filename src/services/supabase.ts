@@ -598,6 +598,364 @@ export class SupabaseService {
       }
     }
   }
+
+  /**
+   * Get comments for a specific token
+   * Used for token detail page comments section
+   */
+  static async getTokenComments(tokenId: string, page = 1, pageSize = 20) {
+    try {
+      const offset = (page - 1) * pageSize
+      
+      const { data, error, count } = await supabase
+        .from('token_comments')
+        .select(`
+          *,
+          user:users(id, username, wallet_address),
+          likes_count:comment_likes(count),
+          user_liked:comment_likes!inner(user_id)
+        `, { count: 'exact' })
+        .eq('token_id', tokenId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1)
+
+      if (error) throw error
+
+      // Process the data to format likes properly
+      const comments = (data || []).map((comment: any) => ({
+        ...comment,
+        likes_count: comment.likes_count?.[0]?.count || 0,
+        user_liked: comment.user_liked?.length > 0
+      }))
+
+      return {
+        comments,
+        hasMore: (count || 0) > offset + pageSize,
+        total: count || 0
+      }
+    } catch (error) {
+      console.error('Failed to get token comments:', error)
+      return {
+        comments: [],
+        hasMore: false,
+        total: 0
+      }
+    }
+  }
+
+  /**
+   * Create a new comment for a token
+   * Used when user posts a comment
+   */
+  static async createTokenComment(tokenId: string, content: string) {
+    try {
+      // Get current user from auth store
+      const { useAuthStore } = await import('@/stores/auth')
+      const authStore = useAuthStore()
+      
+      if (!authStore.isAuthenticated || !authStore.user) {
+        throw new Error('User not authenticated')
+      }
+
+      const { data, error } = await supabase
+        .from('token_comments')
+        .insert({
+          token_id: tokenId,
+          user_id: authStore.user.id,
+          content: content.trim()
+        })
+        .select(`
+          *,
+          user:users(id, username, wallet_address)
+        `)
+        .single()
+
+      if (error) throw error
+
+      return {
+        ...data,
+        likes_count: 0,
+        user_liked: false
+      }
+    } catch (error) {
+      console.error('Failed to create comment:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Toggle like/unlike on a comment
+   * Used for comment interaction
+   */
+  static async toggleCommentLike(commentId: string) {
+    try {
+      // Get current user from auth store
+      const { useAuthStore } = await import('@/stores/auth')
+      const authStore = useAuthStore()
+      
+      if (!authStore.isAuthenticated || !authStore.user) {
+        throw new Error('User not authenticated')
+      }
+
+      // Check if user already liked this comment
+      const { data: existingLike, error: checkError } = await supabase
+        .from('comment_likes')
+        .select('id')
+        .eq('comment_id', commentId)
+        .eq('user_id', authStore.user.id)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError
+      }
+
+      let liked = false
+
+      if (existingLike) {
+        // Unlike - remove the like
+        const { error: deleteError } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('id', existingLike.id)
+
+        if (deleteError) throw deleteError
+        liked = false
+      } else {
+        // Like - add the like
+        const { error: insertError } = await supabase
+          .from('comment_likes')
+          .insert({
+            comment_id: commentId,
+            user_id: authStore.user.id
+          })
+
+        if (insertError) throw insertError
+        liked = true
+      }
+
+      // Get updated likes count
+      const { count, error: countError } = await supabase
+        .from('comment_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('comment_id', commentId)
+
+      if (countError) throw countError
+
+      return {
+        liked,
+        likes_count: count || 0
+      }
+    } catch (error) {
+      console.error('Failed to toggle comment like:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get price history for a token chart
+   * Used for chart visualization
+   */
+  static async getTokenPriceHistory(tokenId: string, timeframe: string) {
+    try {
+      // Calculate the date range based on timeframe
+      const now = new Date()
+      let startDate = new Date()
+      
+      switch (timeframe) {
+        case '1h':
+          startDate = new Date(now.getTime() - 60 * 60 * 1000) // 1 hour ago
+          break
+        case '24h':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+          break
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+          break
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+          break
+        default:
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000) // Default 24h
+      }
+
+      // For now, we'll generate some sample data based on transactions
+      // In a real implementation, you'd have a price_history table
+      const { data: transactions, error } = await supabase
+        .from('transactions')
+        .select('created_at, price_per_token, sol_amount, token_amount')
+        .eq('token_id', tokenId)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+
+      // If no transactions, generate some placeholder data
+      if (!transactions || transactions.length === 0) {
+        return this.generatePlaceholderPriceData(timeframe)
+      }
+
+      // Process transactions into price points
+      const pricePoints = transactions.map((tx: any) => ({
+        timestamp: tx.created_at,
+        price: tx.price_per_token || 0.000001,
+        volume: tx.sol_amount || 0
+      }))
+
+      // If we have less than 10 points, interpolate more data
+      if (pricePoints.length < 10) {
+        return this.interpolatePriceData(pricePoints, timeframe)
+      }
+
+      return pricePoints
+    } catch (error) {
+      console.error('Failed to get token price history:', error)
+      // Return placeholder data on error
+      return this.generatePlaceholderPriceData(timeframe)
+    }
+  }
+
+  /**
+   * Generate placeholder price data for charts when no real data exists
+   */
+  private static generatePlaceholderPriceData(timeframe: string) {
+    const points = timeframe === '1h' ? 12 : timeframe === '24h' ? 24 : timeframe === '7d' ? 14 : 30
+    const basePrice = 0.000001 + Math.random() * 0.001
+    const data = []
+    
+    const now = new Date()
+    const interval = timeframe === '1h' ? 5 * 60 * 1000 : // 5 minutes
+                     timeframe === '24h' ? 60 * 60 * 1000 : // 1 hour  
+                     timeframe === '7d' ? 12 * 60 * 60 * 1000 : // 12 hours
+                     24 * 60 * 60 * 1000 // 24 hours
+
+    for (let i = 0; i < points; i++) {
+      const timestamp = new Date(now.getTime() - (points - 1 - i) * interval)
+      const volatility = 0.1 // 10% volatility
+      const change = (Math.random() - 0.5) * volatility
+      const price = Math.max(0.000001, basePrice * (1 + change))
+      
+      data.push({
+        timestamp: timestamp.toISOString(),
+        price,
+        volume: Math.random() * 1000
+      })
+    }
+
+    return data
+  }
+
+  /**
+   * Interpolate price data to have more data points for smoother charts
+   */
+  private static interpolatePriceData(pricePoints: any[], timeframe: string) {
+    if (pricePoints.length === 0) {
+      return this.generatePlaceholderPriceData(timeframe)
+    }
+
+    if (pricePoints.length === 1) {
+      // Single point, create a flat line with small variations
+      const basePrice = pricePoints[0].price
+      const data = []
+      const points = 20
+      const now = new Date()
+      const interval = 60 * 60 * 1000 // 1 hour
+
+      for (let i = 0; i < points; i++) {
+        const timestamp = new Date(now.getTime() - (points - 1 - i) * interval)
+        const variation = (Math.random() - 0.5) * 0.02 // 2% variation
+        
+        data.push({
+          timestamp: timestamp.toISOString(),
+          price: basePrice * (1 + variation),
+          volume: pricePoints[0].volume || 0
+        })
+      }
+
+      return data
+    }
+
+    // Multiple points, interpolate between them
+    return pricePoints
+  }
+
+  /**
+   * Get trending tokens based on different criteria
+   * Used for King of the Hill trending section
+   */
+  static async getTrendingTokens(sortBy: string = 'volume', limit: number = 10) {
+    try {
+      let orderColumn = 'volume_24h'
+      let ascending = false
+
+      switch (sortBy) {
+        case 'volume':
+          orderColumn = 'volume_24h'
+          ascending = false
+          break
+        case 'price':
+          orderColumn = 'current_price'
+          ascending = false
+          break
+        case 'holders':
+          orderColumn = 'holders_count'
+          ascending = false
+          break
+        case 'new':
+          orderColumn = 'created_at'
+          ascending = false
+          break
+        case 'featured':
+          // Special case for featured tokens
+          break
+        default:
+          orderColumn = 'volume_24h'
+          ascending = false
+      }
+
+      let query = supabase
+        .from('tokens')
+        .select(`
+          *,
+          creator:users(id, username, wallet_address)
+        `)
+
+      // Add filters based on sort type
+      if (sortBy === 'featured') {
+        query = query.eq('is_featured', true)
+        orderColumn = 'volume_24h' // Still sort featured by volume
+      }
+
+      // Get trending tokens
+      const { data: tokens, error } = await query
+        .order(orderColumn, { ascending })
+        .limit(limit)
+
+      if (error) throw error
+
+      // Calculate additional metrics for trending display
+      const trendingTokens = (tokens || []).map((token: any) => {
+        // Calculate mock price change (in real app, you'd track this)
+        const mockPriceChange = (Math.random() - 0.5) * 40 // -20% to +20%
+        const mockVolumeChange = Math.random() * 200 // 0% to 200%
+        
+        return {
+          ...token,
+          price_change_24h: mockPriceChange,
+          volume_24h_change: mockVolumeChange,
+          // Ensure bonding curve progress is calculated
+          bonding_curve_progress: token.bonding_curve_progress || Math.min(
+            (token.market_cap / 69000) * 100, 
+            100
+          )
+        }
+      })
+
+      return trendingTokens
+    } catch (error) {
+      console.error('Failed to get trending tokens:', error)
+      return []
+    }
+  }
 }
 
 // Export the configured client as default

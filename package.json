@@ -29,7 +29,7 @@
     "@vueuse/core": "^10.5.0",
     "bs58": "^4.0.1",
     "buffer": "^6.0.3",
-    "chart.js": "^4.4.0",
+    "chart.js": "^4.4.9",
     "decimal.js": "^10.4.3",
     "dotenv": "^16.5.0",
     "fastestsmallesttextencoderdecoder": "^1.0.22",

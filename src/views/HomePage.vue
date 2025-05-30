@@ -63,14 +63,25 @@
       </div>
     </section>
     
-    <!-- Token Listings -->
+    <!-- Trending Section -->
+    <section class="py-12 bg-white dark:bg-gray-800">
+      <div class="container mx-auto px-4">
+        <TrendingTokens :limit="5" />
+      </div>
+    </section>
+    
+    <!-- Main Content: Token Listings -->
     <section id="tokens" class="py-12">
       <div class="container mx-auto px-4">
-        <!-- Section Header -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-8">
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-4 md:mb-0">
-            Latest Tokens
-          </h2>
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+          <div>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Explore Tokens
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400">
+              Discover the latest meme tokens on Solana
+            </p>
+          </div>
           
           <!-- Filter and Sort Controls -->
           <div class="flex flex-wrap gap-4">
@@ -149,6 +160,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import TokenCard from '@/components/token/TokenCard.vue'
 import { SupabaseService } from '@/services/supabase'
+import TrendingTokens from '@/components/token/TrendingTokens.vue'
 
 const router = useRouter()
 

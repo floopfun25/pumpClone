@@ -73,12 +73,11 @@
           <!-- Left Column: Chart & Trading -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Price Chart -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Price Chart</h2>
-              <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                <p class="text-gray-500 dark:text-gray-400">📈 Chart coming soon...</p>
-              </div>
-            </div>
+            <TokenChart 
+              v-if="token?.id" 
+              :token-id="token.id"
+              :token-symbol="token.symbol"
+            />
 
             <!-- Trading Interface -->
             <div class="card">
@@ -135,6 +134,14 @@
                 </button>
               </div>
             </div>
+
+            <!-- Comments Section -->
+            <TokenComments
+              v-if="token?.id"
+              :token-id="token.id"
+              :token-creator="token.creator?.wallet_address"
+              @connect-wallet="connectWallet"
+            />
           </div>
 
           <!-- Right Column: Token Info & Activity -->
@@ -229,9 +236,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SupabaseService } from '@/services/supabase'
+import { useWalletStore } from '@/stores/wallet'
+import { useUIStore } from '@/stores/ui'
+import TokenChart from '@/components/token/TokenChart.vue'
+import TokenComments from '@/components/token/TokenComments.vue'
 
 const route = useRoute()
 const router = useRouter()
+const walletStore = useWalletStore()
+const uiStore = useUIStore()
 
 // State
 const loading = ref(true)
@@ -247,6 +260,23 @@ const recentTrades = ref<any[]>([])
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
 const tokenSymbol = computed(() => token.value?.symbol || 'N/A')
 const tokenDescription = computed(() => token.value?.description || 'No description available.')
+
+/**
+ * Connect wallet handler
+ */
+const connectWallet = async () => {
+  try {
+    // Open wallet modal using the correct UI store method
+    uiStore.showModal('wallet')
+  } catch (error) {
+    console.error('Failed to connect wallet:', error)
+    uiStore.showToast({
+      type: 'error',
+      title: 'Connection Failed',
+      message: 'Failed to connect wallet. Please try again.'
+    })
+  }
+}
 
 /**
  * Execute trade
