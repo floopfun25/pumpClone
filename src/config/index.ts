@@ -24,6 +24,28 @@ export const config = {
     commitment: 'confirmed' as const
   },
   
+  // FloppFun Program Addresses (Devnet)
+  programs: {
+    // Bonding curve program (we'll create this)
+    bondingCurve: 'FLoPPfUn1BondingCuRv3Program1111111111111111',
+    // Token factory program 
+    tokenFactory: 'FLoPPfUn1TokenFactoRy1111111111111111111',
+    // Platform fee collection
+    feeCollector: 'FLoPPfUn1F33Co11ector1111111111111111111',
+    // Metadata program (Metaplex)
+    metadata: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
+  },
+  
+  // Platform Configuration
+  platform: {
+    // Platform fee collection wallet (devnet)
+    feeWallet: 'FLoPPfUn1F33Co11ector1111111111111111111',
+    // Authority wallet for program operations
+    authority: 'FLoPPfUn1Authority1111111111111111111111',
+    // Treasury for rewards and incentives
+    treasury: 'FLoPPfUn1Treasury1111111111111111111111111'
+  },
+  
   // Application constants
   app: {
     name: 'FloppFun',
@@ -40,11 +62,28 @@ export const config = {
     creationFee: 0.02 // 0.02 SOL creation fee
   },
   
-  // Bonding curve configuration
+  // Bonding curve configuration (based on pump.fun)
   bondingCurve: {
-    initialVirtualTokenReserves: 1_073_000_000_000_000, // ~1.073M tokens
+    initialVirtualTokenReserves: 1_073_000_000_000_000, // ~1.073M tokens with decimals
     initialVirtualSolReserves: 30_000_000_000, // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
+    // Graduation parameters
+    graduationSolTarget: 69_000_000_000, // 69 SOL to graduate
+    graduationTokensRemaining: 200_000_000_000_000, // ~200K tokens remaining
+    // Fee configuration
+    tradeFeePercentage: 1.0, // 1% trading fee
+    creatorRoyaltyPercentage: 0.5 // 0.5% to creator on trades
+  },
+  
+  // Trading configuration
+  trading: {
+    minTradeAmount: 1000000, // 0.001 SOL minimum
+    maxTradeAmount: 10_000_000_000, // 10 SOL maximum
+    slippageToleranceDefault: 3.0, // 3% default slippage
+    maxSlippageTolerance: 20.0, // 20% maximum slippage
+    // Price impact warnings
+    priceImpactWarning: 5.0, // Warn at 5% price impact
+    priceImpactBlock: 15.0 // Block trades over 15% price impact
   },
   
   // UI configuration
@@ -70,8 +109,11 @@ console.log('=== CONFIG DEBUG END ===')
 export const {
   supabase: supabaseConfig,
   solana: solanaConfig,
+  programs: programConfig,
+  platform: platformConfig,
   app: appConfig,
   tokenDefaults,
   bondingCurve: bondingCurveConfig,
+  trading: tradingConfig,
   ui: uiConfig
 } = config 

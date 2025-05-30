@@ -19,9 +19,10 @@ import {
 } from '@solana/spl-token'
 import { walletService } from './wallet'
 import { BondingCurveService } from './bondingCurve'
+import { solanaProgram } from './solanaProgram'
 import { SupabaseService, supabase } from './supabase'
 import type { Database } from './supabase'
-import { tokenDefaults, solanaConfig } from '@/config'
+import { tokenDefaults, solanaConfig, platformConfig } from '@/config'
 
 // Token creation types
 export interface TokenCreationData {
@@ -190,7 +191,7 @@ class TokenService {
       transaction.add(
         SystemProgram.transfer({
           fromPubkey: walletService.publicKey,
-          toPubkey: new PublicKey('11111111111111111111111111111112'), // TODO: Replace with platform fee account
+          toPubkey: new PublicKey(platformConfig.feeWallet), // Real platform fee wallet
           lamports: creationFee
         })
       )
@@ -199,10 +200,23 @@ class TokenService {
       transaction.partialSign(mintKeypair)
       const signature = await walletService.sendTransaction(transaction)
 
-      // Step 7: Create bonding curve address (derived)
-      const bondingCurveAddress = this.deriveBondingCurveAddress(mintAddress)
+      // Step 7: Initialize bonding curve
+      const bondingCurveInstruction = await solanaProgram.initializeBondingCurve(
+        mintAddress,
+        walletService.publicKey
+      )
 
-      // Step 8: Save token to database
+      // Create bonding curve transaction
+      const bondingCurveTransaction = new Transaction()
+      bondingCurveTransaction.add(bondingCurveInstruction)
+
+      // Send bonding curve initialization transaction
+      const bondingCurveSignature = await walletService.sendTransaction(bondingCurveTransaction)
+
+      // Step 8: Create bonding curve address (derived)
+      const [bondingCurveAddress] = solanaProgram.deriveBondingCurveAddress(mintAddress)
+
+      // Step 9: Save token to database
       await this.saveTokenToDatabase({
         mintAddress: mintAddress.toBase58(),
         metadataUri,
@@ -291,23 +305,6 @@ class TokenService {
       console.error('Metadata upload failed:', error)
       throw new Error(`Failed to upload metadata: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  /**
-   * Derive bonding curve address from mint
-   */
-  private deriveBondingCurveAddress(mintAddress: PublicKey): PublicKey {
-    // This would be derived from your bonding curve program
-    // For now, we'll create a deterministic address
-    const [bondingCurveAddress] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from('bonding-curve'),
-        mintAddress.toBuffer()
-      ],
-      new PublicKey('11111111111111111111111111111112') // TODO: Replace with actual program ID
-    )
-    
-    return bondingCurveAddress
   }
 
   /**

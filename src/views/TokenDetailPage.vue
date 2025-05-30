@@ -261,9 +261,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
+import { solanaProgram } from '@/services/solanaProgram'
 import TokenChart from '@/components/token/TokenChart.vue'
 import TokenComments from '@/components/token/TokenComments.vue'
 import SocialShare from '@/components/social/SocialShare.vue'
@@ -326,14 +328,81 @@ const connectWallet = async () => {
 
 /**
  * Execute trade
- * TODO: Integrate with Solana blockchain
+ * Integrated with Solana blockchain via solanaProgram service
  */
 const executeTrade = async () => {
+  if (!walletStore.isConnected) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Wallet Not Connected',
+      message: 'Please connect your wallet to trade'
+    })
+    return
+  }
+
+  if (!token.value?.mint_address) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Token Not Found',
+      message: 'Token information is not available'
+    })
+    return
+  }
+
+  const amount = parseFloat(tradeAmount.value)
+  if (!amount || amount <= 0) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Invalid Amount',
+      message: 'Please enter a valid amount'
+    })
+    return
+  }
+
   try {
-    console.log(`${tradeType.value} ${tradeAmount.value} SOL worth of ${tokenSymbol.value}`)
-    // TODO: Implement actual trading logic with bonding curve
-  } catch (error) {
+    uiStore.setLoading(true)
+    
+    const mintAddress = new PublicKey(token.value.mint_address)
+    let signature: string
+
+    if (tradeType.value === 'buy') {
+      // Execute buy transaction
+      signature = await solanaProgram.buyTokens(mintAddress, amount)
+      
+      uiStore.showToast({
+        type: 'success',
+        title: 'Buy Order Successful!',
+        message: `Successfully bought ${tokenSymbol.value} tokens`
+      })
+    } else {
+      // Execute sell transaction
+      signature = await solanaProgram.sellTokens(mintAddress, amount)
+      
+      uiStore.showToast({
+        type: 'success',
+        title: 'Sell Order Successful!',
+        message: `Successfully sold ${tokenSymbol.value} tokens`
+      })
+    }
+
+    // Clear the trade amount
+    tradeAmount.value = ''
+    
+    // Refresh token data to show updated stats
+    await loadTokenData()
+    
+    console.log(`${tradeType.value} transaction completed:`, signature)
+    
+  } catch (error: any) {
     console.error('Trade failed:', error)
+    
+    uiStore.showToast({
+      type: 'error',
+      title: 'Trade Failed',
+      message: error.message || 'An unexpected error occurred during the trade'
+    })
+  } finally {
+    uiStore.setLoading(false)
   }
 }
 
