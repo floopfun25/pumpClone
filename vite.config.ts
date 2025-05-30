@@ -6,7 +6,7 @@ import { resolve } from 'path'
 // Vite configuration for FloppFun Vue.js application
 export default defineConfig({
   plugins: [vue()],
-  base: '/',
+  base: '/pumpClone/',
   resolve: {
     alias: {
       // Set up path alias for cleaner imports
