@@ -70,6 +70,47 @@
       </div>
     </section>
     
+    <!-- Search Section -->
+    <div class="container mx-auto px-4 mb-12">
+      <div class="max-w-2xl mx-auto">
+        <!-- Toggle Advanced Search -->
+        <div class="text-center mb-6">
+          <button
+            @click="showAdvancedSearch = !showAdvancedSearch"
+            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
+          >
+            {{ showAdvancedSearch ? '🔍 Hide Advanced Search' : '🎯 Show Advanced Search' }}
+          </button>
+        </div>
+        
+        <!-- Advanced Search Panel -->
+        <div v-if="showAdvancedSearch" class="mb-8">
+          <AdvancedSearch
+            :loading="searchLoading"
+            :result-count="searchResults.length"
+            @search="handleSearch"
+            @filter-change="handleFilterChange"
+          />
+        </div>
+        
+        <!-- Simple Search (when advanced is hidden) -->
+        <div v-else class="relative">
+          <input 
+            v-model="simpleQuery"
+            @input="handleSimpleSearch"
+            type="text" 
+            placeholder="Search tokens by name, symbol, or creator..."
+            class="w-full px-6 py-4 pl-14 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Main Content: Token Listings -->
     <section id="tokens" class="py-12">
       <div class="container mx-auto px-4">
@@ -161,6 +202,7 @@ import { useRouter } from 'vue-router'
 import TokenCard from '@/components/token/TokenCard.vue'
 import { SupabaseService } from '@/services/supabase'
 import TrendingTokens from '@/components/token/TrendingTokens.vue'
+import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
 
 const router = useRouter()
 
@@ -172,6 +214,10 @@ const sortBy = ref('created_at')
 const filterBy = ref('all')
 const page = ref(1)
 const hasMore = ref(true)
+const showAdvancedSearch = ref(false)
+const searchLoading = ref(false)
+const searchResults = ref<any[]>([])
+const simpleQuery = ref('')
 
 // Real stats data from Supabase
 const stats = ref({
@@ -273,6 +319,37 @@ const scrollToTokens = () => {
   if (element) {
     element.scrollIntoView({ behavior: 'smooth' })
   }
+}
+
+/**
+ * Handle search
+ */
+const handleSearch = async (query: string, filters: any) => {
+  try {
+    searchLoading.value = true
+    const result = await SupabaseService.searchTokens({ query, filters })
+    searchResults.value = result.tokens
+  } catch (error) {
+    console.error('Failed to search tokens:', error)
+    searchResults.value = []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+/**
+ * Handle filter change
+ */
+const handleFilterChange = (filters: any) => {
+  // Update filters and reload if needed
+  console.log('Filter changed:', filters)
+}
+
+/**
+ * Handle simple search
+ */
+const handleSimpleSearch = () => {
+  // Implement simple search logic
 }
 
 // Load initial data when component mounts

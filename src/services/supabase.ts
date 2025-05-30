@@ -956,6 +956,366 @@ export class SupabaseService {
       return []
     }
   }
+
+  /**
+   * Advanced search tokens with filters
+   * Used for search page functionality
+   */
+  static async searchTokens(options: {
+    query?: string
+    filters?: any
+    page?: number
+    limit?: number
+  }) {
+    try {
+      const {
+        query = '',
+        filters = {},
+        page = 1,
+        limit = 20
+      } = options
+
+      let supabaseQuery = supabase
+        .from('tokens')
+        .select(`
+          *,
+          creator:users(id, username, wallet_address)
+        `, { count: 'exact' })
+
+      // Text search across multiple fields
+      if (query.trim()) {
+        supabaseQuery = supabaseQuery.or(
+          `name.ilike.%${query}%,symbol.ilike.%${query}%,description.ilike.%${query}%`
+        )
+      }
+
+      // Apply filters
+      if (filters.marketCapRange) {
+        switch (filters.marketCapRange) {
+          case 'micro':
+            supabaseQuery = supabaseQuery.gte('market_cap', 0).lt('market_cap', 10000)
+            break
+          case 'small':
+            supabaseQuery = supabaseQuery.gte('market_cap', 10000).lt('market_cap', 100000)
+            break
+          case 'medium':
+            supabaseQuery = supabaseQuery.gte('market_cap', 100000).lt('market_cap', 1000000)
+            break
+          case 'large':
+            supabaseQuery = supabaseQuery.gte('market_cap', 1000000)
+            break
+        }
+      }
+
+      if (filters.volumeRange) {
+        switch (filters.volumeRange) {
+          case 'low':
+            supabaseQuery = supabaseQuery.gte('volume_24h', 0).lt('volume_24h', 1000)
+            break
+          case 'medium':
+            supabaseQuery = supabaseQuery.gte('volume_24h', 1000).lt('volume_24h', 10000)
+            break
+          case 'high':
+            supabaseQuery = supabaseQuery.gte('volume_24h', 10000)
+            break
+        }
+      }
+
+      if (filters.ageRange) {
+        const now = new Date()
+        let startDate = new Date()
+        
+        switch (filters.ageRange) {
+          case '1h':
+            startDate = new Date(now.getTime() - 60 * 60 * 1000)
+            break
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+        }
+        
+        if (filters.ageRange) {
+          supabaseQuery = supabaseQuery.gte('created_at', startDate.toISOString())
+        }
+      }
+
+      if (filters.creatorAddress) {
+        // Join with users table to filter by creator wallet address
+        supabaseQuery = supabaseQuery.eq('creator.wallet_address', filters.creatorAddress)
+      }
+
+      if (filters.minHolders) {
+        supabaseQuery = supabaseQuery.gte('holders_count', filters.minHolders)
+      }
+
+      if (filters.minProgress) {
+        supabaseQuery = supabaseQuery.gte('bonding_curve_progress', filters.minProgress)
+      }
+
+      if (filters.featuredOnly) {
+        supabaseQuery = supabaseQuery.eq('is_featured', true)
+      }
+
+      if (filters.graduatedOnly) {
+        supabaseQuery = supabaseQuery.eq('status', 'graduated')
+      }
+
+      if (filters.excludeNsfw) {
+        supabaseQuery = supabaseQuery.eq('is_nsfw', false)
+      }
+
+      // Apply sorting
+      const sortBy = filters.sortBy || 'created_at'
+      const ascending = sortBy === 'created_at' ? false : false // Most recent first, highest values first
+      supabaseQuery = supabaseQuery.order(sortBy, { ascending })
+
+      // Apply pagination
+      const offset = (page - 1) * limit
+      supabaseQuery = supabaseQuery.range(offset, offset + limit - 1)
+
+      const { data: tokens, error, count } = await supabaseQuery
+
+      if (error) throw error
+
+      // Add calculated fields for display
+      const processedTokens = (tokens || []).map((token: any) => ({
+        ...token,
+        price_change_24h: (Math.random() - 0.5) * 40, // Mock data
+        bonding_curve_progress: token.bonding_curve_progress || Math.min(
+          (token.market_cap / 69000) * 100,
+          100
+        )
+      }))
+
+      return {
+        tokens: processedTokens,
+        total: count || 0,
+        hasMore: (count || 0) > offset + limit,
+        page,
+        limit
+      }
+    } catch (error) {
+      console.error('Failed to search tokens:', error)
+      return {
+        tokens: [],
+        total: 0,
+        hasMore: false,
+        page: 1,
+        limit: 20
+      }
+    }
+  }
+
+  /**
+   * Direct Messaging Methods
+   */
+   
+  static async getUserConversations(userId: string) {
+    try {
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          user1_id,
+          user2_id,
+          created_at,
+          last_message:messages(id, content, sender_id, created_at)
+        `)
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+
+      // Process conversations to get other user info and unread count
+      const processedConversations = await Promise.all(
+        (conversations || []).map(async (conv: any) => {
+          const otherUserId = conv.user1_id === userId ? conv.user2_id : conv.user1_id
+          
+          // Get other user info
+          const { data: otherUser } = await supabase
+            .from('users')
+            .select('id, username, wallet_address')
+            .eq('id', otherUserId)
+            .single()
+
+          // Get unread count
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .eq('receiver_id', userId)
+            .eq('read', false)
+
+          return {
+            id: conv.id,
+            otherUser: otherUser || { id: otherUserId, username: 'Unknown', wallet_address: '' },
+            lastMessage: conv.last_message?.[0] || null,
+            unreadCount: unreadCount || 0
+          }
+        })
+      )
+
+      return processedConversations
+    } catch (error) {
+      console.error('Failed to get user conversations:', error)
+      return []
+    }
+  }
+
+  static async getConversationMessages(conversationId: string) {
+    try {
+      const { data: messages, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return messages || []
+    } catch (error) {
+      console.error('Failed to get conversation messages:', error)
+      return []
+    }
+  }
+
+  static async sendMessage(messageData: {
+    conversation_id: string
+    sender_id: string
+    receiver_id: string
+    content: string
+  }) {
+    try {
+      const { data: message, error } = await supabase
+        .from('messages')
+        .insert([{
+          ...messageData,
+          read: false,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Update conversation's updated_at timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', messageData.conversation_id)
+
+      return message
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      throw error
+    }
+  }
+
+  static async markConversationAsRead(conversationId: string, userId: string) {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('conversation_id', conversationId)
+        .eq('receiver_id', userId)
+        .eq('read', false)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Failed to mark conversation as read:', error)
+    }
+  }
+
+  static async findUserByIdentifier(identifier: string) {
+    try {
+      // Try to find by username first, then by wallet address
+      let { data: user, error } = await supabase
+        .from('users')
+        .select('id, username, wallet_address')
+        .eq('username', identifier)
+        .single()
+
+      if (!user) {
+        // Try by wallet address
+        const { data: userByWallet, error: walletError } = await supabase
+          .from('users')
+          .select('id, username, wallet_address')
+          .eq('wallet_address', identifier)
+          .single()
+
+        user = userByWallet
+        error = walletError
+      }
+
+      if (error) throw error
+      return user
+    } catch (error) {
+      console.error('Failed to find user:', error)
+      return null
+    }
+  }
+
+  static async createConversation(user1Id: string, user2Id: string) {
+    try {
+      // Check if conversation already exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(user1_id.eq.${user1Id},user2_id.eq.${user2Id}),and(user1_id.eq.${user2Id},user2_id.eq.${user1Id})`)
+        .single()
+
+      if (existingConv) {
+        // Return existing conversation with user info
+        const otherUserId = user1Id === user1Id ? user2Id : user1Id
+        const { data: otherUser } = await supabase
+          .from('users')
+          .select('id, username, wallet_address')
+          .eq('id', otherUserId)
+          .single()
+
+        return {
+          id: existingConv.id,
+          otherUser: otherUser || { id: otherUserId, username: 'Unknown', wallet_address: '' },
+          unreadCount: 0
+        }
+      }
+
+      // Create new conversation
+      const { data: newConv, error } = await supabase
+        .from('conversations')
+        .insert([{
+          user1_id: user1Id,
+          user2_id: user2Id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Get other user info
+      const { data: otherUser } = await supabase
+        .from('users')
+        .select('id, username, wallet_address')
+        .eq('id', user2Id)
+        .single()
+
+      return {
+        id: newConv.id,
+        otherUser: otherUser || { id: user2Id, username: 'Unknown', wallet_address: '' },
+        unreadCount: 0
+      }
+    } catch (error) {
+      console.error('Failed to create conversation:', error)
+      throw error
+    }
+  }
 }
 
 // Export the configured client as default

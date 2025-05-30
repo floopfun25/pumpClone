@@ -78,3 +78,104 @@ CREATE TRIGGER update_token_comments_updated_at
 -- Sample data for testing (optional)
 -- INSERT INTO token_comments (token_id, user_id, content) VALUES
 -- ('token-uuid-here', 'user-uuid-here', 'Great token! Going to the moon! 🚀'); 
+
+-- Add conversations table
+CREATE TABLE IF NOT EXISTS public.conversations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user1_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  user2_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  
+  -- Ensure unique conversation between two users
+  CONSTRAINT unique_conversation UNIQUE (LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))
+);
+
+-- Add messages table
+CREATE TABLE IF NOT EXISTS public.messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  read BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_conversations_users ON public.conversations(user1_id, user2_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated ON public.conversations(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_unread ON public.messages(receiver_id, read) WHERE read = FALSE;
+
+-- Enable RLS
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for conversations
+CREATE POLICY "Users can view their own conversations" ON public.conversations
+  FOR SELECT USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+CREATE POLICY "Users can create conversations" ON public.conversations
+  FOR INSERT WITH CHECK (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- RLS Policies for messages
+CREATE POLICY "Users can view messages in their conversations" ON public.messages
+  FOR SELECT USING (
+    auth.uid() = sender_id OR 
+    auth.uid() = receiver_id
+  );
+
+CREATE POLICY "Users can send messages" ON public.messages
+  FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+CREATE POLICY "Users can update their received messages" ON public.messages
+  FOR UPDATE USING (auth.uid() = receiver_id);
+
+-- Add creator incentive tracking fields to users table
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS creator_tier TEXT DEFAULT 'bronze' CHECK (creator_tier IN ('bronze', 'silver', 'gold', 'diamond'));
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS creator_level INTEGER DEFAULT 1;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS total_earned NUMERIC(10,4) DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS monthly_rewards NUMERIC(10,4) DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS tokens_created INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS followers_count INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS comments_count INTEGER DEFAULT 0;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS helpful_votes INTEGER DEFAULT 0;
+
+-- Add share tracking fields to tokens
+ALTER TABLE public.tokens ADD COLUMN IF NOT EXISTS share_count INTEGER DEFAULT 0;
+ALTER TABLE public.tokens ADD COLUMN IF NOT EXISTS last_shared_at TIMESTAMP WITH TIME ZONE;
+
+-- Create share tracking table
+CREATE TABLE IF NOT EXISTS public.token_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  token_id UUID NOT NULL REFERENCES public.tokens(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('twitter', 'telegram', 'discord', 'reddit', 'copy-link')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS for shares
+ALTER TABLE public.token_shares ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view share counts" ON public.token_shares
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can track their shares" ON public.token_shares
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_token_shares_token ON public.token_shares(token_id);
+CREATE INDEX IF NOT EXISTS idx_token_shares_user ON public.token_shares(user_id);
+CREATE INDEX IF NOT EXISTS idx_token_shares_platform ON public.token_shares(platform);
+
+-- Update function to automatically update conversation timestamps
+CREATE OR REPLACE FUNCTION update_conversation_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.conversations 
+  SET updated_at = timezone('utc'::text, now())
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql; 

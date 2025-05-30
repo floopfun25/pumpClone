@@ -142,6 +142,32 @@
               :token-creator="token.creator?.wallet_address"
               @connect-wallet="connectWallet"
             />
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3">
+              <button class="btn-primary flex-1">
+                🚀 Buy Token
+              </button>
+              <button class="btn-secondary">
+                📊 Trade
+              </button>
+              
+              <!-- Social Share -->
+              <SocialShare
+                content-type="token"
+                :share-data="shareData"
+                button-text="Share"
+                button-class="btn-secondary"
+              />
+              
+              <!-- Direct Message Creator -->
+              <DirectMessages
+                v-if="token.creator"
+                :recipient-address="token.creator.wallet_address"
+                button-text="Message Creator"
+                button-class="btn-secondary"
+              />
+            </div>
           </div>
 
           <!-- Right Column: Token Info & Activity -->
@@ -153,7 +179,7 @@
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Market Cap</span>
                   <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ token?.market_cap ? formatNumber(token.market_cap) : '0' }}
+                    {{ marketCapFormatted }}
                   </span>
                 </div>
                 <div class="flex justify-between">
@@ -240,6 +266,8 @@ import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import TokenChart from '@/components/token/TokenChart.vue'
 import TokenComments from '@/components/token/TokenComments.vue'
+import SocialShare from '@/components/social/SocialShare.vue'
+import DirectMessages from '@/components/social/DirectMessages.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -260,6 +288,24 @@ const recentTrades = ref<any[]>([])
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
 const tokenSymbol = computed(() => token.value?.symbol || 'N/A')
 const tokenDescription = computed(() => token.value?.description || 'No description available.')
+
+// Computed properties
+const marketCapFormatted = computed(() => {
+  if (!token.value?.market_cap) return '$0'
+  return `$${formatNumber(token.value.market_cap)}`
+})
+
+const shareData = computed(() => ({
+  title: token.value ? `${token.value.name} ($${token.value.symbol})` : '',
+  description: token.value?.description || 'Check out this amazing meme token on FloppFun!',
+  url: `${window.location.origin}/token/${token.value?.mint_address || ''}`,
+  hashtags: ['FloppFun', 'memecoins', 'Solana', token.value?.symbol || ''].filter(Boolean)
+}))
+
+const priceChangeColor = computed(() => {
+  const change = token.value?.price_change_24h || 0
+  return change >= 0 ? 'text-pump-green' : 'text-pump-red'
+})
 
 /**
  * Connect wallet handler

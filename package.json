@@ -26,7 +26,7 @@
     "@solana/wallet-adapter-wallets": "^0.19.36",
     "@solana/web3.js": "^1.98.2",
     "@supabase/supabase-js": "^2.38.4",
-    "@vueuse/core": "^10.5.0",
+    "@vueuse/core": "^13.3.0",
     "bs58": "^4.0.1",
     "buffer": "^6.0.3",
     "chart.js": "^4.4.9",
