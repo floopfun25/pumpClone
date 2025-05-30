@@ -69,6 +69,8 @@ class WalletService {
   )
 
   constructor() {
+    console.log('WalletService: Using RPC URL:', solanaConfig.rpcUrl)
+    console.log('WalletService: Network:', solanaConfig.network)
     this.connection = new Connection(
       solanaConfig.rpcUrl,
       solanaConfig.commitment as Commitment

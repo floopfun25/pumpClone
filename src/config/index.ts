@@ -19,8 +19,8 @@ export const config = {
   
   // Solana blockchain configuration
   solana: {
-    rpcUrl: getEnvVar('VITE_SOLANA_RPC_URL', 'https://api.devnet.solana.com'),
-    network: getEnvVar('VITE_SOLANA_NETWORK', 'devnet'),
+    rpcUrl: 'https://api.devnet.solana.com', // Force devnet for GitHub Pages compatibility
+    network: 'devnet' as const,
     commitment: 'confirmed' as const
   },
   

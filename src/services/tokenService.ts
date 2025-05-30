@@ -71,6 +71,8 @@ class TokenService {
   private connection: Connection
 
   constructor() {
+    console.log('TokenService: Using RPC URL:', solanaConfig.rpcUrl)
+    console.log('TokenService: Network:', solanaConfig.network)
     this.connection = new Connection(
       solanaConfig.rpcUrl,
       solanaConfig.commitment
