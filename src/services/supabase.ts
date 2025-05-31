@@ -1078,6 +1078,39 @@ export class SupabaseService {
         return []
       }
 
+      // Special handling for filters that might return empty results
+      if ((!data || data.length === 0) && (filter === 'featured' || filter === 'volume')) {
+        console.log(`${filter} filter returned no results, falling back to showing all tokens`)
+        
+        // Fallback to showing all active tokens sorted appropriately
+        let fallbackSort = 'created_at'
+        if (filter === 'volume') fallbackSort = 'market_cap'
+        if (filter === 'featured') fallbackSort = 'market_cap' // Show highest market cap tokens as "featured"
+        
+        const fallbackQuery = await supabase
+          .from('tokens')
+          .select('*')
+          .eq('status', 'active')
+          .order(fallbackSort, { ascending: false })
+          .limit(limit)
+          
+        if (fallbackQuery.error) {
+          console.error('Fallback query failed:', fallbackQuery.error)
+          return []
+        }
+        
+        // Mark fallback featured tokens as "featured" for display purposes
+        const fallbackData = fallbackQuery.data || []
+        if (filter === 'featured' && fallbackData.length > 0) {
+          return this.processTrendingTokens(fallbackData.map((token, index) => ({
+            ...token,
+            is_featured: index < 3 // Mark top 3 as featured for display
+          })))
+        }
+        
+        return this.processTrendingTokens(fallbackData)
+      }
+
       return this.processTrendingTokens(data || [])
     } catch (error) {
       console.error('Failed to get trending tokens:', error)
