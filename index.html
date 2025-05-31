@@ -67,12 +67,9 @@
 
     <!-- Critical browser polyfills and environment setup -->
     <script>
-      console.log('=== GitHub Pages CDN Polyfills Loading ===');
-      
       // 1. Global and process polyfills (must be first)
       if (typeof global === 'undefined') {
         window.global = window;
-        console.log('✓ Global polyfill applied');
       }
       
       if (typeof process === 'undefined') {
@@ -81,7 +78,6 @@
           browser: true,
           nextTick: function(fn) { setTimeout(fn, 0); }
         };
-        console.log('✓ Process polyfill applied');
       }
       
       // 2. Ensure WebCrypto is available (critical for Supabase)
@@ -93,27 +89,21 @@
             throw new Error('WebCrypto not available in this context. Supabase requires HTTPS.');
           }
         };
-      } else {
-        console.log('✓ WebCrypto API available');
       }
       
       // 3. Buffer polyfill for Solana
       if (typeof Buffer === 'undefined') {
         try {
           window.Buffer = require('buffer').Buffer;
-          console.log('✓ Buffer polyfill applied via require');
         } catch (e) {
           window.Buffer = {
             from: function(data) { return new Uint8Array(data); },
             isBuffer: function() { return false; }
           };
-          console.log('✓ Minimal Buffer polyfill applied');
         }
       }
       
       // 4. AGGRESSIVE: Patch all possible header access points
-      console.log('Applying aggressive header polyfills...');
-      
       // Ensure Headers constructor exists and works
       if (typeof Headers === 'undefined' || !Headers.prototype.get) {
         console.warn('⚠️ Headers API missing or broken, creating polyfill...');
@@ -220,7 +210,6 @@
         if (headers.get('test') !== 'value' || typeof testResponse.headers.get !== 'function') {
           throw new Error('Header polyfills failed validation');
         }
-        console.log('✓ Aggressive header polyfills applied');
       } catch (error) {
         console.error('❌ Header polyfill validation failed:', error);
       }
@@ -262,32 +251,6 @@
           throw error;
         });
       };
-      
-      console.log('Final environment check:', {
-        hasGlobal: typeof global !== 'undefined',
-        hasProcess: typeof process !== 'undefined',
-        hasBuffer: typeof Buffer !== 'undefined',
-        hasWebCrypto: !!(window.crypto && window.crypto.subtle),
-        hasFetch: typeof fetch !== 'undefined',
-        hasHeaders: typeof Headers !== 'undefined',
-        hasResponse: typeof Response !== 'undefined',
-        headersWorking: (() => {
-          try {
-            const h = new Headers();
-            return typeof h.get === 'function';
-          } catch (e) {
-            return false;
-          }
-        })(),
-        responseWorking: (() => {
-          try {
-            const r = new Response('test');
-            return !!(r.headers && typeof r.headers.get === 'function');
-          } catch (e) {
-            return false;
-          }
-        })()
-      });
     </script>
     
     <!-- CDN Supabase to bypass bundling issues -->
@@ -296,7 +259,6 @@
       // Make Supabase globally available for our app
       if (window.supabase && window.supabase.createClient) {
         window.__SUPABASE_CDN__ = window.supabase;
-        console.log('✓ Supabase CDN loaded successfully');
       } else {
         console.warn('⚠️ Supabase CDN failed to load');
       }

@@ -17,6 +17,4 @@ if (typeof window !== 'undefined') {
   if (typeof window.process === 'undefined') {
     window.process = { env: {} } as any
   }
-}
-
-console.log('Polyfills loaded - Buffer available:', typeof Buffer !== 'undefined') 
+} 

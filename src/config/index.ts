@@ -10,12 +10,6 @@ const getEnvVar = (key: string, fallback?: string): string => {
   return value || fallback!
 }
 
-// Debug Supabase environment variables
-console.log('=== SUPABASE CONFIG DEBUG ===')
-console.log('VITE_SUPABASE_URL from env:', import.meta.env.VITE_SUPABASE_URL)
-console.log('VITE_SUPABASE_ANON_KEY from env:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'PROVIDED' : 'MISSING')
-console.log('=== SUPABASE CONFIG DEBUG END ===')
-
 export const config = {
   // Supabase configuration for backend integration
   supabase: {
@@ -100,16 +94,6 @@ export const config = {
     toastDuration: 5000 // 5 seconds
   }
 } as const
-
-// Debug logging for environment variables
-console.log('=== CONFIG DEBUG ===')
-console.log('Environment MODE:', import.meta.env.MODE)
-console.log('Environment PROD:', import.meta.env.PROD)
-console.log('Environment DEV:', import.meta.env.DEV)
-console.log('VITE_SOLANA_RPC_URL env var:', import.meta.env.VITE_SOLANA_RPC_URL)
-console.log('VITE_SOLANA_NETWORK env var:', import.meta.env.VITE_SOLANA_NETWORK)
-console.log('Final solana config:', config.solana)
-console.log('=== CONFIG DEBUG END ===')
 
 // Export individual configurations for easier imports
 export const {

@@ -160,9 +160,6 @@ router.beforeEach(async (to, from, next) => {
 
 // Global after hook for analytics and cleanup
 router.afterEach((to, from) => {
-  // Log page views for analytics (you can integrate Google Analytics here)
-  console.log(`Navigation: ${String(from.name)} -> ${String(to.name)}`)
-  
   // Close mobile menu if open (can be implemented later)
   // uiStore.closeMobileMenu()
 })

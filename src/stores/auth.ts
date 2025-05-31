@@ -156,8 +156,6 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function setupAuthListener() {
     return SupabaseAuth.onAuthStateChange(async (event, session) => {
-      console.log('Auth: Supabase auth state changed:', event)
-      
       if (event === 'SIGNED_IN' && session) {
         supabaseSession.value = session
         supabaseUser.value = session.user
