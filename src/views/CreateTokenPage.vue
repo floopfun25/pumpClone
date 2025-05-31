@@ -255,8 +255,8 @@ const handleWalletConnected = (walletName: string) => {
   showWalletModal.value = false
   uiStore.showToast({
     type: 'success',
-    title: 'Wallet Connected',
-    message: `Successfully connected to ${walletName}`
+    title: '🔗 Wallet Connected Successfully',
+    message: `Connected to ${walletName} wallet`
   })
 }
 

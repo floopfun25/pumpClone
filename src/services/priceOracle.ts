@@ -281,6 +281,26 @@ class PriceOracleService {
     
     return null
   }
+
+  // Subscribe to real-time price updates (WebSocket simulation)
+  subscribe(mintAddress: string, callback: (priceData: PriceData) => void): () => void {
+    const interval = setInterval(async () => {
+      try {
+        const priceData = mintAddress === 'SOL' 
+          ? await this.getSOLPrice()
+          : await this.getTokenPrice(mintAddress)
+        
+        if (priceData) {
+          callback(priceData)
+        }
+      } catch (error) {
+        console.error('Error in price subscription:', error)
+      }
+    }, 10000) // Update every 10 seconds
+    
+    // Return unsubscribe function
+    return () => clearInterval(interval)
+  }
 }
 
 // Create singleton instance
@@ -311,5 +331,17 @@ export function formatMarketCap(marketCap: number): string {
     return `$${(marketCap / 1e3).toFixed(2)}K`
   } else {
     return `$${marketCap.toFixed(2)}`
+  }
+}
+
+export function formatVolume(volume: number): string {
+  if (volume >= 1e9) {
+    return `${(volume / 1e9).toFixed(2)}B`
+  } else if (volume >= 1e6) {
+    return `${(volume / 1e6).toFixed(2)}M`
+  } else if (volume >= 1e3) {
+    return `${(volume / 1e3).toFixed(2)}K`
+  } else {
+    return volume.toFixed(2)
   }
 } 

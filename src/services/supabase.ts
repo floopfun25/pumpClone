@@ -752,205 +752,157 @@ export class SupabaseService {
   }
 
   /**
-   * Get price history for a token chart
+   * Get token price history for charts
    * Used for chart visualization
    */
-  static async getTokenPriceHistory(tokenId: string, timeframe: string) {
+  static async getTokenPriceHistory(tokenId: string, timeframe: string): Promise<any[]> {
     try {
-      // Calculate the date range based on timeframe
+      // Calculate time range based on timeframe
       const now = new Date()
-      let startDate = new Date()
+      let startDate: Date
       
       switch (timeframe) {
         case '1h':
-          startDate = new Date(now.getTime() - 60 * 60 * 1000) // 1 hour ago
+          startDate = new Date(now.getTime() - 60 * 60 * 1000)
+          break
+        case '4h':
+          startDate = new Date(now.getTime() - 4 * 60 * 60 * 1000)
           break
         case '24h':
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
           break
         case '7d':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
           break
         case '30d':
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
           break
         default:
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000) // Default 24h
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
       }
 
-      // For now, we'll generate some sample data based on transactions
-      // In a real implementation, you'd have a price_history table
-      const { data: transactions, error } = await supabase
-        .from('transactions')
-        .select('created_at, price_per_token, sol_amount, token_amount')
+      const { data, error } = await supabase
+        .from('token_price_history')
+        .select('*')
         .eq('token_id', tokenId)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: true })
+        .gte('timestamp', startDate.toISOString())
+        .order('timestamp', { ascending: true })
 
-      if (error) throw error
-
-      // If no transactions, generate some placeholder data
-      if (!transactions || transactions.length === 0) {
-        return this.generatePlaceholderPriceData(timeframe)
+      if (error) {
+        console.error('Error fetching token price history:', error)
+        return []
       }
 
-      // Process transactions into price points
-      const pricePoints = transactions.map((tx: any) => ({
-        timestamp: tx.created_at,
-        price: tx.price_per_token || 0.000001,
-        volume: tx.sol_amount || 0
-      }))
-
-      // If we have less than 10 points, interpolate more data
-      if (pricePoints.length < 10) {
-        return this.interpolatePriceData(pricePoints, timeframe)
-      }
-
-      return pricePoints
+      return data || []
     } catch (error) {
       console.error('Failed to get token price history:', error)
-      // Return placeholder data on error
-      return this.generatePlaceholderPriceData(timeframe)
+      return []
     }
   }
 
   /**
-   * Generate placeholder price data for charts when no real data exists
+   * Store token price data for historical tracking
+   * Used for chart visualization
    */
-  private static generatePlaceholderPriceData(timeframe: string) {
-    const points = timeframe === '1h' ? 12 : timeframe === '24h' ? 24 : timeframe === '7d' ? 14 : 30
-    const basePrice = 0.000001 + Math.random() * 0.001
-    const data = []
-    
-    const now = new Date()
-    const interval = timeframe === '1h' ? 5 * 60 * 1000 : // 5 minutes
-                     timeframe === '24h' ? 60 * 60 * 1000 : // 1 hour  
-                     timeframe === '7d' ? 12 * 60 * 60 * 1000 : // 12 hours
-                     24 * 60 * 60 * 1000 // 24 hours
-
-    for (let i = 0; i < points; i++) {
-      const timestamp = new Date(now.getTime() - (points - 1 - i) * interval)
-      const volatility = 0.1 // 10% volatility
-      const change = (Math.random() - 0.5) * volatility
-      const price = Math.max(0.000001, basePrice * (1 + change))
-      
-      data.push({
-        timestamp: timestamp.toISOString(),
-        price,
-        volume: Math.random() * 1000
-      })
-    }
-
-    return data
-  }
-
-  /**
-   * Interpolate price data to have more data points for smoother charts
-   */
-  private static interpolatePriceData(pricePoints: any[], timeframe: string) {
-    if (pricePoints.length === 0) {
-      return this.generatePlaceholderPriceData(timeframe)
-    }
-
-    if (pricePoints.length === 1) {
-      // Single point, create a flat line with small variations
-      const basePrice = pricePoints[0].price
-      const data = []
-      const points = 20
-      const now = new Date()
-      const interval = 60 * 60 * 1000 // 1 hour
-
-      for (let i = 0; i < points; i++) {
-        const timestamp = new Date(now.getTime() - (points - 1 - i) * interval)
-        const variation = (Math.random() - 0.5) * 0.02 // 2% variation
-        
-        data.push({
-          timestamp: timestamp.toISOString(),
-          price: basePrice * (1 + variation),
-          volume: pricePoints[0].volume || 0
-        })
-      }
-
-      return data
-    }
-
-    // Multiple points, interpolate between them
-    return pricePoints
-  }
-
-  /**
-   * Get trending tokens based on different criteria
-   * Used for King of the Hill trending section
-   */
-  static async getTrendingTokens(sortBy: string = 'volume', limit: number = 10) {
+  static async storeTokenPriceData(tokenId: string, priceData: {
+    price: number
+    volume?: number
+    marketCap?: number
+    timestamp?: string
+  }): Promise<boolean> {
     try {
-      let orderColumn = 'volume_24h'
-      let ascending = false
+      const { error } = await supabase
+        .from('token_price_history')
+        .insert({
+          token_id: tokenId,
+          price: priceData.price,
+          volume: priceData.volume || 0,
+          market_cap: priceData.marketCap || 0,
+          timestamp: priceData.timestamp || new Date().toISOString()
+        })
 
-      switch (sortBy) {
-        case 'volume':
-          orderColumn = 'volume_24h'
-          ascending = false
-          break
-        case 'price':
-          orderColumn = 'current_price'
-          ascending = false
-          break
-        case 'holders':
-          orderColumn = 'holders_count'
-          ascending = false
-          break
-        case 'new':
-          orderColumn = 'created_at'
-          ascending = false
-          break
-        case 'featured':
-          // Special case for featured tokens
-          break
-        default:
-          orderColumn = 'volume_24h'
-          ascending = false
+      if (error) {
+        console.error('Error storing token price data:', error)
+        return false
       }
 
-      let query = supabase
+      return true
+    } catch (error) {
+      console.error('Failed to store token price data:', error)
+      return false
+    }
+  }
+
+  /**
+   * Get market statistics for dashboard
+   */
+  static async getMarketStats(): Promise<{
+    totalTokens: number
+    totalVolume24h: number
+    totalMarketCap: number
+    activeTraders24h: number
+  }> {
+    try {
+      const [tokensResult, volumeResult, tradersResult] = await Promise.all([
+        supabase
+          .from('tokens')
+          .select('id', { count: 'exact', head: true }),
+        
+        supabase
+          .from('transactions')
+          .select('sol_amount')
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        
+        supabase
+          .from('transactions')
+          .select('user_id', { count: 'exact' })
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      ])
+
+      const totalTokens = tokensResult.count || 0
+      const totalVolume24h = (volumeResult.data?.reduce((sum, transaction) => sum + (transaction.sol_amount || 0), 0) || 0) / 1e9 // Convert lamports to SOL
+      const totalMarketCap = totalTokens * 50000 // Mock calculation
+      const activeTraders24h = tradersResult.count || 0
+
+      return {
+        totalTokens,
+        totalVolume24h,
+        totalMarketCap,
+        activeTraders24h
+      }
+    } catch (error) {
+      console.error('Failed to get market stats:', error)
+      return {
+        totalTokens: 0,
+        totalVolume24h: 0,
+        totalMarketCap: 0,
+        activeTraders24h: 0
+      }
+    }
+  }
+
+  /**
+   * Get trending tokens based on recent activity
+   * Used for homepage and market analytics
+   */
+  static async getTrendingTokens(limit: number = 20) {
+    try {
+      const { data, error } = await supabase
         .from('tokens')
         .select(`
           *,
-          creator:users(id, username, wallet_address)
+          transactions!inner(sol_amount, created_at)
         `)
-
-      // Add filters based on sort type
-      if (sortBy === 'featured') {
-        query = query.eq('is_featured', true)
-        orderColumn = 'volume_24h' // Still sort featured by volume
-      }
-
-      // Get trending tokens
-      const { data: tokens, error } = await query
-        .order(orderColumn, { ascending })
+        .gte('transactions.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching trending tokens:', error)
+        return []
+      }
 
-      // Calculate additional metrics for trending display
-      const trendingTokens = (tokens || []).map((token: any) => {
-        // Calculate mock price change (in real app, you'd track this)
-        const mockPriceChange = (Math.random() - 0.5) * 40 // -20% to +20%
-        const mockVolumeChange = Math.random() * 200 // 0% to 200%
-        
-        return {
-          ...token,
-          price_change_24h: mockPriceChange,
-          volume_24h_change: mockVolumeChange,
-          // Ensure bonding curve progress is calculated
-          bonding_curve_progress: token.bonding_curve_progress || Math.min(
-            (token.market_cap / 69000) * 100, 
-            100
-          )
-        }
-      })
-
-      return trendingTokens
+      return data || []
     } catch (error) {
       console.error('Failed to get trending tokens:', error)
       return []

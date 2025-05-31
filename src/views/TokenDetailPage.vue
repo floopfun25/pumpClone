@@ -73,10 +73,11 @@
           <!-- Left Column: Chart & Trading -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Price Chart -->
-            <TokenChart 
+            <SimpleTokenChart 
               v-if="token?.id" 
               :token-id="token.id"
               :token-symbol="token.symbol"
+              :mint-address="token.mint_address"
             />
 
             <!-- Trading Interface -->
@@ -172,32 +173,136 @@
 
           <!-- Right Column: Token Info & Activity -->
           <div class="space-y-6">
-            <!-- Token Stats -->
+            <!-- Real-time Market Analytics -->
+            <div v-if="tokenAnalytics" class="card">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Live Analytics</h3>
+                <div class="flex items-center space-x-2">
+                  <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span class="text-xs text-green-600">Real-time</span>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div class="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wide">RSI</div>
+                  <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
+                    {{ formatRSI(tokenAnalytics.technicalIndicators.rsi) }}
+                  </div>
+                </div>
+                
+                <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div class="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide">Volatility</div>
+                  <div class="text-lg font-bold text-purple-900 dark:text-purple-100">
+                    {{ tokenAnalytics.technicalIndicators.volatility.toFixed(1) }}%
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Sentiment</span>
+                  <span :class="formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).color" class="font-medium">
+                    {{ formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).text }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Risk Level</span>
+                  <span :class="formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).color" class="font-medium">
+                    {{ formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).text }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">24h Transactions</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ tokenAnalytics.marketData.transactions24h }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enhanced Token Stats -->
             <div class="card">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Token Stats</h3>
               <div class="space-y-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Current Price</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ token?.current_price?.toFixed(8) || '0.00000000' }}
+                  </span>
+                </div>
+                
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Market Cap</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ marketCapFormatted }}
                   </span>
                 </div>
+                
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">24h Volume</span>
                   <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ token?.volume_24h ? formatNumber(token.volume_24h) : '0' }}
+                    ${{ tokenAnalytics ? formatVolume(tokenAnalytics.marketData.volume24h) : formatNumber(token?.volume_24h || 0) }}
                   </span>
                 </div>
+                
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Holders</span>
                   <span class="font-medium text-gray-900 dark:text-white">
-                    {{ token?.holders_count || 0 }}
+                    {{ tokenAnalytics ? tokenAnalytics.marketData.holders : (token?.holders_count || 0) }}
                   </span>
                 </div>
+                
                 <div class="flex justify-between">
                   <span class="text-gray-600 dark:text-gray-400">Total Supply</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ token?.total_supply ? formatNumber(token.total_supply) : '0' }}
+                  </span>
+                </div>
+                
+                <div v-if="tokenAnalytics" class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Liquidity</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ formatNumber(tokenAnalytics.marketData.liquidity) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Technical Indicators -->
+            <div v-if="tokenAnalytics" class="card">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Technical Analysis</h3>
+              <div class="space-y-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">7D SMA</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ tokenAnalytics.technicalIndicators.price_sma_7d.toFixed(8) }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">30D SMA</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    ${{ tokenAnalytics.technicalIndicators.price_sma_30d.toFixed(8) }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Momentum</span>
+                  <span :class="[
+                    'font-medium',
+                    tokenAnalytics.technicalIndicators.momentum >= 0 ? 'text-green-600' : 'text-red-600'
+                  ]">
+                    {{ tokenAnalytics.technicalIndicators.momentum >= 0 ? '+' : '' }}{{ tokenAnalytics.technicalIndicators.momentum.toFixed(2) }}%
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Volume SMA</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ formatVolume(tokenAnalytics.technicalIndicators.volume_sma) }}
                   </span>
                 </div>
               </div>
@@ -205,23 +310,54 @@
 
             <!-- Bonding Curve Progress -->
             <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Progress</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Progress to DEX</h3>
               <div class="space-y-2">
                 <div class="flex justify-between text-sm">
                   <span class="text-gray-600 dark:text-gray-400">Bonding Curve Progress</span>
                   <span class="font-medium text-gray-900 dark:text-white">
-                    {{ token?.bonding_curve_progress || 0 }}%
+                    {{ progressPercentage }}%
                   </span>
                 </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div 
                     class="bg-gradient-to-r from-pump-green to-primary-500 h-3 rounded-full transition-all duration-300" 
-                    :style="`width: ${token?.bonding_curve_progress || 0}%`"
+                    :style="`width: ${progressPercentage}%`"
                   ></div>
                 </div>
+                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>${{ formatNumber(token?.market_cap || 0) }}</span>
+                  <span>$69K Goal</span>
+                </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  When the market cap reaches $69K, all liquidity will be deposited to DEX.
+                  When the market cap reaches $69K, all liquidity will be deposited to DEX and the token will graduate.
                 </p>
+              </div>
+            </div>
+
+            <!-- Social Metrics (if available) -->
+            <div v-if="tokenAnalytics" class="card">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Social Activity</h3>
+              <div class="space-y-3">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">24h Mentions</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ tokenAnalytics.socialMetrics.mentions_24h }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Trending Rank</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    #{{ tokenAnalytics.socialMetrics.trending_rank }}
+                  </span>
+                </div>
+                
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Community Activity</span>
+                  <span class="font-medium text-gray-900 dark:text-white">
+                    {{ tokenAnalytics.socialMetrics.community_activity.toFixed(1) }}/100
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -259,17 +395,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { solanaProgram } from '@/services/solanaProgram'
-import TokenChart from '@/components/token/TokenChart.vue'
+import { marketAnalyticsService, formatRSI, formatSentiment, formatRiskLevel, type TokenAnalytics } from '@/services/marketAnalytics'
+import { formatVolume } from '@/services/priceOracle'
 import TokenComments from '@/components/token/TokenComments.vue'
 import SocialShare from '@/components/social/SocialShare.vue'
 import DirectMessages from '@/components/social/DirectMessages.vue'
+import SimpleTokenChart from '@/components/charts/SimpleTokenChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -286,6 +424,10 @@ const error = ref('')
 const token = ref<any>(null)
 const recentTrades = ref<any[]>([])
 
+// Market analytics data
+const tokenAnalytics = ref<TokenAnalytics | null>(null)
+let analyticsSubscription: (() => void) | null = null
+
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
 const tokenSymbol = computed(() => token.value?.symbol || 'N/A')
@@ -295,6 +437,12 @@ const tokenDescription = computed(() => token.value?.description || 'No descript
 const marketCapFormatted = computed(() => {
   if (!token.value?.market_cap) return '$0'
   return `$${formatNumber(token.value.market_cap)}`
+})
+
+const progressPercentage = computed(() => {
+  const marketCap = token.value?.market_cap || 0
+  const graduationThreshold = 69000 // $69K
+  return Math.min(100, (marketCap / graduationThreshold) * 100)
 })
 
 const shareData = computed(() => ({
@@ -439,6 +587,28 @@ const loadTokenData = async () => {
       user: tx.user?.username || `${tx.user?.wallet_address?.slice(0, 4)}...${tx.user?.wallet_address?.slice(-4)}`
     }))
     
+    // Load market analytics
+    try {
+      const analytics = await marketAnalyticsService.getTokenAnalytics(mintAddress)
+      tokenAnalytics.value = analytics
+      
+      // Set up real-time analytics subscription
+      if (analyticsSubscription) {
+        analyticsSubscription()
+      }
+      
+      analyticsSubscription = marketAnalyticsService.subscribeToTokenAnalytics(
+        mintAddress,
+        (updatedAnalytics) => {
+          tokenAnalytics.value = updatedAnalytics
+        }
+      )
+      
+    } catch (analyticsError) {
+      console.warn('Failed to load token analytics:', analyticsError)
+      // Continue without analytics - not critical
+    }
+    
   } catch (err) {
     console.error('Failed to load token:', err)
     error.value = err instanceof Error ? err.message : 'Failed to load token'
@@ -482,5 +652,10 @@ const formatNumber = (num: number): string => {
 
 onMounted(() => {
   loadTokenData()
+})
+
+onUnmounted(() => {
+  // Clean up analytics subscription
+  analyticsSubscription?.()
 })
 </script> 

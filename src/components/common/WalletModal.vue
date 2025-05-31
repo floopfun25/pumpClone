@@ -193,8 +193,8 @@ const connectWallet = async (walletName: string) => {
     
     uiStore.showToast({
       type: 'success',
-      title: 'Wallet Connected',
-      message: `Successfully connected to ${walletName}`
+      title: '🔗 Wallet Connected Successfully',
+      message: `Connected to ${walletName} wallet`
     })
     
   } catch (err) {
@@ -203,7 +203,7 @@ const connectWallet = async (walletName: string) => {
     
     uiStore.showToast({
       type: 'error',
-      title: 'Connection Failed',
+      title: '❌ Connection Failed',
       message: error.value
     })
   } finally {

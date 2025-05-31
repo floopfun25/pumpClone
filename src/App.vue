@@ -54,13 +54,21 @@ onMounted(async () => {
     isLoading.value = true
     uiStore.setLoading(true)
     
+    console.log('App: Starting initialization...')
+    
     // Initialize wallet connection if previously connected
+    console.log('App: Initializing wallet...')
     await walletStore.initializeWallet()
     
     // Initialize user session if wallet is connected
     if (walletStore.isConnected) {
+      console.log('App: Wallet connected, initializing user session...')
       await authStore.initializeUser()
+    } else {
+      console.log('App: No wallet connected after initialization')
     }
+    
+    console.log('App: Initialization complete')
     
   } catch (error) {
     console.error('App initialization error:', error)

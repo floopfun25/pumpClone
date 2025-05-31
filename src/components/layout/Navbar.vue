@@ -266,15 +266,15 @@ const disconnectWallet = async () => {
     
     uiStore.showToast({
       type: 'success',
-      title: 'Wallet Disconnected',
-      message: 'Successfully disconnected wallet'
+      title: '🔌 Wallet Disconnected Successfully',
+      message: 'Your wallet has been safely disconnected'
     })
   } catch (error) {
     console.error('Failed to disconnect wallet:', error)
     uiStore.showToast({
       type: 'error',
-      title: 'Disconnection Failed',
-      message: 'Failed to disconnect wallet'
+      title: '❌ Disconnection Failed',
+      message: 'Failed to disconnect wallet properly'
     })
   }
 }
