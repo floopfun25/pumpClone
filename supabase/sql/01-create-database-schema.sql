@@ -197,6 +197,36 @@ ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
 -- Create permissive RLS policies for development
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Allow public read access on users" ON public.users;
+DROP POLICY IF EXISTS "Allow users to insert their own profile" ON public.users;
+DROP POLICY IF EXISTS "Allow users to update their own profile" ON public.users;
+
+DROP POLICY IF EXISTS "Allow public read access on tokens" ON public.tokens;
+DROP POLICY IF EXISTS "Allow authenticated users to create tokens" ON public.tokens;
+DROP POLICY IF EXISTS "Allow creators to update their tokens" ON public.tokens;
+
+DROP POLICY IF EXISTS "Allow public read access on transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Allow authenticated users to create transactions" ON public.transactions;
+
+DROP POLICY IF EXISTS "Allow public read access on user_holdings" ON public.user_holdings;
+DROP POLICY IF EXISTS "Allow users to manage their holdings" ON public.user_holdings;
+
+DROP POLICY IF EXISTS "Allow public read access on token_comments" ON public.token_comments;
+DROP POLICY IF EXISTS "Allow authenticated users to create comments" ON public.token_comments;
+
+DROP POLICY IF EXISTS "Allow public read access on comment_likes" ON public.comment_likes;
+DROP POLICY IF EXISTS "Allow authenticated users to manage likes" ON public.comment_likes;
+
+DROP POLICY IF EXISTS "Allow public read access on token_price_history" ON public.token_price_history;
+DROP POLICY IF EXISTS "Allow authenticated users to insert price data" ON public.token_price_history;
+
+DROP POLICY IF EXISTS "Allow users to view their conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Allow users to create conversations" ON public.conversations;
+
+DROP POLICY IF EXISTS "Allow users to view their messages" ON public.messages;
+DROP POLICY IF EXISTS "Allow users to send messages" ON public.messages;
+
 -- Users table policies
 CREATE POLICY "Allow public read access on users" ON public.users
   FOR SELECT USING (true);
