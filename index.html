@@ -237,6 +237,27 @@
         }
         
         return originalFetch.call(this, input, init).then(response => {
+          // Log response details for debugging
+          console.log(`📡 Fetch response for ${input}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: response.headers
+          });
+          
+          // If response is not ok, log the error
+          if (!response.ok) {
+            console.error(`❌ Fetch failed for ${input}:`, response.status, response.statusText);
+            // Try to read the error message
+            response.clone().text().then(text => {
+              console.error('Error response body:', text);
+            }).catch(() => {
+              console.error('Could not read error response body');
+            });
+          } else {
+            console.log(`✅ Fetch successful for ${input}`);
+          }
+          
           // Ensure response has valid headers
           if (!response.headers || typeof response.headers.get !== 'function') {
             console.warn('⚠️ Fixing invalid response headers');
@@ -249,7 +270,7 @@
           }
           return response;
         }).catch(error => {
-          console.error('❌ Fetch error:', error);
+          console.error('❌ Fetch error for', input, ':', error);
           throw error;
         });
       };
