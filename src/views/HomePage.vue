@@ -1,12 +1,15 @@
 <template>
   <!-- Home page - main landing page with token listings -->
-  <div class="min-h-screen bg-gray-50 dark:bg-pump-dark">
-    <!-- Hero Section -->
-    <section class="bg-gradient-to-br from-primary-600 to-purple-700 text-white py-20">
-      <div class="container mx-auto px-4 text-center">
-        <h1 class="text-5xl font-bold mb-6">
+  <div class="min-h-screen bg-binance-dark">
+    <!-- Hero Section with Binance styling -->
+    <section class="bg-binance-gradient text-white py-20 relative overflow-hidden">
+      <!-- Background pattern -->
+      <div class="absolute inset-0 bg-binance-pattern opacity-30"></div>
+      
+      <div class="container mx-auto px-4 text-center relative z-10">
+        <h1 class="text-5xl font-bold mb-6 text-shadow">
           Create & Trade 
-          <span class="text-gradient">Meme Tokens</span>
+          <span class="text-binance-gradient">Meme Tokens</span>
         </h1>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">
           Launch your own token with fair launch bonding curves. 
@@ -17,159 +20,140 @@
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <router-link 
             to="/create" 
-            class="btn-success px-8 py-4 text-lg font-semibold"
+            class="btn-success px-8 py-4 text-lg font-semibold glow-green"
           >
             🚀 Create Token
           </router-link>
           <button 
             @click="scrollToTokens"
-            class="btn-secondary px-8 py-4 text-lg font-semibold bg-white/20 text-white border-white/30"
+            class="btn-secondary px-8 py-4 text-lg font-semibold bg-white/10 text-white border-white/20 hover:bg-white/20"
           >
             📈 Browse Tokens
           </button>
         </div>
       </div>
+      
+      <!-- Floating elements -->
+      <div class="absolute top-20 left-10 w-20 h-20 bg-binance-yellow/20 rounded-full animate-pulse"></div>
+      <div class="absolute bottom-20 right-10 w-16 h-16 bg-trading-buy/20 rounded-full animate-bounce"></div>
     </section>
     
     <!-- Stats Section -->
-    <section class="py-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <section class="py-16 bg-trading-surface border-b border-binance-border">
       <div class="container mx-auto px-4">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          <div>
-            <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">
-              {{ formatNumber(stats.totalTokens) }}
-            </div>
-            <div class="text-gray-600 dark:text-gray-400">Tokens Created</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div class="text-center">
+            <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.totalTokens) }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">Total Tokens</div>
           </div>
-          <div>
-            <div class="text-3xl font-bold text-pump-green">
-              {{ formatNumber(stats.totalVolume) }} SOL
-            </div>
-            <div class="text-gray-600 dark:text-gray-400">Total Volume</div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-trading-buy mb-2">{{ formatNumber(stats.totalVolume) }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">Volume (SOL)</div>
           </div>
-          <div>
-            <div class="text-3xl font-bold text-purple-600">
-              {{ formatNumber(stats.totalUsers) }}
-            </div>
-            <div class="text-gray-600 dark:text-gray-400">Active Users</div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-white mb-2">{{ formatNumber(stats.totalUsers) }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">Total Users</div>
           </div>
-          <div>
-            <div class="text-3xl font-bold text-orange-600">
-              {{ formatNumber(stats.graduatedTokens) }}
-            </div>
-            <div class="text-gray-600 dark:text-gray-400">Graduated</div>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.graduatedTokens) }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">Graduated</div>
           </div>
         </div>
       </div>
     </section>
-    
-    <!-- Trending Section -->
-    <section class="py-12 bg-white dark:bg-gray-800">
+
+    <!-- Trending Tokens Section -->
+    <section class="py-16 bg-binance-dark">
       <div class="container mx-auto px-4">
-        <TrendingTokens :limit="5" />
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-bold text-white mb-4">🔥 Trending Tokens</h2>
+          <p class="text-binance-gray max-w-2xl mx-auto">
+            Discover the hottest meme tokens with the highest trading volume and community engagement
+          </p>
+        </div>
+        
+        <TrendingTokens />
       </div>
     </section>
-    
-    <!-- Search Section -->
-    <div class="container mx-auto px-4 mb-12">
-      <div class="max-w-2xl mx-auto">
-        <!-- Toggle Advanced Search -->
-        <div class="text-center mb-6">
-          <button
-            @click="showAdvancedSearch = !showAdvancedSearch"
-            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
-          >
-            {{ showAdvancedSearch ? '🔍 Hide Advanced Search' : '🎯 Show Advanced Search' }}
-          </button>
-        </div>
-        
-        <!-- Advanced Search Panel -->
-        <div v-if="showAdvancedSearch" class="mb-8">
-          <AdvancedSearch
-            :loading="searchLoading"
-            :result-count="searchResults.length"
-            @search="handleSearch"
-            @filter-change="handleFilterChange"
-          />
-        </div>
-        
-        <!-- Simple Search (when advanced is hidden) -->
-        <div v-else class="relative">
-          <input 
-            v-model="simpleQuery"
-            @input="handleSimpleSearch"
-            type="text" 
-            placeholder="Search tokens by name, symbol, or creator..."
-            class="w-full px-6 py-4 pl-14 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Main Content: Token Listings -->
-    <section id="tokens" class="py-12">
+
+    <!-- Main Tokens Section -->
+    <section id="tokens" class="py-16 bg-trading-surface">
       <div class="container mx-auto px-4">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+        <!-- Section Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Explore Tokens
-            </h2>
-            <p class="text-gray-600 dark:text-gray-400">
-              Discover the latest meme tokens on Solana
-            </p>
+            <h2 class="text-3xl font-bold text-white mb-2">All Tokens</h2>
+            <p class="text-binance-gray">Browse all available tokens in the ecosystem</p>
           </div>
           
-          <!-- Filter and Sort Controls -->
-          <div class="flex flex-wrap gap-4">
-            <select 
-              v-model="sortBy" 
-              class="input-field text-sm"
-              @change="loadTokens"
-            >
-              <option value="created_at">Newest</option>
-              <option value="market_cap">Market Cap</option>
-              <option value="volume_24h">Volume</option>
-            </select>
+          <!-- Controls -->
+          <div class="flex flex-col sm:flex-row gap-4 mt-4 md:mt-0">
+            <!-- Search -->
+            <div class="relative">
+              <input
+                v-model="simpleQuery"
+                @keyup.enter="handleSimpleSearch"
+                type="text"
+                placeholder="Search tokens..."
+                class="input-field pl-10 w-full sm:w-64"
+              />
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
             
-            <select 
-              v-model="filterBy" 
-              class="input-field text-sm"
-              @change="loadTokens"
-            >
-              <option value="all">All Tokens</option>
-              <option value="active">Active</option>
-              <option value="graduated">Graduated</option>
-            </select>
+            <!-- Sort & Filter -->
+            <div class="flex gap-2">
+              <select 
+                v-model="sortBy" 
+                @change="() => loadTokens()"
+                class="input-field px-3 py-2 min-w-0"
+              >
+                <option value="created_at">Latest</option>
+                <option value="market_cap">Market Cap</option>
+                <option value="volume_24h">Volume</option>
+              </select>
+              
+              <button
+                @click="showAdvancedSearch = !showAdvancedSearch"
+                class="btn-secondary px-4 py-2 whitespace-nowrap"
+              >
+                {{ showAdvancedSearch ? 'Hide' : 'Advanced' }}
+              </button>
+            </div>
           </div>
         </div>
         
-        <!-- Loading State -->
-        <div v-if="loading" class="flex justify-center py-12">
-          <div class="spinner w-8 h-8"></div>
+        <!-- Advanced Search -->
+        <div v-if="showAdvancedSearch" class="mb-8">
+          <AdvancedSearch 
+            @search="handleSearch"
+            @filter-change="handleFilterChange"
+            :loading="searchLoading"
+          />
         </div>
         
-        <!-- Token Grid -->
-        <div v-else-if="tokens.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          <TokenCard
-            v-for="token in tokens"
-            :key="token.id"
-            :token="token"
-            @click="goToToken(token.mint_address)"
-          />
+        <!-- Tokens Grid -->
+        <div v-if="tokens.length > 0" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <TokenCard
+              v-for="token in tokens"
+              :key="token.id"
+              :token="token"
+              class="trading-card hover:glow-gold"
+            />
+          </div>
         </div>
         
         <!-- Empty State -->
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🎭</div>
-          <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 class="text-xl font-semibold text-white mb-2">
             No tokens found
           </h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-6">
+          <p class="text-binance-gray mb-6">
             Be the first to create a meme token!
           </p>
           <router-link to="/create" class="btn-primary">
@@ -210,7 +194,7 @@ const router = useRouter()
 const tokens = ref<any[]>([])
 const loading = ref(true)
 const loadingMore = ref(false)
-const sortBy = ref('created_at')
+const sortBy = ref<'created_at' | 'market_cap' | 'volume_24h'>('created_at')
 const filterBy = ref('all')
 const page = ref(1)
 const hasMore = ref(true)
@@ -235,47 +219,57 @@ const formatNumber = (num: number): string => {
     return (num / 1000000).toFixed(1) + 'M'
   } else if (num >= 1000) {
     return (num / 1000).toFixed(1) + 'K'
+  } else {
+    return num.toString()
   }
-  return num.toString()
 }
 
 /**
- * Load dashboard statistics from database
+ * Load dashboard statistics
  */
 const loadStats = async () => {
   try {
-    const dashboardStats = await SupabaseService.getDashboardStats()
-    stats.value = dashboardStats
+    const data = await SupabaseService.getDashboardStats()
+    stats.value = data
   } catch (error) {
-    console.error('Failed to load dashboard stats:', error)
+    console.error('Failed to load stats:', error)
   }
 }
 
 /**
- * Load tokens from the database
- * Fetches tokens based on current sort and filter settings
+ * Load tokens from database
  */
-const loadTokens = async () => {
+const loadTokens = async (reset = true) => {
   try {
-    loading.value = true
-    page.value = 1
+    if (reset) {
+      loading.value = true
+      page.value = 1
+      tokens.value = []
+    } else {
+      loadingMore.value = true
+    }
     
-    const tokenData = await SupabaseService.getTokens({
+    const data = await SupabaseService.getTokens({
       page: page.value,
       limit: 20,
-      sortBy: sortBy.value as 'created_at' | 'market_cap' | 'volume_24h',
-      status: filterBy.value === 'all' ? undefined : filterBy.value
+      sortBy: sortBy.value,
+      sortOrder: 'desc',
+      status: 'active'
     })
     
-    tokens.value = tokenData
-    hasMore.value = tokenData.length === 20 // If we got a full page, there might be more
+    if (reset) {
+      tokens.value = data
+    } else {
+      tokens.value.push(...data)
+    }
+    
+    hasMore.value = data.length === 20
     
   } catch (error) {
     console.error('Failed to load tokens:', error)
-    tokens.value = []
-    hasMore.value = false
   } finally {
     loading.value = false
+    loadingMore.value = false
   }
 }
 
@@ -283,32 +277,10 @@ const loadTokens = async () => {
  * Load more tokens for pagination
  */
 const loadMoreTokens = async () => {
-  try {
-    loadingMore.value = true
-    page.value += 1
-    
-    const moreTokens = await SupabaseService.getTokens({
-      page: page.value,
-      limit: 20,
-      sortBy: sortBy.value as 'created_at' | 'market_cap' | 'volume_24h',
-      status: filterBy.value === 'all' ? undefined : filterBy.value
-    })
-    
-    tokens.value.push(...moreTokens)
-    hasMore.value = moreTokens.length === 20
-    
-  } catch (error) {
-    console.error('Failed to load more tokens:', error)
-  } finally {
-    loadingMore.value = false
-  }
-}
-
-/**
- * Navigate to token detail page
- */
-const goToToken = (mintAddress: string) => {
-  router.push(`/token/${mintAddress}`)
+  if (loadingMore.value || !hasMore.value) return
+  
+  page.value += 1
+  await loadTokens(false)
 }
 
 /**
@@ -364,9 +336,23 @@ onMounted(async () => {
 <style scoped>
 /* Component-specific styles */
 .text-gradient {
-  background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+  background: linear-gradient(135deg, #f0b90b 0%, #fcd34d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Binance-specific animations */
+@keyframes glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(240, 185, 11, 0.3); 
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(240, 185, 11, 0.6); 
+  }
+}
+
+.glow-gold:hover {
+  animation: glow 2s ease-in-out infinite;
 }
 </style> 

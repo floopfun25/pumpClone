@@ -3,19 +3,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom CSS variables for theme consistency */
+/* Binance-inspired CSS variables for theme consistency */
 :root {
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --success-gradient: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
-  --danger-gradient: linear-gradient(135deg, #ff6b6b 0%, #e74c3c 100%);
-  --dark-gradient: linear-gradient(135deg, #1a1b23 0%, #13141a 100%);
+  /* Dark theme as default (Binance style) */
+  --bg-primary: #0b0e11;
+  --bg-secondary: #1e2329;
+  --bg-elevated: #2b3139;
+  --text-primary: #ffffff;
+  --text-secondary: #848e9c;
+  --border-primary: #2b3139;
+  --accent-primary: #f0b90b;
+  --accent-secondary: #d97706;
+  --success-color: #03a66d;
+  --danger-color: #f6465d;
+  --info-color: #1890ff;
+  
+  /* Gradient variables */
+  --binance-gradient: linear-gradient(135deg, #0b0e11 0%, #1e2329 100%);
+  --gold-gradient: linear-gradient(135deg, #f0b90b 0%, #d97706 100%);
+  --success-gradient: linear-gradient(135deg, #03a66d 0%, #02c076 100%);
+  --danger-gradient: linear-gradient(135deg, #f6465d 0%, #ff6b87 100%);
+}
+
+/* Light theme variables (when toggled) */
+:root.light {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-elevated: #fafafa;
+  --text-primary: #1e2329;
+  --text-secondary: #848e9c;
+  --border-primary: #e5e5e5;
+  --accent-primary: #f0b90b;
+  --accent-secondary: #d97706;
+  --success-color: #03a66d;
+  --danger-color: #f6465d;
+  --info-color: #1890ff;
 }
 
 /* Global base styles */
 @layer base {
-  /* Set default font family to Inter for modern look */
+  /* Set default to dark mode */
   html {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
   }
   
   /* Smooth scrolling behavior */
@@ -23,92 +54,149 @@
     scroll-behavior: smooth;
   }
   
-  /* Remove default button and input styles */
-  button, input, textarea, select {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  /* Body styling with Binance dark theme */
+  body {
+    background: var(--binance-gradient);
+    color: var(--text-primary);
+    font-feature-settings: 'cv03', 'cv04', 'cv11';
   }
   
-  /* Custom scrollbar styles */
+  /* Remove default button and input styles */
+  button, input, textarea, select {
+    @apply focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2 focus:ring-offset-binance-dark;
+  }
+  
+  /* Custom scrollbar styles with Binance colors */
   ::-webkit-scrollbar {
     width: 6px;
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800;
+    background: var(--bg-secondary);
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+    background: var(--accent-primary);
+    border-radius: 3px;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
+    background: var(--accent-secondary);
   }
 }
 
-/* Custom component classes */
+/* Binance-inspired component classes */
 @layer components {
-  /* Primary button styling for consistent UI */
+  /* Primary button styling with Binance gold */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium py-2 px-4 rounded-lg;
-    @apply hover:from-primary-600 hover:to-primary-700 transition-all duration-200;
-    @apply focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-binance-yellow to-primary-600 text-binance-dark font-semibold py-2 px-4 rounded-lg;
+    @apply hover:from-primary-400 hover:to-primary-700 transition-all duration-200;
+    @apply focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2 focus:ring-offset-binance-dark;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply shadow-lg hover:shadow-xl transform hover:scale-105;
   }
   
   /* Success button for buy/positive actions */
   .btn-success {
-    @apply bg-gradient-to-r from-pump-green to-green-500 text-white font-medium py-2 px-4 rounded-lg;
-    @apply hover:from-green-500 hover:to-green-600 transition-all duration-200;
-    @apply focus:ring-2 focus:ring-green-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-trading-buy to-green-600 text-white font-semibold py-2 px-4 rounded-lg;
+    @apply hover:from-green-500 hover:to-green-700 transition-all duration-200;
+    @apply focus:ring-2 focus:ring-trading-buy focus:ring-offset-2 focus:ring-offset-binance-dark;
+    @apply shadow-lg hover:shadow-xl transform hover:scale-105;
   }
   
   /* Danger button for sell/negative actions */
   .btn-danger {
-    @apply bg-gradient-to-r from-pump-red to-red-500 text-white font-medium py-2 px-4 rounded-lg;
-    @apply hover:from-red-500 hover:to-red-600 transition-all duration-200;
-    @apply focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+    @apply bg-gradient-to-r from-trading-sell to-red-600 text-white font-semibold py-2 px-4 rounded-lg;
+    @apply hover:from-red-500 hover:to-red-700 transition-all duration-200;
+    @apply focus:ring-2 focus:ring-trading-sell focus:ring-offset-2 focus:ring-offset-binance-dark;
+    @apply shadow-lg hover:shadow-xl transform hover:scale-105;
   }
   
   /* Secondary button styling */
   .btn-secondary {
-    @apply bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium py-2 px-4 rounded-lg;
-    @apply hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200;
-    @apply border border-gray-300 dark:border-gray-600;
+    @apply bg-binance-card dark:bg-binance-card text-white dark:text-white font-semibold py-2 px-4 rounded-lg;
+    @apply hover:bg-trading-elevated dark:hover:bg-trading-elevated transition-all duration-200;
+    @apply border border-binance-border dark:border-binance-border;
+    @apply shadow hover:shadow-lg;
   }
   
-  /* Card component styling */
+  /* Card component styling with Binance theme */
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700;
-    @apply p-6 transition-shadow duration-200 hover:shadow-md;
+    @apply bg-binance-card dark:bg-binance-card rounded-xl shadow-lg border border-binance-border dark:border-binance-border;
+    @apply p-6 transition-all duration-200 hover:shadow-xl hover:border-binance-yellow/30;
+    backdrop-filter: blur(10px);
   }
   
   /* Input field styling */
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg;
-    @apply bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100;
-    @apply focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
-    @apply placeholder-gray-400 dark:placeholder-gray-500;
+    @apply w-full px-4 py-3 border border-binance-border dark:border-binance-border rounded-lg;
+    @apply bg-trading-surface dark:bg-trading-surface text-white dark:text-white;
+    @apply focus:border-binance-yellow focus:ring-1 focus:ring-binance-yellow;
+    @apply placeholder-binance-gray dark:placeholder-binance-gray;
+    @apply transition-all duration-200;
   }
   
   /* Token card specific styling */
   .token-card {
-    @apply card cursor-pointer transform transition-all duration-200;
-    @apply hover:scale-105 hover:shadow-lg;
+    @apply card cursor-pointer transform transition-all duration-300;
+    @apply hover:scale-102 hover:shadow-2xl hover:border-binance-yellow/50;
+    @apply relative overflow-hidden;
+  }
+  
+  /* Trading card with special effects */
+  .trading-card {
+    @apply card relative;
+    background: linear-gradient(145deg, var(--bg-secondary), var(--bg-elevated));
+  }
+  
+  .trading-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, transparent, var(--accent-primary), transparent);
+    border-radius: 0.75rem;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .trading-card:hover::before {
+    opacity: 1;
   }
   
   /* Price change indicators */
   .price-up {
-    @apply text-pump-green font-semibold;
+    @apply text-trading-buy font-bold;
   }
   
   .price-down {
-    @apply text-pump-red font-semibold;
+    @apply text-trading-sell font-bold;
   }
   
-  /* Loading spinner */
+  /* Loading spinner with Binance colors */
   .spinner {
-    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-500;
+    @apply animate-spin rounded-full border-2 border-binance-border border-t-binance-yellow;
+  }
+  
+  /* Navigation styling */
+  .nav-binance {
+    @apply bg-binance-dark/95 backdrop-blur-lg border-b border-binance-border;
+  }
+  
+  /* Table styling for trading interface */
+  .trading-table {
+    @apply bg-binance-card rounded-lg overflow-hidden;
+  }
+  
+  .trading-table th {
+    @apply bg-trading-elevated text-binance-gray text-xs font-semibold uppercase tracking-wider p-3;
+  }
+  
+  .trading-table td {
+    @apply p-3 border-t border-binance-border text-sm;
   }
 }
 
@@ -116,15 +204,35 @@
 @layer utilities {
   /* Gradient text effects */
   .text-gradient {
-    background: var(--primary-gradient);
+    background: var(--gold-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
-  /* Glass morphism effect */
+  .text-binance-gradient {
+    background: linear-gradient(135deg, #f0b90b 0%, #fcd34d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Glass morphism effect with dark theme */
   .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20;
+    @apply bg-binance-card/20 backdrop-blur-lg border border-binance-border/30;
+  }
+  
+  /* Binance-style glow effects */
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(240, 185, 11, 0.3);
+  }
+  
+  .glow-green {
+    box-shadow: 0 0 20px rgba(3, 166, 109, 0.3);
+  }
+  
+  .glow-red {
+    box-shadow: 0 0 20px rgba(246, 70, 93, 0.3);
   }
   
   /* Floating animation */
@@ -145,5 +253,27 @@
   
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+  
+  /* Binance-style backgrounds */
+  .bg-binance-pattern {
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(240, 185, 11, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(240, 185, 11, 0.05) 0%, transparent 50%);
+  }
+  
+  /* Trading interface specific styles */
+  .trading-row:hover {
+    @apply bg-binance-border/30;
+  }
+  
+  /* Scale effects */
+  .scale-102 {
+    transform: scale(1.02);
+  }
+  
+  /* Text shadow for better contrast */
+  .text-shadow {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 } 

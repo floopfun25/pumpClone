@@ -1,15 +1,15 @@
 <template>
-  <!-- Main navigation bar for the application -->
-  <nav class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+  <!-- Main navigation bar with Binance theme -->
+  <nav class="nav-binance sticky top-0 z-50">
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center h-16">
         <!-- Logo and Brand -->
         <router-link to="/" class="flex items-center space-x-3">
-          <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-sm">F</span>
+          <div class="w-8 h-8 bg-gold-gradient rounded-lg flex items-center justify-center glow-gold">
+            <span class="text-binance-dark font-bold text-sm">F</span>
           </div>
-          <span class="text-xl font-bold text-gray-900 dark:text-white">
-            FloppFun
+          <span class="text-xl font-bold text-white text-shadow">
+            Flopp<span class="text-binance-gradient">Fun</span>
           </span>
         </router-link>
         
@@ -17,25 +17,25 @@
         <div class="hidden md:flex items-center space-x-8">
           <router-link 
             to="/" 
-            class="nav-link text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
             Home
           </router-link>
           <router-link 
             to="/create" 
-            class="nav-link text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
             Create Token
           </router-link>
           <router-link 
             to="/leaderboard" 
-            class="nav-link text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
             Leaderboard
           </router-link>
           <router-link 
             to="/about" 
-            class="nav-link text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
             About
           </router-link>
@@ -50,23 +50,23 @@
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search tokens..."
-                class="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                class="pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-surface text-white focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow placeholder-binance-gray"
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-5 w-5 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
           </div>
           
-          <!-- Dark Mode Toggle -->
+          <!-- Theme Toggle -->
           <button 
-            @click="toggleDarkMode"
-            class="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            title="Toggle dark mode"
+            @click="toggleTheme"
+            class="p-2 text-binance-gray hover:text-binance-yellow transition-colors rounded-lg hover:bg-binance-border/30"
+            :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
           >
-            <svg v-if="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="!isDarkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,7 +78,7 @@
           <button 
             v-if="!isConnected"
             @click="connectWallet"
-            class="btn-primary px-6 py-2 font-medium"
+            class="btn-primary px-6 py-2 font-semibold"
           >
             Connect Wallet
           </button>
@@ -87,20 +87,20 @@
           <div v-else class="relative">
             <button 
               @click="toggleUserMenu"
-              class="flex items-center space-x-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              class="flex items-center space-x-2 p-2 rounded-lg bg-trading-surface hover:bg-trading-elevated transition-colors border border-binance-border"
             >
-              <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                <span class="text-white text-xs font-bold">{{ walletInitials }}</span>
+              <div class="w-8 h-8 bg-gold-gradient rounded-full flex items-center justify-center">
+                <span class="text-binance-dark text-xs font-bold">{{ walletInitials }}</span>
               </div>
               <div class="hidden sm:block text-left">
-                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                <div class="text-sm font-medium text-white">
                   {{ shortWalletAddress }}
                 </div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-xs text-binance-gray">
                   {{ balance }}
                 </div>
               </div>
-              <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="h-4 w-4 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -108,26 +108,26 @@
             <!-- User Dropdown Menu -->
             <div 
               v-if="showUserMenu"
-              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50"
+              class="absolute right-0 mt-2 w-48 bg-trading-surface rounded-lg shadow-xl border border-binance-border py-1 z-50 backdrop-blur-lg"
             >
               <router-link 
                 to="/profile" 
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
                 Profile
               </router-link>
               <router-link 
                 to="/portfolio" 
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
                 Portfolio
               </router-link>
-              <hr class="my-1 border-gray-200 dark:border-gray-700">
+              <hr class="my-1 border-binance-border">
               <button 
                 @click="disconnectWallet"
-                class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                class="block w-full text-left px-4 py-2 text-sm text-trading-sell hover:bg-trading-elevated transition-colors"
               >
                 Disconnect
               </button>
@@ -137,7 +137,7 @@
           <!-- Mobile Menu Button -->
           <button 
             @click="toggleMobileMenu"
-            class="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            class="md:hidden p-2 text-binance-gray hover:text-binance-yellow transition-colors"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -148,7 +148,7 @@
     </div>
     
     <!-- Mobile Menu -->
-    <div v-if="showMobileMenu" class="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+    <div v-if="showMobileMenu" class="md:hidden bg-trading-surface border-t border-binance-border">
       <div class="px-4 py-3 space-y-3">
         <!-- Mobile Search -->
         <div class="lg:hidden">
@@ -156,35 +156,35 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search tokens..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            class="w-full pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-elevated text-white placeholder-binance-gray"
           />
         </div>
         
         <!-- Mobile Navigation Links -->
         <router-link 
           to="/" 
-          class="block py-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+          class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
           Home
         </router-link>
         <router-link 
           to="/create" 
-          class="block py-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+          class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
           Create Token
         </router-link>
         <router-link 
           to="/leaderboard" 
-          class="block py-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+          class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
           Leaderboard
         </router-link>
         <router-link 
           to="/about" 
-          class="block py-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+          class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
           About
@@ -214,7 +214,6 @@ const uiStore = useUIStore()
 
 // State
 const searchQuery = ref('')
-const darkMode = ref(false)
 const showMobileMenu = ref(false)
 const showWalletModal = ref(false)
 
@@ -222,6 +221,7 @@ const showWalletModal = ref(false)
 const isConnected = computed(() => walletStore.isConnected)
 const walletAddress = computed(() => walletStore.walletAddress)
 const balance = computed(() => walletStore.formattedBalance)
+const isDarkMode = computed(() => uiStore.isDarkMode)
 
 // Reactive state
 const showUserMenu = ref(false)
@@ -238,14 +238,8 @@ const shortWalletAddress = computed(() => {
 })
 
 // Methods
-const toggleDarkMode = () => {
-  darkMode.value = !darkMode.value
-  // TODO: Update UI store and apply dark mode
-  if (darkMode.value) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
+const toggleTheme = () => {
+  uiStore.toggleDarkMode()
 }
 
 /**
@@ -318,9 +312,9 @@ const closeMobileMenu = () => {
 </script>
 
 <style scoped>
-/* Active route styling */
+/* Active route styling for Binance theme */
 .router-link-active {
-  @apply text-primary-600 dark:text-primary-400 font-medium;
+  @apply text-binance-yellow font-semibold;
 }
 
 /* Navigation link hover effects */
@@ -330,11 +324,17 @@ const closeMobileMenu = () => {
 
 .nav-link:hover::after {
   content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary-500 transform scale-x-100;
+  @apply absolute bottom-0 left-0 w-full h-0.5 bg-binance-yellow transform scale-x-100;
 }
 
 .nav-link::after {
   content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary-500 transform scale-x-0 transition-transform duration-200;
+  @apply absolute bottom-0 left-0 w-full h-0.5 bg-binance-yellow transform scale-x-0 transition-transform duration-200;
+}
+
+/* Additional Binance styling */
+.nav-binance {
+  backdrop-filter: blur(20px);
+  background: rgba(11, 14, 17, 0.95);
 }
 </style> 

@@ -26,8 +26,8 @@ export const useUIStore = defineStore('ui', () => {
   // Toast notifications
   const toasts = ref<Toast[]>([])
   
-  // Theme state
-  const isDarkMode = ref(false)
+  // Theme state - default to dark mode (Binance style)
+  const isDarkMode = ref(true)
   
   // Search state
   const searchQuery = ref('')
@@ -121,43 +121,66 @@ export const useUIStore = defineStore('ui', () => {
   }
   
   /**
-   * Toggle dark mode
+   * Toggle between dark and light theme
    * Used for theme switching
    */
   function toggleDarkMode() {
     isDarkMode.value = !isDarkMode.value
-    
-    // Update document class for dark mode
+    applyTheme()
+  }
+  
+  /**
+   * Set theme explicitly
+   * Used to force a specific theme
+   */
+  function setTheme(darkMode: boolean) {
+    isDarkMode.value = darkMode
+    applyTheme()
+  }
+  
+  /**
+   * Apply theme to document and save preference
+   * Internal function for theme management
+   */
+  function applyTheme() {
     if (typeof document !== 'undefined') {
+      const htmlElement = document.documentElement
+      
       if (isDarkMode.value) {
-        document.documentElement.classList.add('dark')
+        // Apply dark mode (Binance default)
+        htmlElement.classList.add('dark')
+        htmlElement.classList.remove('light')
+        document.body.style.backgroundColor = '#0b0e11'
       } else {
-        document.documentElement.classList.remove('dark')
+        // Apply light mode
+        htmlElement.classList.remove('dark')
+        htmlElement.classList.add('light')
+        document.body.style.backgroundColor = '#f5f5f5'
       }
       
       // Save preference to localStorage
-      localStorage.setItem('darkMode', isDarkMode.value.toString())
+      localStorage.setItem('floppfun-theme', isDarkMode.value ? 'dark' : 'light')
     }
   }
   
   /**
-   * Initialize dark mode from localStorage
+   * Initialize theme from localStorage or default to dark
    * Used during app initialization
    */
-  function initializeDarkMode() {
+  function initializeTheme() {
     if (typeof window !== 'undefined') {
-      const savedDarkMode = localStorage.getItem('darkMode')
-      if (savedDarkMode) {
-        isDarkMode.value = savedDarkMode === 'true'
+      const savedTheme = localStorage.getItem('floppfun-theme')
+      
+      if (savedTheme) {
+        // Use saved preference
+        isDarkMode.value = savedTheme === 'dark'
       } else {
-        // Default to system preference
-        isDarkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+        // Default to dark mode (Binance style)
+        isDarkMode.value = true
       }
       
-      // Apply dark mode class
-      if (isDarkMode.value) {
-        document.documentElement.classList.add('dark')
-      }
+      // Apply the theme
+      applyTheme()
     }
   }
   
@@ -217,7 +240,8 @@ export const useUIStore = defineStore('ui', () => {
     removeToast,
     clearToasts,
     toggleDarkMode,
-    initializeDarkMode,
+    setTheme,
+    initializeTheme,
     setSearchQuery,
     setSearching,
     setSearchResults,
