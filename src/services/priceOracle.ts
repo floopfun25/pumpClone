@@ -90,12 +90,15 @@ class PriceOracleService {
     }
 
     try {
+      // Get API key from environment
+      const apiKey = import.meta.env.VITE_BIRDEYE_API_KEY || 'demo'
+      
       // Try Birdeye API first
       const response = await fetch(
         `${this.BIRDEYE_BASE_URL}/price?address=${mintAddress}`,
         {
           headers: {
-            'X-API-KEY': process.env.VITE_BIRDEYE_API_KEY || 'demo'
+            'X-API-KEY': apiKey
           }
         }
       )
@@ -120,9 +123,13 @@ class PriceOracleService {
             ...priceData
           }
         }
+      } else if (response.status === 401) {
+        console.warn('Birdeye API authentication failed, using mock data')
+      } else {
+        console.warn(`Birdeye API returned ${response.status}, using mock data`)
       }
 
-      // Fallback to mock price for new tokens
+      // Fallback to mock price for new tokens or API failures
       const mockPrice = this.generateMockPrice(mintAddress)
       this.priceCache.set(cacheKey, mockPrice)
       
@@ -134,8 +141,18 @@ class PriceOracleService {
       }
       
     } catch (error) {
-      console.error('Failed to fetch token price:', error)
-      return null
+      console.warn('Failed to fetch token price, using mock data:', error)
+      
+      // Generate mock price as fallback
+      const mockPrice = this.generateMockPrice(mintAddress)
+      this.priceCache.set(cacheKey, mockPrice)
+      
+      return {
+        mint: mintAddress,
+        symbol: 'NEW',
+        name: 'New Token',
+        ...mockPrice
+      }
     }
   }
 

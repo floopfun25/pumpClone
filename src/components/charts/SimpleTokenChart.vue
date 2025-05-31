@@ -83,10 +83,10 @@
       <!-- Simple Chart Canvas -->
       <div v-else class="h-96 w-full">
         <svg ref="chartSvg" class="w-full h-full">
-          <!-- Price Line -->
-          <polyline
+          <!-- Price Line using path instead of polyline -->
+          <path
             v-if="chartPath"
-            :points="chartPath"
+            :d="chartPath"
             fill="none"
             stroke="#3b82f6"
             stroke-width="2"
@@ -111,7 +111,7 @@
           
           <!-- Data Points -->
           <circle
-            v-for="(point, index) in chartPoints"
+            v-for="(point, index) in validChartPoints"
             :key="index"
             :cx="point.x"
             :cy="point.y"
@@ -331,6 +331,14 @@ const areaPath = computed(() => {
   if (!validPath || !firstPoint || !lastPoint) return ''
   
   return `M ${firstPoint.x},${firstPoint.y} ${validPath.substring(1)} L ${lastPoint.x},384 L ${firstPoint.x},384 Z`
+})
+
+const validChartPoints = computed(() => {
+  return chartPoints.value.filter(point => 
+    !isNaN(point.x) && !isNaN(point.y) && 
+    isFinite(point.x) && isFinite(point.y) &&
+    point.x >= 0 && point.y >= 0 // Ensure positive coordinates
+  )
 })
 
 // Methods

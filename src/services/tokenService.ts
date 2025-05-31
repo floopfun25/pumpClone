@@ -100,7 +100,6 @@ class TokenService {
       // Check wallet balance
       const balance = await this.connection.getBalance(walletService.publicKey)
       const balanceSOL = balance / LAMPORTS_PER_SOL
-      console.log('💰 Wallet balance:', balanceSOL.toFixed(4), 'SOL')
       
       if (balanceSOL < 0.01) {
         throw new Error(`Insufficient SOL balance. You have ${balanceSOL.toFixed(4)} SOL, but need at least 0.01 SOL for transaction fees.`)
@@ -111,7 +110,7 @@ class TokenService {
       if (tokenData.imageFile) {
         console.log('📸 Uploading image...')
         imageUrl = await this.uploadImage(tokenData.imageFile)
-        console.log('✅ Image uploaded successfully')
+        console.log('✅ Image uploaded')
       }
 
       // Step 2: Create and upload metadata
@@ -137,7 +136,7 @@ class TokenService {
       }
 
       const metadataUri = await this.uploadMetadata(metadata)
-      console.log('✅ Metadata uploaded successfully')
+      console.log('✅ Metadata uploaded')
 
       // Step 3: Create mint account
       console.log('🔨 Creating mint account...')
@@ -179,7 +178,7 @@ class TokenService {
 
       const transactionV0 = new VersionedTransaction(messageV0)
 
-      console.log('🖊️ Signing mint transaction...')
+      console.log('🖊️ Signing transactions...')
       
       try {
         // Sign with wallet (this will work with VersionedTransaction)
@@ -202,7 +201,7 @@ class TokenService {
           }
           
           const txSignature = await this.connection.sendRawTransaction(signedTx.serialize())
-          console.log('✅ Mint created:', txSignature.slice(0, 8) + '...')
+          console.log('✅ Mint created')
           
           // Wait for confirmation
           await this.connection.confirmTransaction({
@@ -233,9 +232,8 @@ class TokenService {
             )
           )
 
-          console.log('🖊️ Signing token operations...')
           const tokenTxSignature = await walletService.sendTransaction(tokenTx)
-          console.log('✅ Token minted:', tokenTxSignature.slice(0, 8) + '...')
+          console.log('✅ Token minted')
 
           // Step 4: Initialize bonding curve state (no transaction needed)
           const bondingCurveState = BondingCurveService.createInitialState(mintAddress)
@@ -336,20 +334,8 @@ class TokenService {
         throw new Error('Authentication required for file upload')
       }
 
-      // Check if token-assets bucket exists, create if needed
-      const { data: buckets } = await supabase.storage.listBuckets()
-      const bucketExists = buckets?.some(b => b.name === 'token-assets')
-      
-      if (!bucketExists) {
-        // Try to create bucket, ignore errors if it already exists
-        await supabase.storage.createBucket('token-assets', {
-          public: true,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/json'],
-          fileSizeLimit: 50 * 1024 * 1024 // 50MB
-        }).catch(() => {
-          // Bucket may already exist, continue silently
-        })
-      }
+      // Skip bucket creation - assume bucket exists (should be created via SQL scripts)
+      // This prevents unnecessary 400 errors when bucket already exists
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop()
