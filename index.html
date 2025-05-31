@@ -21,53 +21,10 @@
     <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Loading screen styles -->
-    <style>
-      #initial-loading {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        color: white;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        z-index: 9999;
-      }
-      
-      .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 1s ease-in-out infinite;
-        margin-bottom: 20px;
-      }
-      
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-      
-      .loading-text {
-        font-size: 18px;
-        margin-bottom: 10px;
-      }
-      
-      .loading-subtext {
-        font-size: 14px;
-        opacity: 0.8;
-      }
-    </style>
 
     <!-- Critical browser polyfills and environment setup -->
     <script>
-      // 1. Global and process polyfills (must be first)
+      // Global and process polyfills (must be first)
       if (typeof global === 'undefined') {
         window.global = window;
       }
@@ -80,7 +37,7 @@
         };
       }
       
-      // 2. Ensure WebCrypto is available (critical for Supabase)
+      // Ensure WebCrypto is available (critical for Supabase)
       if (!window.crypto || !window.crypto.subtle) {
         console.error('❌ WebCrypto API not available - this will cause Supabase failures');
         window.crypto = window.crypto || {};
@@ -91,7 +48,7 @@
         };
       }
       
-      // 3. Buffer polyfill for Solana
+      // Buffer polyfill for Solana
       if (typeof Buffer === 'undefined') {
         try {
           window.Buffer = require('buffer').Buffer;
@@ -102,155 +59,6 @@
           };
         }
       }
-      
-      // 4. AGGRESSIVE: Patch all possible header access points
-      // Ensure Headers constructor exists and works
-      if (typeof Headers === 'undefined' || !Headers.prototype.get) {
-        console.warn('⚠️ Headers API missing or broken, creating polyfill...');
-        window.Headers = class HeadersPolyfill {
-          constructor(init) {
-            this._headers = new Map();
-            if (init) {
-              if (init instanceof Headers || init instanceof HeadersPolyfill) {
-                for (let [key, value] of init._headers || init) {
-                  this._headers.set(key.toLowerCase(), value);
-                }
-              } else if (Array.isArray(init)) {
-                for (let [key, value] of init) {
-                  this._headers.set(key.toLowerCase(), value);
-                }
-              } else if (typeof init === 'object') {
-                for (let [key, value] of Object.entries(init)) {
-                  this._headers.set(key.toLowerCase(), value);
-                }
-              }
-            }
-          }
-          
-          get(name) {
-            return this._headers.get(name.toLowerCase()) || null;
-          }
-          
-          set(name, value) {
-            this._headers.set(name.toLowerCase(), String(value));
-          }
-          
-          has(name) {
-            return this._headers.has(name.toLowerCase());
-          }
-          
-          delete(name) {
-            this._headers.delete(name.toLowerCase());
-          }
-          
-          append(name, value) {
-            const existing = this.get(name);
-            if (existing) {
-              this.set(name, existing + ', ' + value);
-            } else {
-              this.set(name, value);
-            }
-          }
-          
-          forEach(callback, thisArg) {
-            for (let [key, value] of this._headers) {
-              callback.call(thisArg, value, key, this);
-            }
-          }
-          
-          keys() {
-            return this._headers.keys();
-          }
-          
-          values() {
-            return this._headers.values();
-          }
-          
-          entries() {
-            return this._headers.entries();
-          }
-          
-          [Symbol.iterator]() {
-            return this._headers.entries();
-          }
-        };
-      }
-      
-      // Ensure fetch Response works with headers
-      if (typeof Response !== 'undefined' && Response.prototype) {
-        const originalResponse = window.Response;
-        window.Response = class ResponsePolyfill extends originalResponse {
-          constructor(body, init) {
-            super(body, init);
-            
-            // Ensure headers are properly set up
-            if (!this.headers || typeof this.headers.get !== 'function') {
-              this.headers = new Headers(init?.headers);
-            }
-          }
-        };
-        
-        // Copy static methods
-        Object.setPrototypeOf(window.Response, originalResponse);
-        Object.getOwnPropertyNames(originalResponse).forEach(name => {
-          if (name !== 'prototype' && name !== 'name' && name !== 'length') {
-            try {
-              window.Response[name] = originalResponse[name];
-            } catch (e) {
-              // Ignore errors for non-configurable properties
-            }
-          }
-        });
-      }
-      
-      // Test that our polyfills work
-      try {
-        const headers = new Headers({ 'test': 'value' });
-        const testResponse = new Response('test', { headers: { 'content-type': 'text/plain' } });
-        if (headers.get('test') !== 'value' || typeof testResponse.headers.get !== 'function') {
-          throw new Error('Header polyfills failed validation');
-        }
-      } catch (error) {
-        console.error('❌ Header polyfill validation failed:', error);
-      }
-      
-      // CRITICAL: Patch fetch to ensure it always returns valid responses
-      const originalFetch = window.fetch;
-      window.fetch = function(input, init) {
-        // Ensure init object has proper structure
-        if (init && init.headers && typeof init.headers !== 'object') {
-          console.warn('⚠️ Fixing invalid headers in fetch init');
-          init.headers = {};
-        }
-        
-        return originalFetch.call(this, input, init).then(response => {
-          // If response is not ok, log the error
-          if (!response.ok) {
-            console.error(`❌ Fetch failed for ${input}:`, response.status, response.statusText);
-            // Try to read the error message
-            response.clone().text().then(text => {
-              console.error('Error response body:', text);
-            }).catch(() => {
-              console.error('Could not read error response body');
-            });
-          }
-          
-          // Ensure response has valid headers
-          if (!response.headers || typeof response.headers.get !== 'function') {
-            console.warn('⚠️ Fixing invalid response headers');
-            const fixedResponse = new Response(response.body, {
-              status: response.status,
-              statusText: response.statusText,
-              headers: new Headers()
-            });
-            return fixedResponse;
-          }
-          return response;
-        }).catch(error => {
-          console.error('❌ Fetch error for', input, ':', error);
-          throw error;
-        });
-      };
     </script>
     
     <!-- CDN Supabase to bypass bundling issues -->
@@ -268,32 +76,10 @@
     <script src="/auth.js"></script>
   </head>
   <body class="font-sans bg-gray-50 dark:bg-pump-dark">
-    <!-- Initial loading screen -->
-    <div id="initial-loading">
-      <div class="loading-spinner"></div>
-      <div class="loading-text">Loading FloppFun...</div>
-      <div class="loading-subtext">Initializing Solana wallet connection</div>
-    </div>
-    
     <!-- Main Vue.js application mount point -->
     <div id="app"></div>
     
     <!-- Application entry script -->
     <script type="module" src="/src/main.ts"></script>
-    
-    <!-- Hide loading screen after a short delay -->
-    <script>
-      // Hide the loading screen after the app has had time to initialize
-      setTimeout(() => {
-        const loadingScreen = document.getElementById('initial-loading');
-        if (loadingScreen) {
-          loadingScreen.style.opacity = '0';
-          loadingScreen.style.transition = 'opacity 0.5s ease-out';
-          setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 500);
-        }
-      }, 2000); // Show loading screen for at least 2 seconds
-    </script>
   </body>
 </html> 

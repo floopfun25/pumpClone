@@ -286,8 +286,15 @@ const handleWalletConnected = async (walletName) => {
   showWalletModal.value = false
   
   try {
+    // Get wallet address from wallet store
+    const currentWalletAddress = walletStore.walletAddress
+    
+    if (!currentWalletAddress) {
+      throw new Error('Wallet connected but no address available')
+    }
+    
     // Sign in with the connected wallet
-    await authStore.signInWithWallet()
+    await authStore.signInWithWallet(currentWalletAddress)
   } catch (error) {
     console.error('Failed to sign in with wallet:', error)
   }

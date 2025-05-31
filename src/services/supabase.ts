@@ -193,17 +193,31 @@ export class SupabaseAuth {
    */
   static async signInWithWallet(walletAddress: string): Promise<{ user: any; session: any }> {
     try {
+      // Validate wallet address parameter
+      if (!walletAddress || typeof walletAddress !== 'string') {
+        throw new Error(`Invalid wallet address: ${walletAddress}`)
+      }
+      
+      console.log('🔑 Starting wallet authentication for:', walletAddress.slice(0, 8) + '...')
+      
       // First, check if user already exists by wallet address in metadata
-      const { data: existingSession } = await supabase.auth.getSession()
+      const sessionResult = await supabase.auth.getSession()
+      console.log('📋 Session result:', sessionResult)
+      
+      const { data: existingSession } = sessionResult
       
       if (existingSession?.session?.user?.user_metadata?.wallet_address === walletAddress) {
+        console.log('✅ Found existing session for wallet')
         return { user: existingSession.session.user, session: existingSession.session }
       }
       
       // Sign out any existing session first
       if (existingSession?.session) {
+        console.log('🚪 Signing out existing session')
         await supabase.auth.signOut()
       }
+      
+      console.log('🆕 Creating new anonymous session...')
       
       // Create anonymous user with wallet address in metadata
       const { data, error } = await supabase.auth.signInAnonymously({
@@ -216,11 +230,23 @@ export class SupabaseAuth {
         }
       })
       
-      if (error) throw error
+      console.log('Supabase auth response:', { data, error }) // Debug what we get back
+      
+      if (error) {
+        console.error('❌ Supabase auth error:', error)
+        throw error
+      }
+      
+      // Check if data exists first
+      if (!data) {
+        throw new Error('Supabase returned null data - Anonymous auth may not be enabled')
+      }
       
       if (!data.user || !data.session) {
-        throw new Error('Failed to create anonymous auth session')
+        throw new Error('Failed to create anonymous auth session - missing user or session')
       }
+      
+      console.log('✅ Anonymous auth successful, creating user profile...')
       
       // Create or update user profile in our database
       try {
@@ -237,6 +263,7 @@ export class SupabaseAuth {
         }
         
         await SupabaseService.upsertUser(userData)
+        console.log('✅ User profile created/updated')
       } catch (dbError) {
         console.warn('⚠️ Failed to create user profile, but auth session is valid:', dbError)
         // Don't throw here as the auth session is still valid
