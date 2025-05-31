@@ -10,6 +10,12 @@ const getEnvVar = (key: string, fallback?: string): string => {
   return value || fallback!
 }
 
+// Debug Supabase environment variables
+console.log('=== SUPABASE CONFIG DEBUG ===')
+console.log('VITE_SUPABASE_URL from env:', import.meta.env.VITE_SUPABASE_URL)
+console.log('VITE_SUPABASE_ANON_KEY from env:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'PROVIDED' : 'MISSING')
+console.log('=== SUPABASE CONFIG DEBUG END ===')
+
 export const config = {
   // Supabase configuration for backend integration
   supabase: {
