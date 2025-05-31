@@ -40,10 +40,10 @@ jobs:
       
     - name: Copy documentation files
       run: |
-        cp floppfun-pump-karsilastirma.html ./dist/
-        cp turkce-test-sayfasi.html ./dist/
-        cp test-features.html ./dist/
-        cp FLOPPFUN_OZELLIKLER_VE_TESTLER.md ./dist/
+        cp test/floppfun-pump-karsilastirma.html ./dist/
+        cp test/turkce-test-sayfasi.html ./dist/
+        cp test/test-features.html ./dist/
+        cp docs/FLOPPFUN_OZELLIKLER_VE_TESTLER.md ./dist/
       
     - name: Setup Pages
       uses: actions/configure-pages@v4
