@@ -116,41 +116,6 @@ export interface Database {
   }
 }
 
-// Test database connection and table existence
-async function testDatabaseConnection() {
-  try {
-    // Test basic connection
-    const { data: test, error: testError } = await supabase
-      .from('users')
-      .select('count')
-      .limit(1)
-    
-    if (testError) {
-      console.error('❌ Database connection test failed:', testError.message)
-      if (testError.message.includes('relation "public.users" does not exist')) {
-        console.error('🚨 TABLES NOT CREATED: Please run the SQL schema in Supabase!')
-        console.error('📝 Run: supabase/sql/01-create-database-schema.sql')
-      } else if (testError.message.includes('insufficient_privilege') || testError.message.includes('row-level security')) {
-        console.error('🚨 RLS POLICY ISSUE: Please run the policy fix SQL!')
-        console.error('📝 Run: supabase/sql/02-fix-policies-only.sql')
-      }
-    }
-    
-    // Test tokens table
-    const { data: tokensTest, error: tokensError } = await supabase
-      .from('tokens')
-      .select('count')
-      .limit(1)
-      
-    if (tokensError) {
-      console.error('❌ Tokens table test failed:', tokensError.message)
-    }
-    
-  } catch (error) {
-    console.error('❌ Database test failed:', error)
-  }
-}
-
 // Enhanced Supabase client creation with authentication support
 function createSupabaseClient(): SupabaseClient<Database> {
   // Environment detection
@@ -201,9 +166,6 @@ function createSupabaseClient(): SupabaseClient<Database> {
         }
       }
     })
-
-    // Test database connection
-    testDatabaseConnection()
     
     return client
   } catch (error) {

@@ -228,8 +228,6 @@
       // CRITICAL: Patch fetch to ensure it always returns valid responses
       const originalFetch = window.fetch;
       window.fetch = function(input, init) {
-        console.log('🌐 Fetch called:', input, init);
-        
         // Ensure init object has proper structure
         if (init && init.headers && typeof init.headers !== 'object') {
           console.warn('⚠️ Fixing invalid headers in fetch init');
@@ -237,14 +235,6 @@
         }
         
         return originalFetch.call(this, input, init).then(response => {
-          // Log response details for debugging
-          console.log(`📡 Fetch response for ${input}:`, {
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok,
-            headers: response.headers
-          });
-          
           // If response is not ok, log the error
           if (!response.ok) {
             console.error(`❌ Fetch failed for ${input}:`, response.status, response.statusText);
@@ -254,8 +244,6 @@
             }).catch(() => {
               console.error('Could not read error response body');
             });
-          } else {
-            console.log(`✅ Fetch successful for ${input}`);
           }
           
           // Ensure response has valid headers
