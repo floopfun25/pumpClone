@@ -116,6 +116,48 @@ export interface Database {
   }
 }
 
+// Test database connection and table existence
+async function testDatabaseConnection() {
+  try {
+    console.log('🧪 Testing database connection...')
+    
+    // Test basic connection
+    const { data: test, error: testError } = await supabase
+      .from('users')
+      .select('count')
+      .limit(1)
+    
+    if (testError) {
+      console.error('❌ Database connection test failed:', testError.message)
+      if (testError.message.includes('relation "public.users" does not exist')) {
+        console.error('🚨 TABLES NOT CREATED: Please run the SQL schema in Supabase!')
+        console.error('📝 Run: supabase/sql/01-create-database-schema.sql')
+      } else if (testError.message.includes('insufficient_privilege') || testError.message.includes('row-level security')) {
+        console.error('🚨 RLS POLICY ISSUE: Please run the policy fix SQL!')
+        console.error('📝 Run: supabase/sql/02-fix-policies-only.sql')
+      }
+    } else {
+      console.log('✅ Database connection successful')
+      console.log('✅ Users table accessible')
+    }
+    
+    // Test tokens table
+    const { data: tokensTest, error: tokensError } = await supabase
+      .from('tokens')
+      .select('count')
+      .limit(1)
+      
+    if (tokensError) {
+      console.error('❌ Tokens table test failed:', tokensError.message)
+    } else {
+      console.log('✅ Tokens table accessible')
+    }
+    
+  } catch (error) {
+    console.error('❌ Database test failed:', error)
+  }
+}
+
 // Enhanced Supabase client creation with authentication support
 function createSupabaseClient(): SupabaseClient<Database> {
   console.log('🔧 Creating Supabase client with auth support...')
@@ -174,13 +216,21 @@ function createSupabaseClient(): SupabaseClient<Database> {
         flowType: 'implicit' as const,
         debug: false
       },
-      // Minimal global config to avoid headers issues
+      // Add proper headers for Supabase to work correctly
       global: {
-        headers: {}
+        headers: {
+          'x-client-info': 'floppfun-webapp@1.0.0',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       }
     })
 
     console.log('✅ Supabase client created with auth support')
+    
+    // Test database connection
+    testDatabaseConnection()
+    
     return client
   } catch (error) {
     console.error('❌ Failed to create Supabase client:', error)
