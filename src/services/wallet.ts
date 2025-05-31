@@ -69,8 +69,6 @@ class WalletService {
   )
 
   constructor() {
-    console.log('WalletService: Using RPC URL:', solanaConfig.rpcUrl)
-    console.log('WalletService: Network:', solanaConfig.network)
     this.connection = new Connection(
       solanaConfig.rpcUrl,
       solanaConfig.commitment as Commitment
@@ -153,13 +151,10 @@ class WalletService {
 
       // Save wallet name to localStorage for auto-reconnect
       localStorage.setItem('walletName', walletAdapter.name)
-      console.log('Wallet name saved to localStorage:', walletAdapter.name)
 
       // Update balance
       await this.updateBalance()
 
-      console.log('Wallet connected:', walletAdapter.name)
-      
     } catch (error) {
       console.error('Failed to connect wallet:', error)
       this.cleanup()
@@ -180,7 +175,6 @@ class WalletService {
       }
 
       this.cleanup()
-      console.log('Wallet disconnected')
 
     } catch (error) {
       console.error('Failed to disconnect wallet:', error)
@@ -261,8 +255,6 @@ class WalletService {
 
       // Confirm transaction
       await this.connection.confirmTransaction(signature)
-
-      console.log('Transaction sent:', signature)
       
       // Update balance after transaction
       await this.updateBalance()
@@ -290,20 +282,15 @@ class WalletService {
   // Auto-reconnect on page load
   async autoConnect(): Promise<void> {
     const lastWalletName = localStorage.getItem('walletName')
-    console.log('Auto-connect: Checking for saved wallet...', lastWalletName)
     
     if (!lastWalletName) {
-      console.log('Auto-connect: No saved wallet found')
       return
     }
 
     try {
-      console.log('Auto-connect: Attempting to reconnect to', lastWalletName)
-      
       // Find the wallet adapter
       const wallet = walletAdapters.find(w => w.name === lastWalletName)
       if (!wallet) {
-        console.log('Auto-connect: Wallet not found in available adapters')
         localStorage.removeItem('walletName')
         return
       }
@@ -311,15 +298,12 @@ class WalletService {
       // Check if wallet is ready
       if (wallet.adapter.readyState !== WalletReadyState.Installed && 
           wallet.adapter.readyState !== WalletReadyState.Loadable) {
-        console.log('Auto-connect: Wallet not ready, readyState:', wallet.adapter.readyState)
         return
       }
 
       await this.connect(lastWalletName)
-      console.log('Auto-connect: Successfully reconnected to', lastWalletName)
       
     } catch (error) {
-      console.log('Auto-connect failed:', error)
       localStorage.removeItem('walletName')
     }
   }
@@ -340,11 +324,9 @@ class WalletService {
 
   // Handle wallet connect event
   private handleConnect(): void {
-    console.log('Wallet connect event fired')
     if (this.currentWallet.value) {
       this._publicKey.value = this.currentWallet.value.publicKey
       localStorage.setItem('walletName', this.currentWallet.value.name)
-      console.log('Wallet connect event: Saved wallet name:', this.currentWallet.value.name)
       this.updateBalance()
     }
   }

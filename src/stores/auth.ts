@@ -29,43 +29,29 @@ export const useAuthStore = defineStore('auth', () => {
    * Initialize user session
    * Called on app startup to restore user session
    */
-  async function initializeUser() {
+  const initializeUser = async () => {
     try {
-      isLoading.value = true
-      
-      console.log('Auth: Initializing user session...')
-      
-      // First, check if there's an existing Supabase auth session
+      const walletStore = useWalletStore()
+      if (!walletStore.isConnected || !walletStore.walletAddress) {
+        return
+      }
+
+      // Check for existing Supabase session
       const session = await SupabaseAuth.getSession()
-      if (session) {
-        console.log('Auth: Found existing Supabase session')
-        supabaseSession.value = session
-        supabaseUser.value = session.user
-        
-        // Extract wallet address from session user metadata
-        const walletAddress = session.user.user_metadata?.wallet_address
-        if (walletAddress) {
-          // Load user profile from database
+      if (session?.user) {
+        // Restore user from existing session
+        const walletAddress = SupabaseAuth.getWalletAddressFromUser(session.user)
+        if (walletAddress === walletStore.walletAddress) {
           const existingUser = await SupabaseService.getUserByWallet(walletAddress)
           if (existingUser) {
             user.value = existingUser
             isAuthenticated.value = true
-            console.log('Auth: User session restored from Supabase:', existingUser.username || walletAddress)
             return
           }
         }
       }
-      
-      // Fallback: Check wallet store for connection
-      const walletStore = useWalletStore()
-      if (walletStore.isConnected && walletStore.walletAddress) {
-        console.log('Auth: Wallet connected but no Supabase session, will authenticate on next sign in')
-      }
-      
     } catch (error) {
       console.error('Failed to initialize user:', error)
-    } finally {
-      isLoading.value = false
     }
   }
 
@@ -73,40 +59,24 @@ export const useAuthStore = defineStore('auth', () => {
    * Sign in with wallet
    * Creates Supabase auth session and user profile
    */
-  async function signInWithWallet() {
+  const signInWithWallet = async (walletAddress: string) => {
     try {
-      isLoading.value = true
+      const { user: authUser } = await SupabaseAuth.signInWithWallet(walletAddress)
       
-      // Get wallet address from wallet store
-      const walletStore = useWalletStore()
-      
-      if (!walletStore.isConnected || !walletStore.walletAddress) {
-        throw new Error('Wallet not connected')
-      }
-
-      const walletAddress = walletStore.walletAddress
-      console.log('Auth: Signing in with wallet:', walletAddress)
-      
-      // Create Supabase auth session
-      const { user: authUser, session } = await SupabaseAuth.signInWithWallet(walletAddress)
-      
-      // Store Supabase auth data
-      supabaseUser.value = authUser
-      supabaseSession.value = session
-      
-      // Check if user profile exists in database
+      // Get or create user profile
       let existingUser = await SupabaseService.getUserByWallet(walletAddress)
       
       if (existingUser) {
-        // User exists, just sign them in
         user.value = existingUser
         isAuthenticated.value = true
-        console.log('Auth: User signed in:', existingUser.username || walletAddress)
+        return existingUser
       } else {
-        // Create new user profile in database
+        // Create new user profile
         const newUser = await SupabaseService.upsertUser({
+          id: authUser.id,
           wallet_address: walletAddress,
           username: `user_${walletAddress.slice(0, 8)}`,
+          is_verified: false,
           total_volume_traded: 0,
           tokens_created: 0,
           reputation_score: 0
@@ -115,17 +85,12 @@ export const useAuthStore = defineStore('auth', () => {
         if (newUser) {
           user.value = newUser
           isAuthenticated.value = true
-          console.log('Auth: New user created and signed in:', newUser.username)
-        } else {
-          throw new Error('Failed to create user profile')
+          return newUser
         }
       }
-      
     } catch (error) {
       console.error('Failed to sign in with wallet:', error)
       throw error
-    } finally {
-      isLoading.value = false
     }
   }
 

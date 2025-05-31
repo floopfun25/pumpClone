@@ -119,8 +119,6 @@ export interface Database {
 // Test database connection and table existence
 async function testDatabaseConnection() {
   try {
-    console.log('🧪 Testing database connection...')
-    
     // Test basic connection
     const { data: test, error: testError } = await supabase
       .from('users')
@@ -136,9 +134,6 @@ async function testDatabaseConnection() {
         console.error('🚨 RLS POLICY ISSUE: Please run the policy fix SQL!')
         console.error('📝 Run: supabase/sql/02-fix-policies-only.sql')
       }
-    } else {
-      console.log('✅ Database connection successful')
-      console.log('✅ Users table accessible')
     }
     
     // Test tokens table
@@ -149,8 +144,6 @@ async function testDatabaseConnection() {
       
     if (tokensError) {
       console.error('❌ Tokens table test failed:', tokensError.message)
-    } else {
-      console.log('✅ Tokens table accessible')
     }
     
   } catch (error) {
@@ -160,20 +153,10 @@ async function testDatabaseConnection() {
 
 // Enhanced Supabase client creation with authentication support
 function createSupabaseClient(): SupabaseClient<Database> {
-  console.log('🔧 Creating Supabase client with auth support...')
-  
   // Environment detection
   const isGitHubPages = window.location.hostname.includes('github.io')
   const isHTTPS = window.location.protocol === 'https:'
   const hasWebCrypto = !!(window.crypto && window.crypto.subtle)
-  
-  console.log('Environment:', {
-    hostname: window.location.hostname,
-    isGitHubPages,
-    isHTTPS,
-    hasWebCrypto,
-    userAgent: navigator.userAgent.substring(0, 50) + '...'
-  })
   
   // Validate configuration
   if (!supabaseConfig.url || !supabaseConfig.anonKey) {
@@ -192,11 +175,6 @@ function createSupabaseClient(): SupabaseClient<Database> {
     throw new Error('Invalid Supabase URL format')
   }
   
-  console.log('✅ Supabase configuration valid:', {
-    url: supabaseConfig.url,
-    anonKeyLength: supabaseConfig.anonKey.length
-  })
-  
   try {
     // Use CDN version if available, otherwise fall back to bundled
     const clientFactory = (window as any).__SUPABASE_CDN__?.createClient || createClient
@@ -204,8 +182,6 @@ function createSupabaseClient(): SupabaseClient<Database> {
     if (!clientFactory) {
       throw new Error('Supabase createClient not available from CDN or bundle')
     }
-    
-    console.log('Using Supabase client factory:', (window as any).__SUPABASE_CDN__ ? 'CDN' : 'bundled')
     
     // Create the client with minimal configuration to avoid headers issues
     const client = clientFactory(supabaseConfig.url, supabaseConfig.anonKey, {
@@ -226,8 +202,6 @@ function createSupabaseClient(): SupabaseClient<Database> {
       }
     })
 
-    console.log('✅ Supabase client created with auth support')
-    
     // Test database connection
     testDatabaseConnection()
     
@@ -237,9 +211,7 @@ function createSupabaseClient(): SupabaseClient<Database> {
     
     // Try fallback with even more minimal configuration
     try {
-      console.log('🔄 Attempting fallback Supabase client creation...')
       const fallbackClient = createClient(supabaseConfig.url, supabaseConfig.anonKey)
-      console.log('✅ Fallback Supabase client created')
       return fallbackClient
     } catch (fallbackError) {
       console.error('❌ Fallback client creation also failed:', fallbackError)
@@ -259,13 +231,10 @@ export class SupabaseAuth {
    */
   static async signInWithWallet(walletAddress: string): Promise<{ user: any; session: any }> {
     try {
-      console.log('🔐 Signing in with wallet using anonymous auth:', walletAddress)
-      
       // First, check if user already exists by wallet address in metadata
       const { data: existingSession } = await supabase.auth.getSession()
       
       if (existingSession?.session?.user?.user_metadata?.wallet_address === walletAddress) {
-        console.log('✅ Existing session found for wallet:', walletAddress)
         return { user: existingSession.session.user, session: existingSession.session }
       }
       
@@ -291,9 +260,6 @@ export class SupabaseAuth {
         throw new Error('Failed to create anonymous auth session')
       }
       
-      console.log('✅ Anonymous auth session created for wallet:', walletAddress)
-      console.log('🔑 User ID:', data.user.id)
-      
       // Create or update user profile in our database
       try {
         const userData = {
@@ -309,7 +275,6 @@ export class SupabaseAuth {
         }
         
         await SupabaseService.upsertUser(userData)
-        console.log('✅ User profile created/updated in database')
       } catch (dbError) {
         console.warn('⚠️ Failed to create user profile, but auth session is valid:', dbError)
         // Don't throw here as the auth session is still valid
@@ -328,10 +293,8 @@ export class SupabaseAuth {
    */
   static async signOut(): Promise<void> {
     try {
-      console.log('🔓 Signing out from Supabase auth...')
       const { error } = await supabase.auth.signOut()
       if (error) throw error
-      console.log('✅ Successfully signed out')
     } catch (error) {
       console.error('❌ Sign out failed:', error)
       throw error
@@ -378,7 +341,6 @@ export class SupabaseAuth {
    */
   static onAuthStateChange(callback: (event: string, session: any) => void) {
     return supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 Auth state changed:', event, session?.user?.id)
       callback(event, session)
     })
   }
@@ -1002,7 +964,6 @@ export class SupabaseService {
             `)
             .gte('transactions.created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
             .order('volume_24h', { ascending: false })
-            .limit(limit)
           break
           
         case 'price':
@@ -1059,7 +1020,6 @@ export class SupabaseService {
         
         // Fallback: if the complex query fails (e.g., no transactions), get basic tokens
         if (filter === 'volume' && error.message?.includes('inner')) {
-          console.log('Falling back to basic token query (no transactions found)')
           const fallbackQuery = await supabase
             .from('tokens')
             .select('*')
@@ -1080,8 +1040,6 @@ export class SupabaseService {
 
       // Special handling for filters that might return empty results
       if ((!data || data.length === 0) && (filter === 'featured' || filter === 'volume')) {
-        console.log(`${filter} filter returned no results, falling back to showing all tokens`)
-        
         // Fallback to showing all active tokens sorted appropriately
         let fallbackSort = 'created_at'
         if (filter === 'volume') fallbackSort = 'market_cap'

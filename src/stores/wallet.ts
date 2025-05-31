@@ -39,17 +39,10 @@ export const useWalletStore = defineStore('wallet', () => {
    * Initialize wallet on app startup
    * Attempts to auto-reconnect to previously connected wallet
    */
-  async function initializeWallet() {
+  const initializeWallet = async () => {
     try {
-      console.log('Wallet Store: Initializing wallet...')
-      
-      // Small delay to ensure wallet adapters are ready
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
+      // Try to auto-connect to previously connected wallet
       await walletService.autoConnect()
-      
-      console.log('Wallet Store: Initialization complete. Connected:', isConnected.value)
-      // State will be updated automatically via watchEffect
     } catch (error) {
       console.error('Failed to initialize wallet:', error)
     }

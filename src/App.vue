@@ -47,44 +47,31 @@ const updateLoadingState = () => {
   isLoading.value = uiStore.isLoading
 }
 
+// Lifecycle methods
+const initializeApp = async () => {
+  try {
+    // Setup auth listener
+    authStore.setupAuthListener()
+    
+    // Initialize wallet
+    await walletStore.initializeWallet()
+    
+    if (walletStore.isConnected) {
+      // Initialize user session if wallet is connected
+      await authStore.initializeUser()
+    }
+  } catch (error) {
+    console.error('App initialization error:', error)
+  }
+}
+
 // Application initialization
 onMounted(async () => {
   try {
-    // Show loading state during initialization
-    isLoading.value = true
-    uiStore.setLoading(true)
-    
-    console.log('App: Starting initialization...')
-    
-    // Setup Supabase auth state listener
-    console.log('App: Setting up auth listener...')
-    authStore.setupAuthListener()
-    
-    // Initialize wallet connection if previously connected
-    console.log('App: Initializing wallet...')
-    await walletStore.initializeWallet()
-    
-    // Initialize user session if wallet is connected
-    if (walletStore.isConnected) {
-      console.log('App: Wallet connected, initializing user session...')
-      await authStore.initializeUser()
-    } else {
-      console.log('App: No wallet connected after initialization')
-    }
-    
-    console.log('App: Initialization complete')
-    
+    // Initialize application
+    await initializeApp()
   } catch (error) {
     console.error('App initialization error:', error)
-    uiStore.showToast({
-      type: 'error',
-      title: 'Initialization Error',
-      message: 'Failed to initialize application. Please refresh the page.'
-    })
-  } finally {
-    // Hide loading state
-    isLoading.value = false
-    uiStore.setLoading(false)
   }
 })
 </script>
