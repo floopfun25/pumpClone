@@ -4,23 +4,68 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FloppFun - Create and Trade Meme Tokens</title>
-    <meta name="description" content="FloppFun - Create and trade meme tokens on Solana blockchain with fair launch bonding curves" />
+    <title>FloppFun - Create & Trade Meme Tokens</title>
+    <meta name="description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
     
-    <!-- Preconnect to improve performance -->
+    <!-- Open Graph meta tags for social media sharing -->
+    <meta property="og:title" content="FloppFun - Create & Trade Meme Tokens" />
+    <meta property="og:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://floopfun25.github.io/pumpClone/" />
+    
+    <!-- Twitter meta tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FloppFun - Create & Trade Meme Tokens" />
+    <meta name="twitter:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
+    
+    <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Font imports for modern UI -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Meta tags for social sharing -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://floppfun.app/" />
-    <meta property="og:title" content="FloppFun - Meme Token Launchpad" />
-    <meta name="twitter:card" content="summary_large_image" />
-    
-    <!-- CRITICAL: Complete polyfills for GitHub Pages HTTPS deployment -->
+    <!-- Loading screen styles -->
+    <style>
+      #initial-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        z-index: 9999;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      
+      .loading-subtext {
+        font-size: 14px;
+        opacity: 0.8;
+      }
+    </style>
+
+    <!-- Critical browser polyfills and environment setup -->
     <script>
       console.log('=== GitHub Pages CDN Polyfills Loading ===');
       
@@ -67,139 +112,119 @@
       }
       
       // 4. AGGRESSIVE: Patch all possible header access points
-      (function() {
-        console.log('Applying aggressive header polyfills...');
-        
-        // Store original constructors
-        const OriginalResponse = window.Response;
-        const OriginalHeaders = window.Headers;
-        const OriginalRequest = window.Request;
-        
-        // Enhanced Headers that always work
-        function SafeHeaders(init) {
-          try {
-            return new OriginalHeaders(init);
-          } catch (e) {
-            console.warn('Headers constructor failed, using fallback');
-            const headers = Object.create(OriginalHeaders.prototype);
-            headers._map = new Map();
-            
-            if (init) {
-              if (typeof init.forEach === 'function') {
-                init.forEach((value, key) => headers._map.set(key.toLowerCase(), value));
-              } else if (typeof init === 'object') {
-                Object.keys(init).forEach(key => headers._map.set(key.toLowerCase(), init[key]));
-              }
-            }
-            
-            headers.get = function(name) { return this._map.get(name.toLowerCase()) || null; };
-            headers.set = function(name, value) { this._map.set(name.toLowerCase(), value); };
-            headers.has = function(name) { return this._map.has(name.toLowerCase()); };
-            headers.append = function(name, value) { 
-              const existing = this._map.get(name.toLowerCase());
-              this._map.set(name.toLowerCase(), existing ? existing + ', ' + value : value);
-            };
-            headers.delete = function(name) { this._map.delete(name.toLowerCase()); };
-            headers.forEach = function(callback, thisArg) { 
-              this._map.forEach((value, key) => callback.call(thisArg, value, key, this));
-            };
-            headers.entries = function() { return this._map.entries(); };
-            headers.keys = function() { return this._map.keys(); };
-            headers.values = function() { return this._map.values(); };
-            
-            return headers;
-          }
-        }
-        
-        // Enhanced Response that guarantees headers
-        function SafeResponse(body, init) {
-          let response;
-          try {
-            response = new OriginalResponse(body, init);
-          } catch (e) {
-            console.warn('Response constructor failed, using fallback');
-            response = {
-              ok: true,
-              status: 200,
-              statusText: 'OK',
-              type: 'basic',
-              url: '',
-              redirected: false,
-              body: body,
-              bodyUsed: false
-            };
-          }
-          
-          // Force headers to exist and work
-          if (!response.headers || typeof response.headers.get !== 'function') {
-            response.headers = new SafeHeaders(init?.headers);
-          }
-          
-          // Ensure all Response methods exist
-          const responseMethods = ['arrayBuffer', 'blob', 'formData', 'json', 'text', 'clone'];
-          responseMethods.forEach(method => {
-            if (typeof response[method] !== 'function') {
-              response[method] = function() { 
-                return Promise.resolve(method === 'json' ? {} : null); 
-              };
-            }
-          });
-          
-          return response;
-        }
-        
-        // Replace global constructors
-        window.Headers = SafeHeaders;
-        window.Response = SafeResponse;
-        
-        // Patch fetch to always return safe responses
-        const originalFetch = window.fetch;
-        window.fetch = function(input, init) {
-          try {
-            return originalFetch.call(this, input, init).then(response => {
-              if (!response || !response.headers || typeof response.headers.get !== 'function') {
-                console.warn('Fetch returned invalid response, creating safe response');
-                return new SafeResponse(response?.body, {
-                  status: response?.status || 200,
-                  statusText: response?.statusText || 'OK',
-                  headers: new SafeHeaders()
-                });
-              }
-              return response;
-            });
-          } catch (error) {
-            console.error('Fetch failed:', error);
-            return Promise.reject(error);
-          }
-        };
-        
-        // CRITICAL: Patch any object that might be accessed for headers
-        const originalDefineProperty = Object.defineProperty;
-        Object.defineProperty = function(obj, prop, descriptor) {
-          // If someone tries to access 'headers' on undefined, provide a safe fallback
-          if (prop === 'headers' && descriptor && descriptor.get) {
-            const originalGetter = descriptor.get;
-            descriptor.get = function() {
-              try {
-                const result = originalGetter.call(this);
-                if (!result || typeof result.get !== 'function') {
-                  console.warn('Headers getter returned invalid object, providing fallback');
-                  return new SafeHeaders();
-                }
-                return result;
-              } catch (e) {
-                console.warn('Headers getter failed, providing fallback');
-                return new SafeHeaders();
-              }
-            };
-          }
-          return originalDefineProperty.call(this, obj, prop, descriptor);
-        };
-        
-        console.log('✓ Aggressive header polyfills applied');
-      })();
+      console.log('Applying aggressive header polyfills...');
       
-      console.log('=== CDN Polyfills loaded successfully ===');
+      // Ensure Headers constructor exists and works
+      if (typeof Headers === 'undefined' || !Headers.prototype.get) {
+        console.warn('⚠️ Headers API missing or broken, creating polyfill...');
+        window.Headers = class HeadersPolyfill {
+          constructor(init) {
+            this._headers = new Map();
+            if (init) {
+              if (init instanceof Headers || init instanceof HeadersPolyfill) {
+                for (let [key, value] of init._headers || init) {
+                  this._headers.set(key.toLowerCase(), value);
+                }
+              } else if (Array.isArray(init)) {
+                for (let [key, value] of init) {
+                  this._headers.set(key.toLowerCase(), value);
+                }
+              } else if (typeof init === 'object') {
+                for (let [key, value] of Object.entries(init)) {
+                  this._headers.set(key.toLowerCase(), value);
+                }
+              }
+            }
+          }
+          
+          get(name) {
+            return this._headers.get(name.toLowerCase()) || null;
+          }
+          
+          set(name, value) {
+            this._headers.set(name.toLowerCase(), String(value));
+          }
+          
+          has(name) {
+            return this._headers.has(name.toLowerCase());
+          }
+          
+          delete(name) {
+            this._headers.delete(name.toLowerCase());
+          }
+          
+          append(name, value) {
+            const existing = this.get(name);
+            if (existing) {
+              this.set(name, existing + ', ' + value);
+            } else {
+              this.set(name, value);
+            }
+          }
+          
+          forEach(callback, thisArg) {
+            for (let [key, value] of this._headers) {
+              callback.call(thisArg, value, key, this);
+            }
+          }
+          
+          keys() {
+            return this._headers.keys();
+          }
+          
+          values() {
+            return this._headers.values();
+          }
+          
+          entries() {
+            return this._headers.entries();
+          }
+          
+          [Symbol.iterator]() {
+            return this._headers.entries();
+          }
+        };
+      }
+      
+      // Ensure fetch Response works with headers
+      if (typeof Response !== 'undefined' && Response.prototype) {
+        const originalResponse = window.Response;
+        window.Response = class ResponsePolyfill extends originalResponse {
+          constructor(body, init) {
+            super(body, init);
+            
+            // Ensure headers are properly set up
+            if (!this.headers || typeof this.headers.get !== 'function') {
+              this.headers = new Headers(init?.headers);
+            }
+          }
+        };
+        
+        // Copy static methods
+        Object.setPrototypeOf(window.Response, originalResponse);
+        Object.getOwnPropertyNames(originalResponse).forEach(name => {
+          if (name !== 'prototype' && name !== 'name' && name !== 'length') {
+            try {
+              window.Response[name] = originalResponse[name];
+            } catch (e) {
+              // Ignore errors for non-configurable properties
+            }
+          }
+        });
+      }
+      
+      // Test that our polyfills work
+      try {
+        const headers = new Headers({ 'test': 'value' });
+        const testResponse = new Response('test', { headers: { 'content-type': 'text/plain' } });
+        if (headers.get('test') !== 'value' || typeof testResponse.headers.get !== 'function') {
+          throw new Error('Header polyfills failed validation');
+        }
+        console.log('✓ Aggressive header polyfills applied');
+      } catch (error) {
+        console.error('❌ Header polyfill validation failed:', error);
+      }
+      
       console.log('Final environment check:', {
         hasGlobal: typeof global !== 'undefined',
         hasProcess: typeof process !== 'undefined',
@@ -243,10 +268,32 @@
     <script src="/auth.js"></script>
   </head>
   <body class="font-sans bg-gray-50 dark:bg-pump-dark">
+    <!-- Initial loading screen -->
+    <div id="initial-loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading FloppFun...</div>
+      <div class="loading-subtext">Initializing Solana wallet connection</div>
+    </div>
+    
     <!-- Main Vue.js application mount point -->
     <div id="app"></div>
     
     <!-- Application entry script -->
     <script type="module" src="/src/main.ts"></script>
+    
+    <!-- Hide loading screen after a short delay -->
+    <script>
+      // Hide the loading screen after the app has had time to initialize
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('initial-loading');
+        if (loadingScreen) {
+          loadingScreen.style.opacity = '0';
+          loadingScreen.style.transition = 'opacity 0.5s ease-out';
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }, 2000); // Show loading screen for at least 2 seconds
+    </script>
   </body>
 </html> 
