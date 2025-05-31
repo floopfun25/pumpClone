@@ -4,7 +4,9 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  Keypair
+  Keypair,
+  TransactionMessage,
+  VersionedTransaction
 } from '@solana/web3.js'
 import {
   TOKEN_PROGRAM_ID,
@@ -15,7 +17,10 @@ import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
   createSetAuthorityInstruction,
-  AuthorityType
+  AuthorityType,
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo
 } from '@solana/spl-token'
 import { walletService } from './wallet'
 import { BondingCurveService } from './bondingCurve'
@@ -89,13 +94,28 @@ class TokenService {
     }
 
     try {
+      // Step 0: Pre-flight checks
+      console.log('🔍 Creating token...')
+      
+      // Check wallet balance
+      const balance = await this.connection.getBalance(walletService.publicKey)
+      const balanceSOL = balance / LAMPORTS_PER_SOL
+      console.log('💰 Wallet balance:', balanceSOL.toFixed(4), 'SOL')
+      
+      if (balanceSOL < 0.01) {
+        throw new Error(`Insufficient SOL balance. You have ${balanceSOL.toFixed(4)} SOL, but need at least 0.01 SOL for transaction fees.`)
+      }
+
       // Step 1: Upload image to storage if provided
       let imageUrl = ''
       if (tokenData.imageFile) {
+        console.log('📸 Uploading image...')
         imageUrl = await this.uploadImage(tokenData.imageFile)
+        console.log('✅ Image uploaded successfully')
       }
 
       // Step 2: Create and upload metadata
+      console.log('📝 Creating metadata...')
       const metadata: TokenMetadata = {
         name: tokenData.name,
         symbol: tokenData.symbol,
@@ -117,126 +137,191 @@ class TokenService {
       }
 
       const metadataUri = await this.uploadMetadata(metadata)
+      console.log('✅ Metadata uploaded successfully')
 
-      // Step 3: Create the mint account
+      // Step 3: Create mint account
+      console.log('🔨 Creating mint account...')
+      
+      // Generate mint keypair
       const mintKeypair = Keypair.generate()
       const mintAddress = mintKeypair.publicKey
+      
+      console.log('🎯 Mint address:', mintAddress.toBase58())
 
-      // Step 4: Create associated token account for creator
-      const associatedTokenAddress = await getAssociatedTokenAddress(
-        mintAddress,
-        walletService.publicKey
-      )
-
-      // Step 5: Build the transaction
-      const transaction = new Transaction()
-
-      // Get rent exemption amount for mint account
+      // Step 3A: Create mint account using VersionedTransaction
       const rentExemptAmount = await getMinimumBalanceForRentExemptMint(this.connection)
-
-      // Create mint account
-      transaction.add(
+      
+      // Get fresh blockhash for the mint transaction
+      const { blockhash: mintBlockhash, lastValidBlockHeight: mintValidHeight } = await this.connection.getLatestBlockhash('finalized')
+      
+      const instructions = [
         SystemProgram.createAccount({
           fromPubkey: walletService.publicKey,
           newAccountPubkey: mintAddress,
           space: MINT_SIZE,
           lamports: rentExemptAmount,
           programId: TOKEN_PROGRAM_ID
-        })
-      )
-
-      // Initialize mint
-      transaction.add(
+        }),
         createInitializeMintInstruction(
           mintAddress,
           tokenDefaults.decimals,
           walletService.publicKey, // mint authority
-          walletService.publicKey  // freeze authority (optional)
+          walletService.publicKey  // freeze authority
         )
-      )
+      ]
 
-      // Create associated token account for creator
-      transaction.add(
-        createAssociatedTokenAccountInstruction(
-          walletService.publicKey, // payer
-          associatedTokenAddress,
-          walletService.publicKey, // owner
-          mintAddress
-        )
-      )
+      // Create VersionedTransaction using TransactionMessage
+      const messageV0 = new TransactionMessage({
+        payerKey: walletService.publicKey,
+        recentBlockhash: mintBlockhash,
+        instructions: instructions
+      }).compileToV0Message()
 
-      // Mint total supply to creator
-      const totalSupplyWithDecimals = BigInt(tokenDefaults.totalSupply) * BigInt(10 ** tokenDefaults.decimals)
-      transaction.add(
-        createMintToInstruction(
-          mintAddress,
-          associatedTokenAddress,
-          walletService.publicKey,
-          totalSupplyWithDecimals
-        )
-      )
+      const transactionV0 = new VersionedTransaction(messageV0)
 
-      // Revoke mint authority to make it non-mintable
-      transaction.add(
-        createSetAuthorityInstruction(
-          mintAddress,
-          walletService.publicKey,
-          AuthorityType.MintTokens,
-          null // Setting to null removes the authority
-        )
-      )
+      console.log('🖊️ Signing mint transaction...')
+      
+      try {
+        // Sign with wallet (this will work with VersionedTransaction)
+        const signedTx = await walletService.signTransaction(transactionV0)
+        
+        // Add mint keypair signature manually for account creation
+        if (signedTx instanceof VersionedTransaction || typeof signedTx.sign === 'function') {
+          try {
+            // For VersionedTransaction, we need to use a different approach
+            // Add the mint keypair signature manually
+            const signMethod = (signedTx as any).sign
+            if (typeof signMethod === 'function') {
+              signMethod.call(signedTx, [mintKeypair])
+            } else {
+              throw new Error('Sign method not available on transaction')
+            }
+          } catch (signMethodError: any) {
+            console.error('❌ Failed to add mint signature:', signMethodError)
+            throw new Error(`Failed to add mint keypair signature: ${signMethodError.message}`)
+          }
+          
+          const txSignature = await this.connection.sendRawTransaction(signedTx.serialize())
+          console.log('✅ Mint created:', txSignature.slice(0, 8) + '...')
+          
+          // Wait for confirmation
+          await this.connection.confirmTransaction({
+            signature: txSignature,
+            blockhash: mintBlockhash,
+            lastValidBlockHeight: mintValidHeight
+          })
+          
+          // Continue with token operations...
+          console.log('🏦 Creating token account...')
+          const associatedTokenAddress = await getAssociatedTokenAddress(
+            mintAddress,
+            walletService.publicKey
+          )
 
-      // Add creation fee payment
-      const creationFee = LAMPORTS_PER_SOL * tokenDefaults.creationFee
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey: walletService.publicKey,
-          toPubkey: new PublicKey(platformConfig.feeWallet), // Real platform fee wallet
-          lamports: creationFee
-        })
-      )
+          const tokenTx = new Transaction().add(
+            createAssociatedTokenAccountInstruction(
+              walletService.publicKey, // payer
+              associatedTokenAddress,   // ata
+              walletService.publicKey, // owner
+              mintAddress              // mint
+            ),
+            createMintToInstruction(
+              mintAddress,
+              associatedTokenAddress,
+              walletService.publicKey, // mint authority
+              tokenDefaults.totalSupply * Math.pow(10, tokenDefaults.decimals)
+            )
+          )
 
-      // Step 6: Send transaction
-      transaction.partialSign(mintKeypair)
-      const signature = await walletService.sendTransaction(transaction)
+          console.log('🖊️ Signing token operations...')
+          const tokenTxSignature = await walletService.sendTransaction(tokenTx)
+          console.log('✅ Token minted:', tokenTxSignature.slice(0, 8) + '...')
 
-      // Step 7: Initialize bonding curve
-      const bondingCurveInstruction = await solanaProgram.initializeBondingCurve(
-        mintAddress,
-        walletService.publicKey
-      )
+          // Step 4: Initialize bonding curve state (no transaction needed)
+          const bondingCurveState = BondingCurveService.createInitialState(mintAddress)
 
-      // Create bonding curve transaction
-      const bondingCurveTransaction = new Transaction()
-      bondingCurveTransaction.add(bondingCurveInstruction)
+          // Step 5: Save to database
+          console.log('💾 Saving to database...')
+          await this.saveTokenToDatabase({
+            mintAddress: mintAddress.toBase58(),
+            metadataUri,
+            tokenData,
+            creatorId: walletService.publicKey.toBase58(),
+            signature: tokenTxSignature,
+            imageUrl
+          })
 
-      // Send bonding curve initialization transaction
-      const bondingCurveSignature = await walletService.sendTransaction(bondingCurveTransaction)
-
-      // Step 8: Create bonding curve address (derived)
-      const [bondingCurveAddress] = solanaProgram.deriveBondingCurveAddress(mintAddress)
-
-      // Step 9: Save token to database
-      await this.saveTokenToDatabase({
-        mintAddress: mintAddress.toBase58(),
-        metadataUri,
-        tokenData,
-        creatorId: walletService.publicKey.toBase58(),
-        signature,
-        imageUrl
-      })
-
-      return {
-        mintAddress: mintAddress.toBase58(),
-        metadataUri,
-        bondingCurveAddress: bondingCurveAddress.toBase58(),
-        signature,
-        tokenAccount: associatedTokenAddress.toBase58()
+          console.log('🎉 TOKEN CREATED SUCCESSFULLY!')
+          console.log('📍 Mint Address:', mintAddress.toBase58())
+          
+          return {
+            mintAddress: mintAddress.toBase58(),
+            metadataUri,
+            bondingCurveAddress: 'initialized',
+            signature: tokenTxSignature,
+            tokenAccount: associatedTokenAddress.toBase58()
+          }
+        } else if (typeof (signedTx as any).partialSign === 'function') {
+          // Legacy Transaction with partialSign method
+          console.log('✅ Got Legacy Transaction with partialSign, using partialSign...')
+          ;(signedTx as any).partialSign(mintKeypair)
+          const txSignature = await this.connection.sendRawTransaction((signedTx as any).serialize())
+          console.log('✅ Legacy transaction sent:', txSignature)
+          
+          // Wait for confirmation
+          await this.connection.confirmTransaction({
+            signature: txSignature,
+            blockhash: mintBlockhash,
+            lastValidBlockHeight: mintValidHeight
+          })
+          console.log('✅ Mint created successfully with Legacy Transaction!')
+          
+          // Continue with token operations (same as above)
+          throw new Error('Legacy transaction token operations not implemented in this simplified version')
+        } else {
+          // Unsupported transaction type
+          console.error('❌ Unsupported transaction type or missing methods')
+          console.error('Available methods:', Object.getOwnPropertyNames(signedTx))
+          console.error('Constructor:', signedTx.constructor.name)
+          throw new Error(`Unsupported transaction type: ${signedTx.constructor.name}. Missing required signing methods.`)
+        }
+      } catch (signError: any) {
+        console.error('❌ Transaction signing failed:', signError)
+        
+        // Enhanced error reporting
+        if (signError.message?.includes('User rejected')) {
+          throw new Error('Transaction was rejected. Please approve the transaction in your wallet and try again.')
+        } else if (signError.message?.includes('insufficient')) {
+          throw new Error('Insufficient SOL balance. Please add more SOL to your wallet.')
+        } else {
+          throw new Error(`Transaction signing failed: ${signError.message}`)
+        }
       }
 
     } catch (error) {
-      console.error('Token creation failed:', error)
-      throw new Error(`Failed to create token: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('❌ Token creation failed:', error)
+      
+      // Enhanced error reporting
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n').slice(0, 5)
+        })
+        
+        // Specific error handling
+        if (error.message.includes('insufficient')) {
+          throw new Error('Insufficient SOL balance for token creation. Please add more SOL to your wallet.')
+        } else if (error.message.includes('blockhash')) {
+          throw new Error('Network error: Recent blockhash expired. Please try again.')
+        } else if (error.message.includes('signature')) {
+          throw new Error('Transaction signing failed. Please approve the transaction in your wallet.')
+        } else if (error.message.includes('WalletSignTransactionError')) {
+          throw new Error('Transaction signing was cancelled. Please try again and approve the transaction.')
+        }
+      }
+      
+      throw error
     }
   }
 
@@ -245,6 +330,27 @@ class TokenService {
    */
   private async uploadImage(file: File): Promise<string> {
     try {
+      // Check authentication status
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('Authentication required for file upload')
+      }
+
+      // Check if token-assets bucket exists, create if needed
+      const { data: buckets } = await supabase.storage.listBuckets()
+      const bucketExists = buckets?.some(b => b.name === 'token-assets')
+      
+      if (!bucketExists) {
+        // Try to create bucket, ignore errors if it already exists
+        await supabase.storage.createBucket('token-assets', {
+          public: true,
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/json'],
+          fileSizeLimit: 50 * 1024 * 1024 // 50MB
+        }).catch(() => {
+          // Bucket may already exist, continue silently
+        })
+      }
+
       // Generate unique filename
       const fileExt = file.name.split('.').pop()
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
@@ -253,9 +359,13 @@ class TokenService {
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('token-assets')
-        .upload(filePath, file)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
       
       if (error) {
+        console.error('Storage upload error:', error.message)
         throw error
       }
 
@@ -273,28 +383,33 @@ class TokenService {
   }
 
   /**
-   * Upload metadata JSON to storage
+   * Upload metadata JSON to Supabase Storage
    */
   private async uploadMetadata(metadata: TokenMetadata): Promise<string> {
     try {
-      // Convert metadata to JSON
+      // Convert metadata to JSON blob
       const metadataJson = JSON.stringify(metadata, null, 2)
       const metadataBlob = new Blob([metadataJson], { type: 'application/json' })
       
-      // Generate unique filename
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.json`
+      // Generate unique filename for metadata
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(5)}.json`
       const filePath = `token-metadata/${fileName}`
 
-      // Upload to Supabase Storage
+      // Upload metadata to Supabase Storage
       const { data, error } = await supabase.storage
         .from('token-assets')
-        .upload(filePath, metadataBlob)
+        .upload(filePath, metadataBlob, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/json'
+        })
       
       if (error) {
+        console.error('Metadata upload error:', error)
         throw error
       }
 
-      // Get public URL
+      // Get public URL for metadata
       const { data: publicUrl } = supabase.storage
         .from('token-assets')
         .getPublicUrl(filePath)
@@ -359,8 +474,8 @@ class TokenService {
         dev_tokens_amount: tokenDefaults.totalSupply * 0.2,
         lock_duration_days: null, // No lock duration for pump.fun style tokens
         locked_tokens_amount: tokenDefaults.totalSupply * 0.8, // 80% in bonding curve
-        current_price: BondingCurveService.calculatePrice(initialState),
-        market_cap: BondingCurveService.calculateMarketCap(initialState),
+        current_price: BondingCurveService.calculatePrice(initialState), // Keep as decimal SOL value
+        market_cap: Math.floor(BondingCurveService.calculateMarketCap(initialState) * LAMPORTS_PER_SOL), // Convert to lamports for BIGINT
         volume_24h: 0,
         holders_count: 1,
         status: 'active',

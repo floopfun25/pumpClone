@@ -56,6 +56,10 @@ onMounted(async () => {
     
     console.log('App: Starting initialization...')
     
+    // Setup Supabase auth state listener
+    console.log('App: Setting up auth listener...')
+    authStore.setupAuthListener()
+    
     // Initialize wallet connection if previously connected
     console.log('App: Initializing wallet...')
     await walletStore.initializeWallet()

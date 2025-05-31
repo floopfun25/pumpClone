@@ -299,18 +299,38 @@ const chartPoints = computed<ChartPoint[]>(() => {
 
 const chartPath = computed(() => {
   if (chartPoints.value.length === 0) return ''
-  return chartPoints.value.map((point, index) => 
+  
+  // Validate all points have valid coordinates
+  const validPoints = chartPoints.value.filter(point => 
+    !isNaN(point.x) && !isNaN(point.y) && 
+    isFinite(point.x) && isFinite(point.y)
+  )
+  
+  if (validPoints.length === 0) return ''
+  
+  return validPoints.map((point, index) => 
     `${index === 0 ? 'M' : 'L'} ${point.x},${point.y}`
   ).join(' ')
 })
 
 const areaPath = computed(() => {
   if (chartPoints.value.length === 0) return ''
-  const points = chartPoints.value
-  const firstPoint = points[0]
-  const lastPoint = points[points.length - 1]
   
-  return `M ${firstPoint.x},${firstPoint.y} ${chartPath.value.substring(1)} L ${lastPoint.x},384 L ${firstPoint.x},384 Z`
+  // Validate all points have valid coordinates
+  const validPoints = chartPoints.value.filter(point => 
+    !isNaN(point.x) && !isNaN(point.y) && 
+    isFinite(point.x) && isFinite(point.y)
+  )
+  
+  if (validPoints.length === 0) return ''
+  
+  const firstPoint = validPoints[0]
+  const lastPoint = validPoints[validPoints.length - 1]
+  const validPath = chartPath.value
+  
+  if (!validPath || !firstPoint || !lastPoint) return ''
+  
+  return `M ${firstPoint.x},${firstPoint.y} ${validPath.substring(1)} L ${lastPoint.x},384 L ${firstPoint.x},384 Z`
 })
 
 // Methods

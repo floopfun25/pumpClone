@@ -114,9 +114,9 @@ export interface Database {
   }
 }
 
-// Enhanced Supabase client creation with GitHub Pages compatibility
+// Enhanced Supabase client creation with authentication support
 function createSupabaseClient(): SupabaseClient<Database> {
-  console.log('🔧 Creating Supabase client...')
+  console.log('🔧 Creating Supabase client with auth support...')
   
   // Environment detection
   const isGitHubPages = window.location.hostname.includes('github.io')
@@ -136,152 +136,162 @@ function createSupabaseClient(): SupabaseClient<Database> {
     throw new Error('Missing Supabase configuration - check environment variables')
   }
   
-  // Check for CDN version first
-  const hasCDNSupabase = !!(window as any).__SUPABASE_CDN__ && !!(window as any).__SUPABASE_CDN__.createClient;
-  console.log('CDN Supabase available:', hasCDNSupabase);
-  
-  // Multiple configuration strategies for maximum compatibility
-  const configs = [
-    // Strategy 1: CDN version (if available)
-    ...(hasCDNSupabase ? [{
-      name: 'CDN Supabase',
-      createClient: (window as any).__SUPABASE_CDN__.createClient,
-      config: {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          debug: false
-        }
-      }
-    }] : []),
-    
-    // Strategy 2: GitHub Pages optimized with custom fetch
-    {
-      name: 'Bundled Supabase with Custom Fetch',
-      createClient: createClient,
-      config: {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false, 
-          detectSessionInUrl: false,
-          flowType: 'implicit' as const,
-          debug: false
-        },
-        global: {
-          fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-            console.log('Custom fetch called for:', typeof input === 'string' ? input.substring(0, 50) : input);
-            
-            // Ensure headers are properly constructed
-            const headers = new Headers(init?.headers);
-            
-            // Add required headers
-            if (!headers.has('Content-Type') && init?.method !== 'GET') {
-              headers.set('Content-Type', 'application/json');
-            }
-            
-            return fetch(input, {
-              ...init,
-              headers
-            }).then(response => {
-              // Validate response immediately
-              if (!response || !response.headers || typeof response.headers.get !== 'function') {
-                console.warn('Invalid response detected, creating safe response');
-                return new Response(response?.body || null, {
-                  status: response?.status || 200,
-                  statusText: response?.statusText || 'OK',
-                  headers: new Headers()
-                });
-              }
-              return response;
-            });
-          }
-        }
-      }
+  // Updated configuration with auth support
+  const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    auth: {
+      persistSession: true, // Enable session persistence
+      autoRefreshToken: true, // Enable auto refresh
+      detectSessionInUrl: true, // Enable URL session detection
+      flowType: 'implicit' as const,
+      debug: false // Disable auth debugging logs
     },
-    
-    // Strategy 3: Minimal configuration without custom fetch
-    {
-      name: 'Bundled Supabase Minimal',
-      createClient: createClient,
-      config: {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false, 
-          detectSessionInUrl: false,
-          debug: false
-        }
-      }
-    },
-    
-    // Strategy 4: Bare minimum configuration
-    {
-      name: 'Bundled Supabase Bare',
-      createClient: createClient,
-      config: {
-        auth: {
-          persistSession: false
-        }
+    global: {
+      headers: {
+        'x-client-info': 'floppfun-webapp',
+        'x-my-custom-header': 'token-creator'
       }
     }
-  ];
-  
-  // Try each configuration strategy
-  for (let i = 0; i < configs.length; i++) {
-    const strategy = configs[i];
-    console.log(`Attempting Supabase client creation - Strategy ${i + 1}: ${strategy.name}`);
-    
+  })
+
+  console.log('✅ Supabase client created with auth support')
+  return client
+}
+
+// Create and export the client
+export const supabase = createSupabaseClient()
+
+// Wallet-based authentication methods
+export class SupabaseAuth {
+  /**
+   * Sign in with wallet address using Supabase Anonymous Auth
+   * Creates an authenticated user session without requiring email validation
+   */
+  static async signInWithWallet(walletAddress: string): Promise<{ user: any; session: any }> {
     try {
-      const client = strategy.createClient(supabaseConfig.url, supabaseConfig.anonKey, strategy.config);
+      console.log('🔐 Signing in with wallet using anonymous auth:', walletAddress)
       
-      // Test the client immediately
-      console.log('Testing client connectivity...');
-      client.from('users').select('count', { count: 'exact', head: true }).then(
-        () => console.log('✅ Supabase connectivity test passed'),
-        (error: unknown) => console.warn('⚠️ Supabase connectivity test failed:', error)
-      );
+      // First, check if user already exists by wallet address in metadata
+      const { data: existingSession } = await supabase.auth.getSession()
       
-      console.log(`✅ Supabase client created successfully with Strategy ${i + 1}: ${strategy.name}`);
-      return client;
+      if (existingSession?.session?.user?.user_metadata?.wallet_address === walletAddress) {
+        console.log('✅ Existing session found for wallet:', walletAddress)
+        return { user: existingSession.session.user, session: existingSession.session }
+      }
       
-    } catch (error) {
-      console.warn(`Strategy ${i + 1} (${strategy.name}) failed:`, error);
+      // Sign out any existing session first
+      if (existingSession?.session) {
+        await supabase.auth.signOut()
+      }
       
-      // If this is the last strategy, throw the error
-      if (i === configs.length - 1) {
-        console.error('❌ All Supabase client creation strategies failed');
-        
-        // Enhanced error reporting
-        if (error instanceof Error) {
-          if (error.message.includes('headers')) {
-            throw new Error(`Supabase headers error (all strategies failed): ${error.message}`);
-          } else if (error.message.includes('fetch')) {
-            throw new Error(`Supabase fetch error (network issue): ${error.message}`);
-          } else if (error.message.includes('crypto')) {
-            throw new Error(`Supabase crypto error (WebCrypto issue): ${error.message}`);
+      // Create anonymous user with wallet address in metadata
+      const { data, error } = await supabase.auth.signInAnonymously({
+        options: {
+          data: {
+            wallet_address: walletAddress,
+            username: `user_${walletAddress.slice(0, 8)}`,
+            created_via: 'wallet_connection'
           }
         }
-        
-        throw new Error(`All Supabase strategies failed. Last error: ${error}`);
+      })
+      
+      if (error) throw error
+      
+      if (!data.user || !data.session) {
+        throw new Error('Failed to create anonymous auth session')
       }
+      
+      console.log('✅ Anonymous auth session created for wallet:', walletAddress)
+      console.log('🔑 User ID:', data.user.id)
+      
+      // Create or update user profile in our database
+      try {
+        const userData = {
+          id: data.user.id, // Use the Supabase auth user ID
+          wallet_address: walletAddress,
+          username: `user_${walletAddress.slice(0, 8)}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_verified: false,
+          total_volume_traded: 0,
+          tokens_created: 0,
+          reputation_score: 0
+        }
+        
+        await SupabaseService.upsertUser(userData)
+        console.log('✅ User profile created/updated in database')
+      } catch (dbError) {
+        console.warn('⚠️ Failed to create user profile, but auth session is valid:', dbError)
+        // Don't throw here as the auth session is still valid
+      }
+      
+      return { user: data.user, session: data.session }
+      
+    } catch (error) {
+      console.error('❌ Wallet auth failed:', error)
+      throw new Error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
   
-  // This should never be reached, but TypeScript requires it
-  throw new Error('Unexpected error in Supabase client creation');
+  /**
+   * Sign out from Supabase auth
+   */
+  static async signOut(): Promise<void> {
+    try {
+      console.log('🔓 Signing out from Supabase auth...')
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      console.log('✅ Successfully signed out')
+    } catch (error) {
+      console.error('❌ Sign out failed:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Get current auth session
+   */
+  static async getSession() {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) throw error
+      return session
+    } catch (error) {
+      console.error('Failed to get auth session:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Get current auth user
+   */
+  static async getUser() {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error) throw error
+      return user
+    } catch (error) {
+      console.error('Failed to get auth user:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Get wallet address from current user metadata
+   */
+  static getWalletAddressFromUser(user: any): string | null {
+    return user?.user_metadata?.wallet_address || null
+  }
+  
+  /**
+   * Listen to auth state changes
+   */
+  static onAuthStateChange(callback: (event: string, session: any) => void) {
+    return supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.id)
+      callback(event, session)
+    })
+  }
 }
-
-// Initialize the client
-let supabaseClient: SupabaseClient<Database>
-
-try {
-  supabaseClient = createSupabaseClient()
-} catch (error) {
-  console.error('💥 Critical error initializing Supabase:', error)
-  throw error
-}
-
-export const supabase = supabaseClient
 
 // Utility functions for common database operations
 export class SupabaseService {
