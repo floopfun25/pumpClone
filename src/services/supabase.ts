@@ -1,4 +1,6 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+// Use CDN Supabase client to bypass bundling issues
+const { createClient } = (window as any).__SUPABASE_CDN__ || require('@supabase/supabase-js')
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabaseConfig } from '@/config'
 
 // Database type definitions for type safety
@@ -154,29 +156,27 @@ function createSupabaseClient(): SupabaseClient<Database> {
   })
   
   try {
-    // Updated configuration with auth support and better error handling
-    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    // Use CDN version if available, otherwise fall back to bundled
+    const clientFactory = (window as any).__SUPABASE_CDN__?.createClient || createClient
+    
+    if (!clientFactory) {
+      throw new Error('Supabase createClient not available from CDN or bundle')
+    }
+    
+    console.log('Using Supabase client factory:', (window as any).__SUPABASE_CDN__ ? 'CDN' : 'bundled')
+    
+    // Create the client with minimal configuration to avoid headers issues
+    const client = clientFactory(supabaseConfig.url, supabaseConfig.anonKey, {
       auth: {
-        persistSession: true, // Enable session persistence
-        autoRefreshToken: true, // Enable auto refresh
-        detectSessionInUrl: true, // Enable URL session detection
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false, // Disable to avoid URL parsing issues
         flowType: 'implicit' as const,
-        debug: false // Disable auth debugging logs
+        debug: false
       },
+      // Minimal global config to avoid headers issues
       global: {
-        headers: {
-          'x-client-info': 'floppfun-webapp',
-          'x-my-custom-header': 'token-creator'
-        }
-      },
-      // Add timeout and retry configuration
-      db: {
-        schema: 'public'
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
+        headers: {}
       }
     })
 
@@ -184,7 +184,17 @@ function createSupabaseClient(): SupabaseClient<Database> {
     return client
   } catch (error) {
     console.error('❌ Failed to create Supabase client:', error)
-    throw new Error(`Failed to initialize Supabase: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    
+    // Try fallback with even more minimal configuration
+    try {
+      console.log('🔄 Attempting fallback Supabase client creation...')
+      const fallbackClient = createClient(supabaseConfig.url, supabaseConfig.anonKey)
+      console.log('✅ Fallback Supabase client created')
+      return fallbackClient
+    } catch (fallbackError) {
+      console.error('❌ Fallback client creation also failed:', fallbackError)
+      throw new Error(`Failed to initialize Supabase: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 }
 

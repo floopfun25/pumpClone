@@ -225,6 +225,35 @@
         console.error('❌ Header polyfill validation failed:', error);
       }
       
+      // CRITICAL: Patch fetch to ensure it always returns valid responses
+      const originalFetch = window.fetch;
+      window.fetch = function(input, init) {
+        console.log('🌐 Fetch called:', input, init);
+        
+        // Ensure init object has proper structure
+        if (init && init.headers && typeof init.headers !== 'object') {
+          console.warn('⚠️ Fixing invalid headers in fetch init');
+          init.headers = {};
+        }
+        
+        return originalFetch.call(this, input, init).then(response => {
+          // Ensure response has valid headers
+          if (!response.headers || typeof response.headers.get !== 'function') {
+            console.warn('⚠️ Fixing invalid response headers');
+            const fixedResponse = new Response(response.body, {
+              status: response.status,
+              statusText: response.statusText,
+              headers: new Headers()
+            });
+            return fixedResponse;
+          }
+          return response;
+        }).catch(error => {
+          console.error('❌ Fetch error:', error);
+          throw error;
+        });
+      };
+      
       console.log('Final environment check:', {
         hasGlobal: typeof global !== 'undefined',
         hasProcess: typeof process !== 'undefined',
