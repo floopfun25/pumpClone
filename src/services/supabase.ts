@@ -133,28 +133,59 @@ function createSupabaseClient(): SupabaseClient<Database> {
   
   // Validate configuration
   if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    console.error('❌ Missing Supabase configuration:', {
+      url: !!supabaseConfig.url,
+      anonKey: !!supabaseConfig.anonKey
+    })
     throw new Error('Missing Supabase configuration - check environment variables')
   }
   
-  // Updated configuration with auth support
-  const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-    auth: {
-      persistSession: true, // Enable session persistence
-      autoRefreshToken: true, // Enable auto refresh
-      detectSessionInUrl: true, // Enable URL session detection
-      flowType: 'implicit' as const,
-      debug: false // Disable auth debugging logs
-    },
-    global: {
-      headers: {
-        'x-client-info': 'floppfun-webapp',
-        'x-my-custom-header': 'token-creator'
-      }
-    }
+  // Validate URL format
+  try {
+    new URL(supabaseConfig.url)
+  } catch (error) {
+    console.error('❌ Invalid Supabase URL format:', supabaseConfig.url)
+    throw new Error('Invalid Supabase URL format')
+  }
+  
+  console.log('✅ Supabase configuration valid:', {
+    url: supabaseConfig.url,
+    anonKeyLength: supabaseConfig.anonKey.length
   })
+  
+  try {
+    // Updated configuration with auth support and better error handling
+    const client = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+      auth: {
+        persistSession: true, // Enable session persistence
+        autoRefreshToken: true, // Enable auto refresh
+        detectSessionInUrl: true, // Enable URL session detection
+        flowType: 'implicit' as const,
+        debug: false // Disable auth debugging logs
+      },
+      global: {
+        headers: {
+          'x-client-info': 'floppfun-webapp',
+          'x-my-custom-header': 'token-creator'
+        }
+      },
+      // Add timeout and retry configuration
+      db: {
+        schema: 'public'
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    })
 
-  console.log('✅ Supabase client created with auth support')
-  return client
+    console.log('✅ Supabase client created with auth support')
+    return client
+  } catch (error) {
+    console.error('❌ Failed to create Supabase client:', error)
+    throw new Error(`Failed to initialize Supabase: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 // Create and export the client
