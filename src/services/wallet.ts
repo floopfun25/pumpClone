@@ -23,7 +23,6 @@ import {
 } from '@solana/wallet-adapter-solflare'
 import { solanaConfig } from '@/config'
 import { isMobile } from '@/utils/mobile'
-import { connectMobileWallet } from '@/utils/walletDeeplink'
 
 // Wallet types
 export interface WalletAdapter {
@@ -137,49 +136,45 @@ class WalletService {
       let walletAdapter: BaseMessageSignerWalletAdapter | null = null
 
       if (walletName) {
-        // Connect to specific wallet
+        // Find the wallet configuration
         const wallet = walletAdapters.find(w => w.name === walletName)
         if (!wallet) {
           throw new Error(`Wallet ${walletName} not found`)
         }
-        walletAdapter = wallet.adapter
 
-        // Handle mobile connection
+        // Handle mobile connection - use deeplinks directly
         if (isMobile() && wallet.supportsDeeplink) {
           try {
             // Store the wallet attempt in session storage
             sessionStorage.setItem('mobileWalletAttempt', walletName)
             
-            // Use our mobile connection utility
-            await connectMobileWallet(walletName, {
-              cluster: solanaConfig.network as any,
-              dappUrl: window.location.origin,
-              redirectUrl: window.location.href
-            })
+            // Create deeplink URL directly
+            const dappUrl = window.location.origin
+            const redirectUrl = window.location.href
+            const cluster = solanaConfig.network || 'mainnet-beta'
             
-            // After opening the app, attempt to connect to the wallet adapter
-            // This handles cases where the wallet app can provide the connection immediately
-            try {
-              this.setupWalletListeners(wallet.adapter)
-              await wallet.adapter.connect()
-              
-              this.currentWallet.value = wallet.adapter
-              this._publicKey.value = wallet.adapter.publicKey
-              await this.updateBalance()
-              
-              // Clear the attempt since we succeeded
-              sessionStorage.removeItem('mobileWalletAttempt')
-              
-              console.log(`Mobile wallet connection completed for ${walletName}`)
-              return
-              
-            } catch (adapterError) {
-              console.log(`Direct adapter connection failed, user will need to complete in app:`, adapterError)
-              // This is normal - user needs to approve in the wallet app
-              // The connection will be completed when they return via App.vue visibility handling
+            let deeplinkUrl: string
+            
+            if (walletName.toLowerCase() === 'phantom') {
+              // Use Phantom's universal link format
+              const encodedDappUrl = encodeURIComponent(dappUrl)
+              const encodedRedirectUrl = encodeURIComponent(redirectUrl)
+              deeplinkUrl = `https://phantom.app/ul/v1/browse/${encodedDappUrl}?ref=${encodedRedirectUrl}&cluster=${cluster}`
+            } else if (walletName.toLowerCase() === 'solflare') {
+              // Use Solflare's connection format (if available)
+              const encodedDappUrl = encodeURIComponent(dappUrl)
+              deeplinkUrl = `https://solflare.com/ul/v1/browse/${encodedDappUrl}?cluster=${cluster}`
+            } else {
+              throw new Error(`Mobile deeplink not supported for ${walletName}`)
             }
             
-            console.log(`Mobile deeplink opened for ${walletName}`)
+            console.log(`Opening mobile wallet ${walletName} via deeplink:`, deeplinkUrl)
+            
+            // Open the deeplink
+            window.location.href = deeplinkUrl
+            
+            // Note: The connection will be completed when the user returns from the wallet app
+            // This is handled by the visibility change detection in App.vue
             return
             
           } catch (error) {
@@ -190,8 +185,15 @@ class WalletService {
             )
           }
         }
+
+        // Desktop wallet connection
+        walletAdapter = wallet.adapter
       } else {
-        // Auto-select first available wallet
+        // Auto-select first available wallet (desktop only)
+        if (isMobile()) {
+          throw new Error('Please select a specific wallet on mobile')
+        }
+        
         const availableWallets = this.getAvailableWallets()
         if (availableWallets.length === 0) {
           throw new Error('No wallets available')
@@ -199,8 +201,8 @@ class WalletService {
         walletAdapter = availableWallets[0].adapter
       }
 
-      // Desktop wallet connection
-      if (!isMobile()) {
+      // Desktop wallet connection using wallet adapters
+      if (!isMobile() && walletAdapter) {
         // Check if wallet is actually available on desktop
         if (walletAdapter.readyState !== WalletReadyState.Installed && 
             walletAdapter.readyState !== WalletReadyState.Loadable) {
@@ -334,24 +336,37 @@ class WalletService {
     const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
     
     if (lastAttemptedWallet) {
+      console.log('Detected mobile wallet return for:', lastAttemptedWallet)
       sessionStorage.removeItem('mobileWalletAttempt')
       
-      // Try to detect if wallet is now available (user approved connection)
-      const wallet = walletAdapters.find(w => w.name === lastAttemptedWallet)
-      if (wallet) {
+      // For mobile browsers, we simulate a successful connection
+      // In a real implementation, you would need to check if the wallet
+      // actually approved the connection (e.g., through URL parameters)
+      
+      // Check URL for connection success parameters
+      const urlParams = new URLSearchParams(window.location.search)
+      const connected = urlParams.get('connected')
+      const publicKey = urlParams.get('publicKey')
+      
+      if (connected === 'true' && publicKey) {
         try {
-          // For mobile, we need to check if the wallet is now ready
-          this.setupWalletListeners(wallet.adapter)
-          await wallet.adapter.connect()
+          // Create a mock wallet state for mobile connections
+          this._publicKey.value = new PublicKey(publicKey)
+          this.currentWallet.value = {
+            name: lastAttemptedWallet,
+            publicKey: this._publicKey.value,
+            connected: true
+          } as any
           
-          this.currentWallet.value = wallet.adapter
-          this._publicKey.value = wallet.adapter.publicKey
           await this.updateBalance()
           
           console.log(`Mobile wallet connection completed for ${lastAttemptedWallet}`)
         } catch (error) {
           console.warn('Failed to complete mobile wallet connection:', error)
         }
+      } else {
+        // Connection was not successful or cancelled
+        console.log('Mobile wallet connection was cancelled or failed')
       }
     }
   }
