@@ -29,16 +29,6 @@
           </button>
         </div>
         
-        <!-- Temporary Debug Info -->
-        <div class="mb-4 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-          <p>Debug - isMobile: {{ isMobileDevice }}</p>
-          <p>Debug - displayWallets.length: {{ displayWallets.length }}</p>
-          <p>Debug - allWallets.length: {{ allWallets.length }}</p>
-          <p>Debug - availableWallets.length: {{ availableWallets.length }}</p>
-          <p>Debug - displayWallets: {{ displayWallets.map(w => w.name).join(', ') }}</p>
-          <p>Debug - allWallets: {{ allWallets.map(w => `${w.name}(${w.supportsDeeplink})`).join(', ') }}</p>
-        </div>
-        
         <!-- Loading State -->
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
@@ -56,7 +46,7 @@
             <div>
               <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Mobile Wallet Connection</p>
               <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                Tap a wallet to open its app. If not installed, you'll be redirected to download it.
+                Tap a wallet to connect. If not installed, you'll be redirected to download it.
               </p>
             </div>
           </div>
@@ -64,10 +54,10 @@
         
         <!-- Wallet List -->
         <div v-else-if="!connecting" class="space-y-3">
-          <!-- Available Wallets (Mobile: All deeplink-compatible wallets) -->
+          <!-- Wallet Options -->
           <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ isMobileDevice ? 'Wallet Apps' : 'Detected Wallets' }}
+              {{ isMobileDevice ? 'Choose Wallet' : 'Available Wallets' }}
             </h3>
             <div class="space-y-2">
               <button
@@ -85,9 +75,6 @@
                 <div class="flex-1 text-left">
                   <p class="font-medium text-gray-900 dark:text-white">
                     {{ wallet.name }}
-                  </p>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ isMobileDevice ? 'Tap to connect or install' : 'Ready to connect' }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,31 +120,18 @@
           </div>
           
           <!-- No Wallets Available -->
-          <div v-if="displayWallets.length === 0 && (notInstalledWallets.length === 0 || isMobileDevice)" class="text-center py-8">
+          <div v-if="displayWallets.length === 0" class="text-center py-8">
             <div class="text-gray-400 mb-4">
               <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
               </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 mb-4">
-              {{ isMobileDevice ? 'No wallet apps detected' : 'No Solana wallets found' }}
+              No Solana wallets available
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-              {{ isMobileDevice 
-                ? 'Install a Solana wallet app to continue' 
-                : 'Please install a Solana wallet extension to continue' }}
+              Please install a Solana wallet to continue
             </p>
-            <!-- Mobile install links -->
-            <div v-if="isMobileDevice" class="space-y-2">
-              <a
-                href="https://phantom.app/download"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                Download Phantom App
-              </a>
-            </div>
           </div>
         </div>
         
@@ -181,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { isMobile } from '@/utils/mobile'
@@ -212,30 +186,19 @@ const isMobileDevice = computed(() => isMobile())
 
 // Computed properties
 const availableWallets = computed(() => {
-  const wallets = walletStore.getAvailableWallets()
-  return wallets
+  return walletStore.getAvailableWallets()
 })
 
 const allWallets = computed(() => {
-  const wallets = walletStore.getAllWallets()
-  return wallets
+  return walletStore.getAllWallets()
 })
 
 // For mobile: show all deeplink-compatible wallets
 // For desktop: show only detected wallets
 const displayWallets = computed(() => {
-  console.log('displayWallets computed - isMobileDevice:', isMobileDevice.value)
-  console.log('displayWallets computed - allWallets:', allWallets.value)
-  console.log('displayWallets computed - availableWallets:', availableWallets.value)
-  
   if (isMobileDevice.value) {
     // On mobile, show all wallets that support deeplinks
-    const mobileWallets = allWallets.value.filter(wallet => {
-      console.log(`Checking wallet ${wallet.name}, supportsDeeplink:`, wallet.supportsDeeplink)
-      return wallet.supportsDeeplink
-    })
-    console.log('displayWallets computed - mobileWallets:', mobileWallets)
-    return mobileWallets
+    return allWallets.value.filter(wallet => wallet.supportsDeeplink)
   } else {
     // On desktop, show only installed/detected wallets
     return availableWallets.value
@@ -265,8 +228,6 @@ const connectWallet = async (walletName: string) => {
   try {
     connecting.value = true
     error.value = null
-    
-    console.log(`WalletModal - Attempting to connect to ${walletName}`)
     
     await walletStore.connectWallet(walletName)
     
