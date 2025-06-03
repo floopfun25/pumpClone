@@ -37,16 +37,6 @@
           </p>
         </div>
         
-        <!-- Temporary Debug (remove after fixing) -->
-        <div class="mb-4 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs">
-          <p>Debug: displayWallets.length = {{ displayWallets.length }}</p>
-          <p>Debug: allWallets.length = {{ allWallets.length }}</p>
-          <p>Debug: isMobile = {{ isMobileDevice }}</p>
-          <div v-for="wallet in allWallets" :key="wallet.name">
-            {{ wallet.name }}: supportsDeeplink = {{ wallet.supportsDeeplink }}
-          </div>
-        </div>
-        
         <!-- Wallet List -->
         <div v-if="!connecting" class="space-y-3">
           <!-- Wallet Options -->

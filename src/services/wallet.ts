@@ -147,6 +147,9 @@ class WalletService {
         // Handle mobile connection
         if (isMobile() && wallet.supportsDeeplink) {
           try {
+            // Store the wallet attempt in session storage
+            sessionStorage.setItem('mobileWalletAttempt', walletName)
+            
             // Use our mobile connection utility
             await connectMobileWallet(walletName, {
               cluster: solanaConfig.network as any,
@@ -154,13 +157,34 @@ class WalletService {
               redirectUrl: window.location.href
             })
             
-            // For mobile connections, we don't immediately set the wallet state
-            // The user will return to the dapp after approving in the wallet app
+            // After opening the app, attempt to connect to the wallet adapter
+            // This handles cases where the wallet app can provide the connection immediately
+            try {
+              this.setupWalletListeners(wallet.adapter)
+              await wallet.adapter.connect()
+              
+              this.currentWallet.value = wallet.adapter
+              this._publicKey.value = wallet.adapter.publicKey
+              await this.updateBalance()
+              
+              // Clear the attempt since we succeeded
+              sessionStorage.removeItem('mobileWalletAttempt')
+              
+              console.log(`Mobile wallet connection completed for ${walletName}`)
+              return
+              
+            } catch (adapterError) {
+              console.log(`Direct adapter connection failed, user will need to complete in app:`, adapterError)
+              // This is normal - user needs to approve in the wallet app
+              // The connection will be completed when they return via App.vue visibility handling
+            }
+            
             console.log(`Mobile deeplink opened for ${walletName}`)
             return
             
           } catch (error) {
             console.error(`Mobile connection failed for ${walletName}:`, error)
+            sessionStorage.removeItem('mobileWalletAttempt')
             throw new WalletConnectionError(
               `Failed to open ${walletName} app. Please make sure it's installed.`
             )
