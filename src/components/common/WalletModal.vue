@@ -29,6 +29,16 @@
           </button>
         </div>
         
+        <!-- Temporary Debug Info -->
+        <div class="mb-4 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+          <p>Debug - isMobile: {{ isMobileDevice }}</p>
+          <p>Debug - displayWallets.length: {{ displayWallets.length }}</p>
+          <p>Debug - allWallets.length: {{ allWallets.length }}</p>
+          <p>Debug - availableWallets.length: {{ availableWallets.length }}</p>
+          <p>Debug - displayWallets: {{ displayWallets.map(w => w.name).join(', ') }}</p>
+          <p>Debug - allWallets: {{ allWallets.map(w => `${w.name}(${w.supportsDeeplink})`).join(', ') }}</p>
+        </div>
+        
         <!-- Loading State -->
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
@@ -214,9 +224,18 @@ const allWallets = computed(() => {
 // For mobile: show all deeplink-compatible wallets
 // For desktop: show only detected wallets
 const displayWallets = computed(() => {
+  console.log('displayWallets computed - isMobileDevice:', isMobileDevice.value)
+  console.log('displayWallets computed - allWallets:', allWallets.value)
+  console.log('displayWallets computed - availableWallets:', availableWallets.value)
+  
   if (isMobileDevice.value) {
     // On mobile, show all wallets that support deeplinks
-    return allWallets.value.filter(wallet => wallet.supportsDeeplink)
+    const mobileWallets = allWallets.value.filter(wallet => {
+      console.log(`Checking wallet ${wallet.name}, supportsDeeplink:`, wallet.supportsDeeplink)
+      return wallet.supportsDeeplink
+    })
+    console.log('displayWallets computed - mobileWallets:', mobileWallets)
+    return mobileWallets
   } else {
     // On desktop, show only installed/detected wallets
     return availableWallets.value
