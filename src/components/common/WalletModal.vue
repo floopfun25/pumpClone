@@ -171,23 +171,23 @@ const isMobileDevice = computed(() => isMobile())
 
 // Computed properties
 const availableWallets = computed(() => {
-  return walletStore.getAvailableWallets()
+  const wallets = walletStore.getAvailableWallets()
+  console.log('Available wallets:', wallets.map(w => w.name))
+  return wallets
 })
 
 const allWallets = computed(() => {
-  return walletStore.getAllWallets()
+  const wallets = walletStore.getAllWallets()
+  console.log('All wallets:', wallets.map(w => w.name))
+  return wallets
 })
 
-// For mobile: show all deeplink-compatible wallets
+// For mobile: show MWA-compatible wallets (via availableWallets)
 // For desktop: show only detected wallets
 const displayWallets = computed(() => {
-  if (isMobileDevice.value) {
-    // On mobile, show all wallets that support deeplinks
-    return allWallets.value.filter(wallet => wallet.supportsDeeplink)
-  } else {
-    // On desktop, show only installed/detected wallets
-    return availableWallets.value
-  }
+  // Use the wallet service's logic for determining available wallets
+  // This handles mobile MWA detection correctly
+  return availableWallets.value
 })
 
 const notInstalledWallets = computed(() => {

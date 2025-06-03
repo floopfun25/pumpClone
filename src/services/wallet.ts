@@ -111,8 +111,9 @@ class WalletService {
     const mobile = isMobile()
     
     if (mobile) {
-      // On mobile, we show wallets that support deeplinks
-      // The actual installation check happens when trying to connect
+      // On mobile with MWA support, show all wallets that support MWA
+      // The actual availability check happens when MWA tries to connect
+      console.log('Mobile detected: showing MWA-compatible wallets')
       return walletAdapters.filter(wallet => wallet.supportsDeeplink)
     }
     
@@ -184,9 +185,18 @@ class WalletService {
           } catch (error) {
             console.error(`Mobile MWA connection failed for ${walletName}:`, error)
             sessionStorage.removeItem('mobileWalletAttempt')
-            throw new WalletConnectionError(
-              `Failed to connect to ${walletName}. Please ensure you have the ${walletName} app installed and try again.`
-            )
+            
+            // Check if this is a "wallet not found" error
+            const errorMessage = (error as Error)?.message || ''
+            if (errorMessage.includes('not found') || errorMessage.includes('not installed') || errorMessage.includes('No wallet apps')) {
+              throw new WalletConnectionError(
+                `${walletName} app is not installed on your device. Please install ${walletName} from the app store and try again.`
+              )
+            } else {
+              throw new WalletConnectionError(
+                `Failed to connect to ${walletName}. Please make sure the ${walletName} app is installed and try again.`
+              )
+            }
           }
         }
 
