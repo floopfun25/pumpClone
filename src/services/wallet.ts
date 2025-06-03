@@ -24,6 +24,18 @@ import {
 import { solanaConfig } from '@/config'
 import { isMobile } from '@/utils/mobile'
 
+// Dynamic import for Mobile Wallet Adapter to avoid SSR issues
+let SolanaMobileWalletAdapter: any = null
+try {
+  if (typeof window !== 'undefined' && isMobile()) {
+    import('@solana-mobile/wallet-adapter-mobile').then(module => {
+      SolanaMobileWalletAdapter = module.SolanaMobileWalletAdapter
+    }).catch(console.warn)
+  }
+} catch (e) {
+  console.warn('Mobile Wallet Adapter not available:', e)
+}
+
 // Wallet types
 export interface WalletAdapter {
   name: string
@@ -74,12 +86,56 @@ class WalletService {
     !!this.currentWallet.value?.connected && 
     !!this._publicKey.value
   )
+  private mobileWalletAdapter: any = null
 
   constructor() {
     this.connection = new Connection(
       solanaConfig.rpcUrl,
       solanaConfig.commitment as Commitment
     )
+    
+    // Initialize Mobile Wallet Adapter for mobile devices
+    this.initializeMobileWalletAdapter()
+  }
+
+  private async initializeMobileWalletAdapter() {
+    if (!isMobile() || typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      // Only attempt to load MWA on mobile Chrome (Android)
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
+      if (!isChrome) {
+        console.log('Mobile Wallet Adapter only supports Chrome on Android')
+        return
+      }
+
+      // Dynamically import the Mobile Wallet Adapter
+      const { 
+        SolanaMobileWalletAdapter,
+        createDefaultAddressSelector,
+        createDefaultAuthorizationResultCache,
+        createDefaultWalletNotFoundHandler 
+      } = await import('@solana-mobile/wallet-adapter-mobile')
+      
+      this.mobileWalletAdapter = new SolanaMobileWalletAdapter({
+        addressSelector: createDefaultAddressSelector(),
+        appIdentity: {
+          name: 'Pump Clone',
+          uri: window.location.origin,
+          icon: `${window.location.origin}/favicon.ico`,
+        },
+        authorizationResultCache: createDefaultAuthorizationResultCache(),
+        cluster: solanaConfig.commitment === 'confirmed' ? 'mainnet-beta' : 'devnet',
+        onWalletNotFound: createDefaultWalletNotFoundHandler(),
+      })
+
+      console.log('Mobile Wallet Adapter initialized for mobile Chrome')
+      
+    } catch (error) {
+      console.warn('Failed to initialize Mobile Wallet Adapter:', error)
+    }
   }
 
   get connecting() {
@@ -111,10 +167,15 @@ class WalletService {
     const mobile = isMobile()
     
     if (mobile) {
-      // On mobile with MWA support, show all wallets that support MWA
-      // The actual availability check happens when MWA tries to connect
-      console.log('Mobile detected: showing MWA-compatible wallets')
-      return walletAdapters.filter(wallet => wallet.supportsDeeplink)
+      // On mobile Chrome (Android), all wallets are potentially available via MWA
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
+      if (isChrome) {
+        console.log('Mobile Chrome detected: showing all wallets (MWA compatible)')
+        return walletAdapters
+      } else {
+        console.log('Mobile non-Chrome browser: limited wallet support')
+        return []
+      }
     }
     
     // Desktop behavior - check for browser extensions
@@ -134,108 +195,13 @@ class WalletService {
     try {
       this._connecting.value = true
 
-      let walletAdapter: BaseMessageSignerWalletAdapter | null = null
-
-      if (walletName) {
-        // Find the wallet configuration
-        const wallet = walletAdapters.find(w => w.name === walletName)
-        if (!wallet) {
-          throw new Error(`Wallet ${walletName} not found`)
-        }
-
-        // Handle mobile connection - use deeplinks to wallet apps  
-        if (isMobile() && wallet.supportsDeeplink) {
-          try {
-            console.log(`Connecting to ${walletName} on mobile via deeplink...`)
-            
-            // Store the wallet attempt in session storage
-            sessionStorage.setItem('mobileWalletAttempt', walletName)
-            sessionStorage.setItem('mobileConnectionTime', Date.now().toString())
-            
-            if (walletName.toLowerCase() === 'phantom') {
-              // Create a simpler connection request URL for Phantom
-              const dappUrl = window.location.href.split('?')[0] // Clean URL without params
-              const redirectUrl = `${dappUrl}?wallet_return=phantom`
-              
-              // Use simpler Phantom deeplink format
-              const phantomUrl = `phantom://browse/?ref=${encodeURIComponent(dappUrl)}`
-              
-              console.log('Opening Phantom with URL:', phantomUrl)
-              console.log('Redirect URL will be:', redirectUrl)
-              
-              // Open Phantom app
-              window.location.href = phantomUrl
-              
-            } else if (walletName.toLowerCase() === 'solflare') {
-              // Create a simpler connection request URL for Solflare  
-              const dappUrl = window.location.href.split('?')[0] // Clean URL without params
-              const redirectUrl = `${dappUrl}?wallet_return=solflare`
-              
-              // Use simpler Solflare deeplink format
-              const solflareUrl = `solflare://browse/?ref=${encodeURIComponent(dappUrl)}`
-              
-              console.log('Opening Solflare with URL:', solflareUrl)
-              
-              // Open Solflare app
-              window.location.href = solflareUrl
-              
-            } else {
-              throw new Error(`Mobile connection not supported for ${walletName}`)
-            }
-            
-            // The connection will complete when user returns from wallet app
-            // We'll handle the return in the app initialization
-            return
-            
-          } catch (error) {
-            console.error(`Mobile connection failed:`, error)
-            sessionStorage.removeItem('mobileWalletAttempt')
-            sessionStorage.removeItem('mobileConnectionTime')
-            
-            throw new WalletConnectionError(
-              `Failed to open ${walletName} app. Please make sure ${walletName} is installed on your device.`
-            )
-          }
-        }
-
-        // Desktop wallet connection
-        walletAdapter = wallet.adapter
-      } else {
-        // Auto-select first available wallet (desktop only)
-        if (isMobile()) {
-          throw new Error('Please select a specific wallet on mobile')
-        }
-        
-        const availableWallets = this.getAvailableWallets()
-        if (availableWallets.length === 0) {
-          throw new Error('No wallets available')
-        }
-        walletAdapter = availableWallets[0].adapter
+      // Handle mobile connection via MWA
+      if (isMobile()) {
+        return await this.connectMobile(walletName)
       }
 
-      // Desktop wallet connection using wallet adapters
-      if (!isMobile() && walletAdapter) {
-        // Check if wallet is actually available on desktop
-        if (walletAdapter.readyState !== WalletReadyState.Installed && 
-            walletAdapter.readyState !== WalletReadyState.Loadable) {
-          throw new Error(`${walletAdapter.name} wallet is not installed`)
-        }
-
-        // Set up event listeners
-        this.setupWalletListeners(walletAdapter)
-
-        // Attempt connection
-        await walletAdapter.connect()
-
-        this.currentWallet.value = walletAdapter
-        this._publicKey.value = walletAdapter.publicKey
-
-        // Save wallet name to localStorage for auto-reconnect (only on desktop)
-        localStorage.setItem('walletName', walletAdapter.name)
-
-        // Update balance
-        await this.updateBalance()
-      }
+      // Handle desktop connection
+      return await this.connectDesktop(walletName)
 
     } catch (error) {
       console.error('Failed to connect wallet:', error)
@@ -244,6 +210,101 @@ class WalletService {
     } finally {
       this._connecting.value = false
     }
+  }
+
+  // Mobile connection using MWA
+  private async connectMobile(walletName?: string): Promise<void> {
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
+    
+    if (!isChrome) {
+      throw new WalletConnectionError(
+        'Mobile wallet connections are only supported in Chrome on Android. Please use Chrome browser or install the wallet app directly.'
+      )
+    }
+
+    if (!this.mobileWalletAdapter) {
+      await this.initializeMobileWalletAdapter()
+      
+      if (!this.mobileWalletAdapter) {
+        throw new WalletConnectionError(
+          'Mobile Wallet Adapter failed to initialize. Please try again or use a desktop browser.'
+        )
+      }
+    }
+
+    try {
+      console.log(`Connecting via Mobile Wallet Adapter...`)
+      
+      // Set up event listeners for MWA
+      this.setupWalletListeners(this.mobileWalletAdapter)
+
+      // Attempt connection via MWA
+      await this.mobileWalletAdapter.connect()
+
+      this.currentWallet.value = this.mobileWalletAdapter
+      this._publicKey.value = this.mobileWalletAdapter.publicKey
+
+      console.log('Mobile wallet connected successfully via MWA!')
+
+      // Update balance
+      await this.updateBalance()
+
+    } catch (error: any) {
+      console.error('Mobile Wallet Adapter connection failed:', error)
+      
+      // Check if it's a specific error we can handle
+      if (error?.message?.includes('no wallet found')) {
+        throw new WalletConnectionError(
+          'No compatible mobile wallet found. Please install Phantom or Solflare from the app store.'
+        )
+      }
+      
+      throw new WalletConnectionError(
+        `Mobile wallet connection failed: ${error?.message || 'Unknown error'}`
+      )
+    }
+  }
+
+  // Desktop connection using standard wallet adapters
+  private async connectDesktop(walletName?: string): Promise<void> {
+    let walletAdapter: BaseMessageSignerWalletAdapter | null = null
+
+    if (walletName) {
+      // Find the wallet configuration
+      const wallet = walletAdapters.find(w => w.name === walletName)
+      if (!wallet) {
+        throw new Error(`Wallet ${walletName} not found`)
+      }
+      walletAdapter = wallet.adapter
+    } else {
+      // Auto-select first available wallet
+      const availableWallets = this.getAvailableWallets()
+      if (availableWallets.length === 0) {
+        throw new Error('No wallets available')
+      }
+      walletAdapter = availableWallets[0].adapter
+    }
+
+    // Check if wallet is actually available on desktop
+    if (walletAdapter.readyState !== WalletReadyState.Installed && 
+        walletAdapter.readyState !== WalletReadyState.Loadable) {
+      throw new Error(`${walletAdapter.name} wallet is not installed`)
+    }
+
+    // Set up event listeners
+    this.setupWalletListeners(walletAdapter)
+
+    // Attempt connection
+    await walletAdapter.connect()
+
+    this.currentWallet.value = walletAdapter
+    this._publicKey.value = walletAdapter.publicKey
+
+    // Save wallet name to localStorage for auto-reconnect (only on desktop)
+    localStorage.setItem('walletName', walletAdapter.name)
+
+    // Update balance
+    await this.updateBalance()
   }
 
   // Disconnect wallet
@@ -303,13 +364,12 @@ class WalletService {
     }
   }
 
-  // Auto-reconnect on page load (only on desktop)
+  // Auto-reconnect on page load
   async autoConnect(): Promise<void> {
-    // First check for mobile wallet returns
-    await this.handleMobileWalletReturn()
-    
     if (isMobile()) {
-      // Skip desktop auto-connect on mobile - mobile connections are handled above
+      // On mobile, try to initialize MWA but don't auto-connect
+      // User must explicitly connect on mobile
+      await this.initializeMobileWalletAdapter()
       return
     }
 
@@ -341,23 +401,17 @@ class WalletService {
     }
   }
 
-  // Remove mobile wallet browser detection since we're using standard MWA in Chrome
-  // The @solana/wallet-adapter automatically handles MWA integration in mobile Chrome
-  async connectIfInMobileWalletBrowser(): Promise<void> {
-    // No longer needed - MWA works directly in mobile Chrome browser
-    console.log('MWA integration is automatic in mobile Chrome - no special handling needed')
-    return
-  }
-
-  // Remove manual mobile wallet browser connection
-  async connectInMobileWalletBrowser(): Promise<void> {
-    throw new Error('Manual mobile wallet browser connection no longer needed - use standard connect() method')
-  }
-
-  // Check if we're in mobile wallet browser context
+  // Check if we're in mobile wallet browser context (legacy method)
   isInMobileWalletBrowser(): boolean {
-    // Always false since we're using direct MWA integration in Chrome
+    // This is no longer needed with proper MWA integration
     return false
+  }
+
+  // Legacy mobile wallet return handling (no longer needed)
+  async handleMobileWalletReturn(): Promise<void> {
+    // This is no longer needed with proper MWA integration
+    console.log('Legacy mobile wallet return handling - no longer needed with MWA')
+    return
   }
 
   // Setup wallet event listeners
@@ -372,7 +426,7 @@ class WalletService {
     if (this.currentWallet.value) {
       this._publicKey.value = this.currentWallet.value.publicKey
       if (!isMobile()) {
-        localStorage.setItem('walletName', this.currentWallet.value.name)
+        localStorage.setItem('walletName', this.currentWallet.value.name || 'unknown')
       }
       this.updateBalance()
     }
@@ -397,8 +451,6 @@ class WalletService {
     if (!isMobile()) {
       localStorage.removeItem('walletName')
     }
-    sessionStorage.removeItem('mobileWalletAttempt')
-    sessionStorage.removeItem('mobileConnectionTime')
   }
 
   // Get wallet state for reactive use
@@ -411,138 +463,6 @@ class WalletService {
       wallet: this.wallet as any,
       balance: this.balance
     }
-  }
-
-  // Check for mobile wallet return and handle connection
-  async handleMobileWalletReturn(): Promise<void> {
-    if (!isMobile()) {
-      return
-    }
-
-    // Check URL parameters for wallet return
-    const urlParams = new URLSearchParams(window.location.search)
-    const walletReturn = urlParams.get('wallet_return')
-    const connected = urlParams.get('connected')
-    const errorCode = urlParams.get('errorCode')
-    const errorMessage = urlParams.get('errorMessage')
-    
-    // Clean up URL parameters immediately
-    if (walletReturn || connected || errorCode) {
-      const cleanUrl = window.location.href.split('?')[0]
-      window.history.replaceState({}, '', cleanUrl)
-    }
-
-    // Check if we have a mobile wallet attempt in progress
-    const walletAttempt = sessionStorage.getItem('mobileWalletAttempt')
-    const connectionTime = sessionStorage.getItem('mobileConnectionTime')
-    
-    // Also check if we're running inside a wallet's browser (auto-connect scenario)
-    const isInWalletBrowser = this.checkIfInWalletBrowser()
-    
-    if (!walletAttempt && !isInWalletBrowser) {
-      return
-    }
-
-    if (walletAttempt && connectionTime) {
-      // Check if this is a recent connection attempt (within 5 minutes)
-      const timeDiff = Date.now() - parseInt(connectionTime)
-      if (timeDiff > 5 * 60 * 1000) { // 5 minutes
-        sessionStorage.removeItem('mobileWalletAttempt')
-        sessionStorage.removeItem('mobileConnectionTime')
-        return
-      }
-    }
-
-    console.log('Checking for mobile wallet context...', {
-      walletReturn,
-      connected,
-      errorCode,
-      errorMessage,
-      isInWalletBrowser,
-      walletAttempt
-    })
-
-    // Handle error cases
-    if (errorCode) {
-      console.error('Wallet connection error:', errorCode, errorMessage)
-      sessionStorage.removeItem('mobileWalletAttempt')
-      sessionStorage.removeItem('mobileConnectionTime')
-      
-      throw new WalletConnectionError(
-        `Wallet connection failed: ${decodeURIComponent(errorMessage || 'Unknown error')}`
-      )
-    }
-
-    // Handle successful return or auto-connect in wallet browser
-    if (walletReturn || connected === 'true' || isInWalletBrowser) {
-      console.log('Mobile wallet context detected!')
-      
-      try {
-        // Check if the wallet is now available in window object
-        let walletObj = null
-        let walletName = walletAttempt
-        
-        // Detect wallet based on available objects or attempt
-        if ((window as any).phantom?.solana) {
-          walletObj = (window as any).phantom.solana
-          walletName = walletName || 'Phantom'
-        } else if ((window as any).solflare) {
-          walletObj = (window as any).solflare
-          walletName = walletName || 'Solflare'
-        }
-        
-        if (walletObj) {
-          console.log(`${walletName} wallet object found, attempting connection...`)
-          
-          // Connect using the wallet object - this will show the approval dialog
-          const response = await walletObj.connect()
-          
-          // Set up a simple wallet state
-          this.currentWallet.value = {
-            name: walletName,
-            connected: true,
-            publicKey: response.publicKey,
-            signTransaction: walletObj.signTransaction?.bind(walletObj),
-            signAllTransactions: walletObj.signAllTransactions?.bind(walletObj),
-            signMessage: walletObj.signMessage?.bind(walletObj),
-            sendTransaction: walletObj.signAndSendTransaction?.bind(walletObj)
-          } as any
-          
-          this._publicKey.value = response.publicKey
-          await this.updateBalance()
-          
-          console.log(`Mobile ${walletName} connection successful!`)
-        } else {
-          console.log('Wallet object not found, but user returned from wallet app')
-          // The user returned but we don't have access to the wallet object
-          // This might happen in certain browser contexts
-        }
-        
-        // Clean up session storage
-        sessionStorage.removeItem('mobileWalletAttempt')
-        sessionStorage.removeItem('mobileConnectionTime')
-        
-      } catch (error) {
-        console.error('Failed to complete mobile wallet connection:', error)
-        sessionStorage.removeItem('mobileWalletAttempt')
-        sessionStorage.removeItem('mobileConnectionTime')
-        throw error
-      }
-    }
-  }
-
-  // Check if we're running inside a wallet's browser
-  private checkIfInWalletBrowser(): boolean {
-    // Check for wallet objects that indicate we're in the wallet's browser
-    const hasPhantom = !!(window as any).phantom?.solana
-    const hasSolflare = !!(window as any).solflare
-    
-    // Also check user agent for wallet browser indicators
-    const userAgent = navigator.userAgent.toLowerCase()
-    const isPhantomBrowser = userAgent.includes('phantom')
-    const isSolflareBrowser = userAgent.includes('solflare')
-    
-    return hasPhantom || hasSolflare || isPhantomBrowser || isSolflareBrowser
   }
 }
 

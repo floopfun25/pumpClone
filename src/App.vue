@@ -27,7 +27,6 @@ import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
-import { isMobile } from '@/utils/mobile'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -58,35 +57,6 @@ onMounted(async () => {
     if (walletStore.isConnected) {
       // Initialize user session if wallet is connected
       await authStore.initializeUser()
-    }
-    
-    // Handle mobile wallet returns
-    if (isMobile()) {
-      // Check immediately for wallet returns (from URL parameters)
-      await walletStore.handleMobileWalletReturn()
-      
-      // Check again after a delay to catch wallet browser context
-      setTimeout(async () => {
-        try {
-          await walletStore.handleMobileWalletReturn()
-        } catch (error) {
-          console.warn('Delayed mobile wallet check failed:', error)
-        }
-      }, 1000)
-      
-      // Listen for page visibility changes (user returning from wallet app)
-      document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible') {
-          // Small delay to allow any URL changes to take effect
-          setTimeout(async () => {
-            try {
-              await walletStore.handleMobileWalletReturn()
-            } catch (error) {
-              console.warn('Failed to handle mobile wallet return:', error)
-            }
-          }, 500)
-        }
-      })
     }
     
     console.log('App initialized successfully')

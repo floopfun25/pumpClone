@@ -17,6 +17,7 @@
     "@babel/runtime": "^7.23.0",
     "@headlessui/vue": "^1.7.16",
     "@heroicons/vue": "^2.0.18",
+    "@solana-mobile/wallet-adapter-mobile": "^2.2.0",
     "@solana/spl-token": "^0.3.9",
     "@solana/sysvars": "^2.1.0",
     "@solana/wallet-adapter-base": "^0.9.26",
