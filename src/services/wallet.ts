@@ -22,6 +22,8 @@ import {
   SolflareWalletAdapter,
 } from '@solana/wallet-adapter-solflare'
 import { solanaConfig } from '@/config'
+import { isMobile } from '@/utils/mobile'
+import { connectMobileWallet } from '@/utils/walletDeeplink'
 
 // Wallet types
 export interface WalletAdapter {
@@ -29,6 +31,8 @@ export interface WalletAdapter {
   icon: string
   url: string
   adapter: BaseMessageSignerWalletAdapter
+  mobileUrl?: string
+  supportsDeeplink?: boolean
 }
 
 export interface WalletState {
@@ -46,13 +50,17 @@ const walletAdapters: WalletAdapter[] = [
     name: 'Phantom',
     icon: 'https://phantom.app/img/phantom-logo.svg',
     url: 'https://phantom.app/',
-    adapter: new PhantomWalletAdapter()
+    adapter: new PhantomWalletAdapter(),
+    mobileUrl: 'https://phantom.app/download',
+    supportsDeeplink: true
   },
   {
     name: 'Solflare',
     icon: 'https://solflare.com/assets/logo.svg',
     url: 'https://solflare.com/',
-    adapter: new SolflareWalletAdapter()
+    adapter: new SolflareWalletAdapter(),
+    mobileUrl: 'https://solflare.com/download',
+    supportsDeeplink: true
   }
 ]
 
@@ -75,11 +83,6 @@ class WalletService {
     )
   }
 
-  // Computed properties
-  get wallet() {
-    return this.currentWallet.value
-  }
-
   get connecting() {
     return this._connecting.value
   }
@@ -96,16 +99,24 @@ class WalletService {
     return this._publicKey.value
   }
 
+  get wallet() {
+    return this.currentWallet.value
+  }
+
   get balance() {
     return this._balance.value
   }
 
-  get walletAddress() {
-    return this._publicKey.value?.toBase58() || null
-  }
-
   // Get available wallets
   getAvailableWallets(): WalletAdapter[] {
+    const mobile = isMobile()
+    
+    if (mobile) {
+      // On mobile, we always show Phantom and other wallets that support deeplinks
+      return walletAdapters.filter(wallet => wallet.supportsDeeplink)
+    }
+    
+    // Desktop behavior - check for browser extensions
     return walletAdapters.filter(wallet => 
       wallet.adapter.readyState === WalletReadyState.Installed ||
       wallet.adapter.readyState === WalletReadyState.Loadable
@@ -131,6 +142,29 @@ class WalletService {
           throw new Error(`Wallet ${walletName} not found`)
         }
         walletAdapter = wallet.adapter
+
+        // Handle mobile connection
+        if (isMobile() && wallet.supportsDeeplink) {
+          try {
+            // Use our mobile connection utility
+            await connectMobileWallet(walletName, {
+              cluster: solanaConfig.network as any,
+              dappUrl: window.location.origin,
+              redirectUrl: window.location.href
+            })
+            
+            // For mobile connections, we don't immediately set the wallet state
+            // The user will return to the dapp after approving in the wallet app
+            console.log(`Mobile deeplink opened for ${walletName}`)
+            return
+            
+          } catch (error) {
+            console.error(`Mobile connection failed for ${walletName}:`, error)
+            throw new WalletConnectionError(
+              `Failed to open ${walletName} app. Please make sure it's installed.`
+            )
+          }
+        }
       } else {
         // Auto-select first available wallet
         const availableWallets = this.getAvailableWallets()
@@ -140,20 +174,29 @@ class WalletService {
         walletAdapter = availableWallets[0].adapter
       }
 
-      // Set up event listeners
-      this.setupWalletListeners(walletAdapter)
+      // Desktop wallet connection
+      if (!isMobile()) {
+        // Check if wallet is actually available on desktop
+        if (walletAdapter.readyState !== WalletReadyState.Installed && 
+            walletAdapter.readyState !== WalletReadyState.Loadable) {
+          throw new Error(`${walletAdapter.name} wallet is not installed`)
+        }
 
-      // Attempt connection
-      await walletAdapter.connect()
+        // Set up event listeners
+        this.setupWalletListeners(walletAdapter)
 
-      this.currentWallet.value = walletAdapter
-      this._publicKey.value = walletAdapter.publicKey
+        // Attempt connection
+        await walletAdapter.connect()
 
-      // Save wallet name to localStorage for auto-reconnect
-      localStorage.setItem('walletName', walletAdapter.name)
+        this.currentWallet.value = walletAdapter
+        this._publicKey.value = walletAdapter.publicKey
 
-      // Update balance
-      await this.updateBalance()
+        // Save wallet name to localStorage for auto-reconnect (only on desktop)
+        localStorage.setItem('walletName', walletAdapter.name)
+
+        // Update balance
+        await this.updateBalance()
+      }
 
     } catch (error) {
       console.error('Failed to connect wallet:', error)
@@ -170,7 +213,6 @@ class WalletService {
       this._disconnecting.value = true
 
       if (this.currentWallet.value) {
-        this.removeWalletListeners(this.currentWallet.value as any)
         await this.currentWallet.value.disconnect()
       }
 
@@ -184,103 +226,51 @@ class WalletService {
     }
   }
 
-  // Sign transaction
-  async signTransaction(transaction: Transaction | VersionedTransaction): Promise<Transaction | VersionedTransaction> {
-    if (!this.currentWallet.value || !this.connected) {
-      throw new WalletNotConnectedError()
-    }
-
-    try {
-      return await this.currentWallet.value.signTransaction(transaction)
-    } catch (error) {
-      console.error('Failed to sign transaction:', error)
-      throw error
-    }
-  }
-
-  // Sign all transactions
-  async signAllTransactions(transactions: (Transaction | VersionedTransaction)[]): Promise<(Transaction | VersionedTransaction)[]> {
-    if (!this.currentWallet.value || !this.connected) {
-      throw new WalletNotConnectedError()
-    }
-
-    try {
-      return await this.currentWallet.value.signAllTransactions(transactions)
-    } catch (error) {
-      console.error('Failed to sign transactions:', error)
-      throw error
-    }
-  }
-
   // Sign message
   async signMessage(message: Uint8Array): Promise<Uint8Array> {
-    if (!this.currentWallet.value || !this.connected) {
+    if (!this.currentWallet.value || !this._connected.value) {
       throw new WalletNotConnectedError()
     }
 
-    try {
-      return await this.currentWallet.value.signMessage(message)
-    } catch (error) {
-      console.error('Failed to sign message:', error)
-      throw error
+    if (!this.currentWallet.value.signMessage) {
+      throw new Error('Wallet does not support message signing')
     }
+
+    return await this.currentWallet.value.signMessage(message)
   }
 
   // Send transaction
-  async sendTransaction(
-    transaction: Transaction | VersionedTransaction,
-    options?: SendOptions
-  ): Promise<string> {
-    if (!this.currentWallet.value || !this.connected) {
+  async sendTransaction(transaction: Transaction | VersionedTransaction, options?: SendOptions): Promise<string> {
+    if (!this.currentWallet.value || !this._connected.value) {
       throw new WalletNotConnectedError()
     }
 
-    try {
-      // Get recent blockhash
-      const { blockhash } = await this.connection.getLatestBlockhash()
-      
-      if (transaction instanceof Transaction) {
-        transaction.recentBlockhash = blockhash
-        transaction.feePayer = this._publicKey.value!
-      }
-
-      // Sign transaction
-      const signedTransaction = await this.signTransaction(transaction)
-
-      // Send transaction
-      const signature = await this.connection.sendRawTransaction(
-        signedTransaction.serialize(),
-        options
-      )
-
-      // Confirm transaction
-      await this.connection.confirmTransaction(signature)
-      
-      // Update balance after transaction
-      await this.updateBalance()
-      
-      return signature
-
-    } catch (error) {
-      console.error('Failed to send transaction:', error)
-      throw error
-    }
+    return await this.currentWallet.value.sendTransaction(transaction, this.connection, options)
   }
 
-  // Update wallet balance
+  // Update balance
   async updateBalance(): Promise<void> {
-    if (!this._publicKey.value) return
+    if (!this._publicKey.value) {
+      this._balance.value = 0
+      return
+    }
 
     try {
       const balance = await this.connection.getBalance(this._publicKey.value)
       this._balance.value = balance / LAMPORTS_PER_SOL
     } catch (error) {
       console.error('Failed to update balance:', error)
+      this._balance.value = 0
     }
   }
 
-  // Auto-reconnect on page load
+  // Auto-reconnect on page load (only on desktop)
   async autoConnect(): Promise<void> {
+    if (isMobile()) {
+      // Skip auto-connect on mobile - users need to manually connect via deeplinks
+      return
+    }
+
     const lastWalletName = localStorage.getItem('walletName')
     
     if (!lastWalletName) {
@@ -305,6 +295,39 @@ class WalletService {
       
     } catch (error) {
       localStorage.removeItem('walletName')
+      console.warn('Auto-connect failed:', error)
+    }
+  }
+
+  // Manual connection for returning mobile users (when they come back from wallet app)
+  async connectIfReturningFromMobileWallet(): Promise<void> {
+    if (!isMobile()) {
+      return
+    }
+
+    // Check if user was in the middle of a wallet connection
+    const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
+    
+    if (lastAttemptedWallet) {
+      sessionStorage.removeItem('mobileWalletAttempt')
+      
+      // Try to detect if wallet is now available (user approved connection)
+      const wallet = walletAdapters.find(w => w.name === lastAttemptedWallet)
+      if (wallet) {
+        try {
+          // For mobile, we need to check if the wallet is now ready
+          this.setupWalletListeners(wallet.adapter)
+          await wallet.adapter.connect()
+          
+          this.currentWallet.value = wallet.adapter
+          this._publicKey.value = wallet.adapter.publicKey
+          await this.updateBalance()
+          
+          console.log(`Mobile wallet connection completed for ${lastAttemptedWallet}`)
+        } catch (error) {
+          console.warn('Failed to complete mobile wallet connection:', error)
+        }
+      }
     }
   }
 
@@ -315,18 +338,13 @@ class WalletService {
     wallet.on('error', this.handleError.bind(this))
   }
 
-  // Remove wallet event listeners
-  private removeWalletListeners(wallet: BaseMessageSignerWalletAdapter): void {
-    wallet.off('connect', this.handleConnect.bind(this))
-    wallet.off('disconnect', this.handleDisconnect.bind(this))
-    wallet.off('error', this.handleError.bind(this))
-  }
-
   // Handle wallet connect event
   private handleConnect(): void {
     if (this.currentWallet.value) {
       this._publicKey.value = this.currentWallet.value.publicKey
-      localStorage.setItem('walletName', this.currentWallet.value.name)
+      if (!isMobile()) {
+        localStorage.setItem('walletName', this.currentWallet.value.name)
+      }
       this.updateBalance()
     }
   }
@@ -334,12 +352,12 @@ class WalletService {
   // Handle wallet disconnect event
   private handleDisconnect(): void {
     this.cleanup()
-    localStorage.removeItem('walletName')
   }
 
   // Handle wallet error event
   private handleError(error: Error): void {
     console.error('Wallet error:', error)
+    this.cleanup()
   }
 
   // Cleanup wallet state
@@ -347,6 +365,10 @@ class WalletService {
     this.currentWallet.value = null
     this._publicKey.value = null
     this._balance.value = 0
+    if (!isMobile()) {
+      localStorage.removeItem('walletName')
+    }
+    sessionStorage.removeItem('mobileWalletAttempt')
   }
 
   // Get wallet state for reactive use
@@ -362,16 +384,15 @@ class WalletService {
   }
 }
 
-// Create singleton instance
+// Export wallet service instance
 export const walletService = new WalletService()
 
-// Helper function to format wallet address
-export function formatWalletAddress(address: string | null, length = 4): string {
+// Export utility functions
+export const formatWalletAddress = (address: string, length = 4): string => {
   if (!address) return ''
   return `${address.slice(0, length)}...${address.slice(-length)}`
 }
 
-// Helper function to format SOL amount
-export function formatSOL(amount: number, decimals = 4): string {
-  return `${amount.toFixed(decimals)} SOL`
+export const formatSOL = (amount: number): string => {
+  return `${amount.toFixed(4)} SOL`
 } 

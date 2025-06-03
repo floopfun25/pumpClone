@@ -27,6 +27,7 @@ import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
+import { isMobile } from '@/utils/mobile'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -42,11 +43,52 @@ const uiStore = useUIStore()
 // Computed properties for reactive state
 const isLoading = computed(() => uiStore.isLoading)
 
+// Check for mobile wallet return
+const checkMobileWalletReturn = () => {
+  if (isMobile()) {
+    // Check if user is returning from a wallet app
+    const urlParams = new URLSearchParams(window.location.search)
+    const walletReturn = urlParams.get('wallet_return')
+    
+    if (walletReturn) {
+      console.log('User returned from wallet app')
+      
+      // Clean up URL
+      const cleanUrl = window.location.href.split('?')[0]
+      window.history.replaceState({}, '', cleanUrl)
+      
+      // Show toast to indicate successful return
+      uiStore.showToast({
+        type: 'info',
+        title: '📱 Returned from Wallet',
+        message: 'Please check your wallet app to complete the connection'
+      })
+    }
+    
+    // Also check if page became visible (user switched back from wallet app)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        // Small delay to allow wallet state to update
+        setTimeout(async () => {
+          try {
+            await walletStore.connectIfReturningFromMobileWallet()
+          } catch (error) {
+            console.warn('Failed to check returning mobile wallet:', error)
+          }
+        }, 500)
+      }
+    })
+  }
+}
+
 // Lifecycle methods
 const initializeApp = async () => {
   try {
     // Initialize theme first (sets dark mode as default)
     uiStore.initializeTheme()
+    
+    // Check for mobile wallet returns before initializing wallet
+    checkMobileWalletReturn()
     
     // Setup auth listener
     authStore.setupAuthListener()

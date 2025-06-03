@@ -32,15 +32,32 @@
         <!-- Loading State -->
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
-          <p class="text-gray-600 dark:text-gray-400">Connecting to wallet...</p>
+          <p class="text-gray-600 dark:text-gray-400">
+            {{ isMobile ? 'Opening wallet app...' : 'Connecting to wallet...' }}
+          </p>
+        </div>
+        
+        <!-- Mobile Info Banner -->
+        <div v-if="isMobile && !connecting" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div class="flex items-start">
+            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Mobile Wallet Connection</p>
+              <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                If you have a wallet app installed, we'll open it for you. Otherwise, you'll be redirected to install it.
+              </p>
+            </div>
+          </div>
         </div>
         
         <!-- Wallet List -->
-        <div v-else class="space-y-3">
+        <div v-else-if="!connecting" class="space-y-3">
           <!-- Available Wallets -->
           <div v-if="availableWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Detected Wallets
+              {{ isMobile ? 'Available Wallets' : 'Detected Wallets' }}
             </h3>
             <div class="space-y-2">
               <button
@@ -60,7 +77,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Ready to connect
+                    {{ isMobile ? 'Open mobile app' : 'Ready to connect' }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +88,7 @@
           </div>
           
           <!-- Not Installed Wallets -->
-          <div v-if="notInstalledWallets.length > 0" class="mt-6">
+          <div v-if="notInstalledWallets.length > 0 && !isMobile" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Install a Wallet
             </h3>
@@ -106,18 +123,31 @@
           </div>
           
           <!-- No Wallets Available -->
-          <div v-if="availableWallets.length === 0 && notInstalledWallets.length === 0" class="text-center py-8">
+          <div v-if="availableWallets.length === 0 && (notInstalledWallets.length === 0 || isMobile)" class="text-center py-8">
             <div class="text-gray-400 mb-4">
               <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
               </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 mb-4">
-              No Solana wallets found
+              {{ isMobile ? 'No wallet apps detected' : 'No Solana wallets found' }}
             </p>
-            <p class="text-sm text-gray-500 dark:text-gray-500">
-              Please install a Solana wallet extension to continue
+            <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
+              {{ isMobile 
+                ? 'Install a Solana wallet app to continue' 
+                : 'Please install a Solana wallet extension to continue' }}
             </p>
+            <!-- Mobile install links -->
+            <div v-if="isMobile" class="space-y-2">
+              <a
+                href="https://phantom.app/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Download Phantom App
+              </a>
+            </div>
           </div>
         </div>
         
@@ -166,14 +196,23 @@ const uiStore = useUIStore()
 const connecting = ref(false)
 const error = ref<string | null>(null)
 
+// Mobile detection
+const isMobile = computed(() => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+})
+
 // Computed properties
 const availableWallets = computed(() => walletStore.getAvailableWallets())
 const allWallets = computed(() => walletStore.getAllWallets())
-const notInstalledWallets = computed(() => 
-  allWallets.value.filter(wallet => 
+const notInstalledWallets = computed(() => {
+  if (isMobile.value) {
+    // On mobile, don't show "not installed" wallets since they use deeplinks
+    return []
+  }
+  return allWallets.value.filter(wallet => 
     !availableWallets.value.some(available => available.name === wallet.name)
   )
-)
+})
 
 // Watch for connection status changes
 watch(() => walletStore.isConnected, (connected) => {
@@ -191,11 +230,14 @@ const connectWallet = async (walletName: string) => {
     
     await walletStore.connectWallet(walletName)
     
-    uiStore.showToast({
-      type: 'success',
-      title: '🔗 Wallet Connected Successfully',
-      message: `Connected to ${walletName} wallet`
-    })
+    // Show success message only if not on mobile (mobile connections redirect to app)
+    if (!isMobile.value) {
+      uiStore.showToast({
+        type: 'success',
+        title: '🔗 Wallet Connected Successfully',
+        message: `Connected to ${walletName} wallet`
+      })
+    }
     
   } catch (err) {
     console.error('Failed to connect wallet:', err)
