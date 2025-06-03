@@ -21,7 +21,6 @@ import {
 import {
   SolflareWalletAdapter,
 } from '@solana/wallet-adapter-solflare'
-import { MagicWalletAdapter } from './embeddedWallet'
 import { solanaConfig } from '@/config'
 import { isMobile } from '@/utils/mobile'
 
@@ -58,15 +57,6 @@ export interface WalletState {
 
 // Available wallet adapters
 const walletAdapters: WalletAdapter[] = [
-  // Embedded wallets first (always available)
-  {
-    name: 'Magic (Email/SMS)',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2ODUyRkYiLz4KPHBhdGggZD0iTTEwLjUgMTFWMjFIMTMuNVYxNEgxOC41VjIxSDIxLjVWMTFIMTAuNVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-    url: 'https://magic.link/',
-    adapter: new MagicWalletAdapter(),
-    supportsDeeplink: false
-  },
-  // Traditional browser/mobile wallets
   {
     name: 'Phantom',
     icon: 'https://phantom.app/img/phantom-logo.svg',
@@ -177,39 +167,22 @@ class WalletService {
     const mobile = isMobile()
     
     if (mobile) {
-      // On mobile, prioritize embedded wallets which work on all platforms
-      const availableWallets = []
-      
-      // Add embedded wallets first (always work)
-      const embeddedWallets = walletAdapters.filter(w => w.name.includes('Magic'))
-      availableWallets.push(...embeddedWallets)
-      
-      // Add mobile wallets (MWA on Chrome Android, or deeplinks on other browsers)
-      const mobileWallets = walletAdapters.filter(w => w.supportsDeeplink)
-      availableWallets.push(...mobileWallets)
-      
-      console.log('Mobile wallets available:', availableWallets.length)
-      return availableWallets
+      // On mobile Chrome (Android), all wallets are potentially available via MWA
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
+      if (isChrome) {
+        console.log('Mobile Chrome detected: showing all wallets (MWA compatible)')
+        return walletAdapters
+      } else {
+        console.log('Mobile non-Chrome browser: limited wallet support')
+        return []
+      }
     }
     
-    // Desktop behavior - show embedded wallet + installed browser extensions
-    const availableWallets = []
-    
-    // Always show embedded wallet first
-    const embeddedWallets = walletAdapters.filter(w => w.name.includes('Magic'))
-    availableWallets.push(...embeddedWallets)
-    
-    // Add installed browser extensions
-    const browserWallets = walletAdapters.filter(wallet => 
-      !wallet.name.includes('Magic') && (
-        wallet.adapter.readyState === WalletReadyState.Installed ||
-        wallet.adapter.readyState === WalletReadyState.Loadable
-      )
+    // Desktop behavior - check for browser extensions
+    return walletAdapters.filter(wallet => 
+      wallet.adapter.readyState === WalletReadyState.Installed ||
+      wallet.adapter.readyState === WalletReadyState.Loadable
     )
-    availableWallets.push(...browserWallets)
-    
-    console.log('Desktop wallets available:', availableWallets.length)
-    return availableWallets
   }
 
   // Get all wallets (including not installed)
@@ -434,16 +407,11 @@ class WalletService {
     return false
   }
 
-  // Initialize wallet service
-  async initializeWallet(): Promise<void> {
-    console.log('Initializing wallet service...')
-    await this.autoConnect()
-  }
-
-  // Check for mobile wallet return and handle connection
+  // Legacy mobile wallet return handling (no longer needed)
   async handleMobileWalletReturn(): Promise<void> {
-    // This method is now simplified since embedded wallets handle their own state
-    console.log('Mobile wallet return handled')
+    // This is no longer needed with proper MWA integration
+    console.log('Legacy mobile wallet return handling - no longer needed with MWA')
+    return
   }
 
   // Setup wallet event listeners
