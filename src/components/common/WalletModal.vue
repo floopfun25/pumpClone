@@ -39,8 +39,31 @@
         
         <!-- Wallet List -->
         <div v-if="!connecting" class="space-y-3">
-          <!-- Wallet Options -->
-          <div v-if="displayWallets.length > 0">
+          <!-- Mobile Wallet Browser Context - Show Connect Button -->
+          <div v-if="isInMobileWalletBrowser" class="text-center py-4">
+            <div class="mb-4">
+              <div class="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Wallet Detected
+              </h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Your wallet app is ready to connect. Tap the button below to approve the connection.
+              </p>
+            </div>
+            <button
+              @click="connectInMobileWallet"
+              class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
+            >
+              Connect Wallet
+            </button>
+          </div>
+          
+          <!-- Regular Wallet List (when not in mobile wallet browser) -->
+          <div v-else-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Choose Wallet
             </h3>
@@ -178,6 +201,11 @@ const allWallets = computed(() => {
   return walletStore.getAllWallets()
 })
 
+// Check if we're in mobile wallet browser context
+const isInMobileWalletBrowser = computed(() => {
+  return isMobileDevice.value && walletStore.isInMobileWalletBrowser()
+})
+
 // For mobile: show all deeplink-compatible wallets
 // For desktop: show only detected wallets
 const displayWallets = computed(() => {
@@ -232,6 +260,33 @@ const connectWallet = async (walletName: string) => {
     uiStore.showToast({
       type: 'error',
       title: '❌ Connection Failed',
+      message: error.value
+    })
+  } finally {
+    connecting.value = false
+  }
+}
+
+const connectInMobileWallet = async () => {
+  try {
+    connecting.value = true
+    error.value = null
+    
+    await walletStore.connectInMobileWalletBrowser()
+    
+    uiStore.showToast({
+      type: 'success',
+      title: '🔗 Wallet Connected',
+      message: 'Successfully connected to your wallet'
+    })
+    
+  } catch (err) {
+    console.error('Failed to connect in mobile wallet browser:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to connect to wallet'
+    
+    uiStore.showToast({
+      type: 'error',
+      title: '❌ Connection Failed', 
       message: error.value
     })
   } finally {

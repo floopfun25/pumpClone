@@ -334,18 +334,61 @@ class WalletService {
     }
 
     // Check if we're running inside a wallet's in-app browser
-    // In this context, wallet objects should be available
+    // In this context, wallet objects should be available but we need user interaction to connect
     
     // Check for Phantom in mobile webview
     if ((window as any).phantom?.solana) {
-      try {
-        console.log('Detected Phantom in mobile webview context')
+      console.log('Detected Phantom in mobile webview context - wallet available for connection')
+      
+      // Don't auto-connect - this requires user interaction for approval dialog
+      // Set a flag to indicate we're in Phantom's browser and can connect
+      sessionStorage.setItem('mobileWalletContext', 'phantom')
+      
+      // Clean up mobile wallet attempt since we found the wallet
+      sessionStorage.removeItem('mobileWalletAttempt')
+      
+      return
+    }
+    
+    // Check for Solflare in mobile webview
+    else if ((window as any).solflare) {
+      console.log('Detected Solflare in mobile webview context - wallet available for connection')
+      
+      // Don't auto-connect - this requires user interaction for approval dialog
+      // Set a flag to indicate we're in Solflare's browser and can connect
+      sessionStorage.setItem('mobileWalletContext', 'solflare')
+      
+      sessionStorage.removeItem('mobileWalletAttempt')
+      
+      return
+    }
+    
+    // If no wallet detected but we have a mobile wallet attempt, we're probably in regular mobile browser
+    else {
+      const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
+      if (lastAttemptedWallet) {
+        console.log('Mobile wallet attempt detected but no wallet object found - likely in regular browser')
+        // Keep the attempt for potential future detection
+      }
+    }
+  }
+
+  // Manual connection method for mobile wallet browser context
+  async connectInMobileWalletBrowser(): Promise<void> {
+    const walletContext = sessionStorage.getItem('mobileWalletContext')
+    
+    if (!walletContext) {
+      throw new Error('Not in mobile wallet browser context')
+    }
+    
+    try {
+      if (walletContext === 'phantom' && (window as any).phantom?.solana) {
+        console.log('Connecting to Phantom in mobile webview context')
         
-        // We're in Phantom's browser - connect automatically
         const phantom = (window as any).phantom.solana
         
-        // Request connection
-        const response = await phantom.connect({ onlyIfTrusted: false })
+        // Request connection - this will show approval dialog
+        const response = await phantom.connect()
         
         // Set up the connection state
         this.currentWallet.value = {
@@ -361,22 +404,14 @@ class WalletService {
         this._publicKey.value = response.publicKey
         await this.updateBalance()
         
-        // Clean up mobile wallet attempt
-        sessionStorage.removeItem('mobileWalletAttempt')
+        // Clean up session storage
+        sessionStorage.removeItem('mobileWalletContext')
         
         console.log('Mobile Phantom connection successful')
         
-      } catch (error) {
-        console.warn('Failed to connect with mobile Phantom:', error)
-      }
-    }
-    
-    // Check for Solflare in mobile webview
-    else if ((window as any).solflare) {
-      try {
-        console.log('Detected Solflare in mobile webview context')
+      } else if (walletContext === 'solflare' && (window as any).solflare) {
+        console.log('Connecting to Solflare in mobile webview context')
         
-        // We're in Solflare's browser - connect automatically
         const solflare = (window as any).solflare
         
         const response = await solflare.connect()
@@ -394,23 +429,22 @@ class WalletService {
         this._publicKey.value = response.publicKey
         await this.updateBalance()
         
-        sessionStorage.removeItem('mobileWalletAttempt')
+        sessionStorage.removeItem('mobileWalletContext')
         
         console.log('Mobile Solflare connection successful')
         
-      } catch (error) {
-        console.warn('Failed to connect with mobile Solflare:', error)
+      } else {
+        throw new Error(`Wallet context ${walletContext} not available`)
       }
+    } catch (error) {
+      console.error('Failed to connect in mobile wallet browser:', error)
+      throw error
     }
-    
-    // If no wallet detected but we have a mobile wallet attempt, we're probably in regular mobile browser
-    else {
-      const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
-      if (lastAttemptedWallet) {
-        console.log('Mobile wallet attempt detected but no wallet object found - likely in regular browser')
-        // Keep the attempt for potential future detection
-      }
-    }
+  }
+
+  // Check if we're in mobile wallet browser context
+  isInMobileWalletBrowser(): boolean {
+    return !!sessionStorage.getItem('mobileWalletContext')
   }
 
   // Setup wallet event listeners
