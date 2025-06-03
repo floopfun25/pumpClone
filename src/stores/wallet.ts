@@ -124,6 +124,19 @@ export const useWalletStore = defineStore('wallet', () => {
     return signature
   }
 
+  /**
+   * Handle mobile wallet return from app
+   * Checks for connection parameters and completes connection
+   */
+  async function handleMobileWalletReturn() {
+    try {
+      await walletService.handleMobileWalletReturn()
+      // State will be updated automatically via watchEffect
+    } catch (error) {
+      console.error('Failed to handle mobile wallet return:', error)
+    }
+  }
+
   // Return store interface
   return {
     // State
@@ -146,6 +159,7 @@ export const useWalletStore = defineStore('wallet', () => {
     updateBalance,
     signMessage,
     sendTransaction,
+    handleMobileWalletReturn,
     updateState
   }
 }) 
