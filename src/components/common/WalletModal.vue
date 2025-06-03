@@ -121,10 +121,18 @@
         </div>
         
         <!-- Error Message -->
-        <div v-if="error" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-400">
-            {{ error }}
-          </p>
+        <div v-if="error" class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="flex items-start space-x-2">
+            <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="flex-1">
+              <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">Connection Error</h4>
+              <p class="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">
+                {{ error }}
+              </p>
+            </div>
+          </div>
         </div>
         
         <!-- Footer -->
@@ -227,13 +235,22 @@ const connectWallet = async (walletName: string) => {
     
   } catch (err) {
     console.error('Failed to connect wallet:', err)
-    error.value = err instanceof Error ? err.message : 'Failed to connect wallet'
+    const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet'
+    error.value = errorMessage
     
+    // Show detailed error in toast for debugging
     uiStore.showToast({
       type: 'error',
       title: '❌ Connection Failed',
-      message: error.value
+      message: errorMessage
     })
+    
+    // Also show error details in the modal for mobile debugging
+    if (isMobileDevice.value) {
+      // Add technical details to the error display on mobile
+      const errorDetails = `Error: ${errorMessage}${err instanceof Error && err.stack ? '\n\nStack: ' + err.stack.slice(0, 200) + '...' : ''}`
+      error.value = errorDetails
+    }
   } finally {
     connecting.value = false
   }

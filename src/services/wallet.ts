@@ -146,11 +146,7 @@ class WalletService {
         // Handle mobile connection - use Mobile Wallet Adapter for Chrome Android
         if (isMobile() && wallet.supportsDeeplink) {
           try {
-            // For mobile Chrome on Android, we use the standard wallet adapter 
-            // which automatically integrates with Mobile Wallet Adapter
-            // This works directly in the browser without switching to wallet apps
-            
-            console.log(`Connecting to ${walletName} via Mobile Wallet Adapter in Chrome...`)
+            console.log(`Connecting to ${walletName} via Mobile Wallet Adapter...`)
             
             // Store the wallet attempt in session storage
             sessionStorage.setItem('mobileWalletAttempt', walletName)
@@ -179,22 +175,26 @@ class WalletService {
             // Update balance
             await this.updateBalance()
             
-            console.log(`Mobile ${walletName} connection successful via MWA`)
+            console.log(`Mobile ${walletName} connection successful`)
             return
             
           } catch (error) {
-            console.error(`Mobile MWA connection failed for ${walletName}:`, error)
+            console.error(`Mobile MWA connection failed:`, error)
             sessionStorage.removeItem('mobileWalletAttempt')
             
+            // Create detailed error message for mobile debugging
+            const errorMessage = (error as Error)?.message || 'Unknown error'
+            const errorName = (error as Error)?.name || 'Error'
+            
             // Check if this is a "wallet not found" error
-            const errorMessage = (error as Error)?.message || ''
             if (errorMessage.includes('not found') || errorMessage.includes('not installed') || errorMessage.includes('No wallet apps')) {
               throw new WalletConnectionError(
                 `${walletName} app is not installed on your device. Please install ${walletName} from the app store and try again.`
               )
             } else {
+              // Provide detailed error for debugging
               throw new WalletConnectionError(
-                `Failed to connect to ${walletName}. Please make sure the ${walletName} app is installed and try again.`
+                `Mobile connection failed: ${errorName}: ${errorMessage}. Note: Mobile Wallet Adapter may not be supported in this browser or wallet app not installed.`
               )
             }
           }
