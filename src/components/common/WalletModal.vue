@@ -37,23 +37,18 @@
           </p>
         </div>
         
-        <!-- Mobile Info Banner -->
-        <div v-if="isMobileDevice && !connecting" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <div class="flex items-start">
-            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div>
-              <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Mobile Wallet Connection</p>
-              <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                Tap a wallet to connect. If not installed, you'll be redirected to download it.
-              </p>
-            </div>
+        <!-- Temporary Debug (remove after fixing) -->
+        <div class="mb-4 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs">
+          <p>Debug: displayWallets.length = {{ displayWallets.length }}</p>
+          <p>Debug: allWallets.length = {{ allWallets.length }}</p>
+          <p>Debug: isMobile = {{ isMobileDevice }}</p>
+          <div v-for="wallet in allWallets" :key="wallet.name">
+            {{ wallet.name }}: supportsDeeplink = {{ wallet.supportsDeeplink }}
           </div>
         </div>
         
         <!-- Wallet List -->
-        <div v-else-if="!connecting" class="space-y-3">
+        <div v-if="!connecting" class="space-y-3">
           <!-- Wallet Options -->
           <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
