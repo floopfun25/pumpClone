@@ -142,47 +142,50 @@ class WalletService {
           throw new Error(`Wallet ${walletName} not found`)
         }
 
-        // Handle mobile connection - use deeplinks directly
+        // Handle mobile connection - use Mobile Wallet Adapter for Chrome Android
         if (isMobile() && wallet.supportsDeeplink) {
           try {
+            // For mobile Chrome on Android, we use the standard wallet adapter 
+            // which automatically integrates with Mobile Wallet Adapter
+            // This works directly in the browser without switching to wallet apps
+            
+            console.log(`Connecting to ${walletName} via Mobile Wallet Adapter in Chrome...`)
+            
             // Store the wallet attempt in session storage
             sessionStorage.setItem('mobileWalletAttempt', walletName)
             
-            if (walletName.toLowerCase() === 'phantom') {
-              // For mobile browsers, use the browse deeplink to open dApp inside Phantom's browser
-              // This is different from connection deeplinks - browse opens the dApp in wallet's webview
-              // where window.phantom becomes available
-              
-              const currentUrl = window.location.href
-              const phantomBrowseUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(window.location.origin)}`
-              
-              console.log(`Opening Phantom browse URL:`, phantomBrowseUrl)
-              
-              // Open Phantom's in-app browser
-              window.location.href = phantomBrowseUrl
-              
-            } else if (walletName.toLowerCase() === 'solflare') {
-              // Similar approach for Solflare
-              const currentUrl = window.location.href
-              const solflareBrowseUrl = `https://solflare.com/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(window.location.origin)}`
-              
-              console.log(`Opening Solflare browse URL:`, solflareBrowseUrl)
-              
-              window.location.href = solflareBrowseUrl
-              
-            } else {
-              throw new Error(`Mobile deeplink not supported for ${walletName}`)
+            // Use the standard desktop wallet adapter approach
+            // On mobile Chrome Android, this automatically uses MWA under the hood
+            walletAdapter = wallet.adapter
+            
+            // Check if wallet adapter supports mobile
+            if (!walletAdapter) {
+              throw new Error(`${walletName} adapter not available`)
             }
             
-            // The connection will be completed when the dApp loads in the wallet's browser
-            // where window.phantom or window.solflare will be available
+            // Set up event listeners for mobile
+            this.setupWalletListeners(walletAdapter)
+
+            // Connect using standard wallet adapter - MWA integration is automatic
+            await walletAdapter.connect()
+
+            this.currentWallet.value = walletAdapter
+            this._publicKey.value = walletAdapter.publicKey
+
+            // Clean up mobile attempt since connection succeeded
+            sessionStorage.removeItem('mobileWalletAttempt')
+
+            // Update balance
+            await this.updateBalance()
+            
+            console.log(`Mobile ${walletName} connection successful via MWA`)
             return
             
           } catch (error) {
-            console.error(`Mobile connection failed for ${walletName}:`, error)
+            console.error(`Mobile MWA connection failed for ${walletName}:`, error)
             sessionStorage.removeItem('mobileWalletAttempt')
             throw new WalletConnectionError(
-              `Failed to open ${walletName} app. Please make sure it's installed.`
+              `Failed to connect to ${walletName}. Please ensure you have the ${walletName} app installed and try again.`
             )
           }
         }
@@ -327,124 +330,23 @@ class WalletService {
     }
   }
 
-  // Check for wallet availability in mobile context (when opened in wallet's browser)
+  // Remove mobile wallet browser detection since we're using standard MWA in Chrome
+  // The @solana/wallet-adapter automatically handles MWA integration in mobile Chrome
   async connectIfInMobileWalletBrowser(): Promise<void> {
-    if (!isMobile()) {
-      return
-    }
-
-    // Check if we're running inside a wallet's in-app browser
-    // In this context, wallet objects should be available but we need user interaction to connect
-    
-    // Check for Phantom in mobile webview
-    if ((window as any).phantom?.solana) {
-      console.log('Detected Phantom in mobile webview context - wallet available for connection')
-      
-      // Don't auto-connect - this requires user interaction for approval dialog
-      // Set a flag to indicate we're in Phantom's browser and can connect
-      sessionStorage.setItem('mobileWalletContext', 'phantom')
-      
-      // Clean up mobile wallet attempt since we found the wallet
-      sessionStorage.removeItem('mobileWalletAttempt')
-      
-      return
-    }
-    
-    // Check for Solflare in mobile webview
-    else if ((window as any).solflare) {
-      console.log('Detected Solflare in mobile webview context - wallet available for connection')
-      
-      // Don't auto-connect - this requires user interaction for approval dialog
-      // Set a flag to indicate we're in Solflare's browser and can connect
-      sessionStorage.setItem('mobileWalletContext', 'solflare')
-      
-      sessionStorage.removeItem('mobileWalletAttempt')
-      
-      return
-    }
-    
-    // If no wallet detected but we have a mobile wallet attempt, we're probably in regular mobile browser
-    else {
-      const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
-      if (lastAttemptedWallet) {
-        console.log('Mobile wallet attempt detected but no wallet object found - likely in regular browser')
-        // Keep the attempt for potential future detection
-      }
-    }
+    // No longer needed - MWA works directly in mobile Chrome browser
+    console.log('MWA integration is automatic in mobile Chrome - no special handling needed')
+    return
   }
 
-  // Manual connection method for mobile wallet browser context
+  // Remove manual mobile wallet browser connection
   async connectInMobileWalletBrowser(): Promise<void> {
-    const walletContext = sessionStorage.getItem('mobileWalletContext')
-    
-    if (!walletContext) {
-      throw new Error('Not in mobile wallet browser context')
-    }
-    
-    try {
-      if (walletContext === 'phantom' && (window as any).phantom?.solana) {
-        console.log('Connecting to Phantom in mobile webview context')
-        
-        const phantom = (window as any).phantom.solana
-        
-        // Request connection - this will show approval dialog
-        const response = await phantom.connect()
-        
-        // Set up the connection state
-        this.currentWallet.value = {
-          name: 'Phantom',
-          connected: true,
-          publicKey: response.publicKey,
-          signTransaction: phantom.signTransaction?.bind(phantom),
-          signAllTransactions: phantom.signAllTransactions?.bind(phantom),
-          signMessage: phantom.signMessage?.bind(phantom),
-          sendTransaction: phantom.signAndSendTransaction?.bind(phantom)
-        } as any
-        
-        this._publicKey.value = response.publicKey
-        await this.updateBalance()
-        
-        // Clean up session storage
-        sessionStorage.removeItem('mobileWalletContext')
-        
-        console.log('Mobile Phantom connection successful')
-        
-      } else if (walletContext === 'solflare' && (window as any).solflare) {
-        console.log('Connecting to Solflare in mobile webview context')
-        
-        const solflare = (window as any).solflare
-        
-        const response = await solflare.connect()
-        
-        this.currentWallet.value = {
-          name: 'Solflare',
-          connected: true,
-          publicKey: response.publicKey,
-          signTransaction: solflare.signTransaction?.bind(solflare),
-          signAllTransactions: solflare.signAllTransactions?.bind(solflare),
-          signMessage: solflare.signMessage?.bind(solflare),
-          sendTransaction: solflare.signAndSendTransaction?.bind(solflare)
-        } as any
-        
-        this._publicKey.value = response.publicKey
-        await this.updateBalance()
-        
-        sessionStorage.removeItem('mobileWalletContext')
-        
-        console.log('Mobile Solflare connection successful')
-        
-      } else {
-        throw new Error(`Wallet context ${walletContext} not available`)
-      }
-    } catch (error) {
-      console.error('Failed to connect in mobile wallet browser:', error)
-      throw error
-    }
+    throw new Error('Manual mobile wallet browser connection no longer needed - use standard connect() method')
   }
 
   // Check if we're in mobile wallet browser context
   isInMobileWalletBrowser(): boolean {
-    return !!sessionStorage.getItem('mobileWalletContext')
+    // Always false since we're using direct MWA integration in Chrome
+    return false
   }
 
   // Setup wallet event listeners

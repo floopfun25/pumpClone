@@ -124,40 +124,6 @@ export const useWalletStore = defineStore('wallet', () => {
     return signature
   }
 
-  /**
-   * Handle mobile wallet return from app
-   * Completes connection if user approved in wallet app
-   */
-  async function connectIfInMobileWalletBrowser() {
-    try {
-      await walletService.connectIfInMobileWalletBrowser()
-      // State will be updated automatically via watchEffect
-    } catch (error) {
-      console.error('Failed to handle mobile wallet browser context:', error)
-    }
-  }
-
-  /**
-   * Connect in mobile wallet browser context
-   * Triggers the approval dialog when user manually connects
-   */
-  async function connectInMobileWalletBrowser() {
-    try {
-      await walletService.connectInMobileWalletBrowser()
-      // State will be updated automatically via watchEffect
-    } catch (error) {
-      console.error('Failed to connect in mobile wallet browser:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Check if we're in mobile wallet browser context
-   */
-  function isInMobileWalletBrowser(): boolean {
-    return walletService.isInMobileWalletBrowser()
-  }
-
   // Return store interface
   return {
     // State
@@ -180,9 +146,6 @@ export const useWalletStore = defineStore('wallet', () => {
     updateBalance,
     signMessage,
     sendTransaction,
-    connectIfInMobileWalletBrowser,
-    connectInMobileWalletBrowser,
-    isInMobileWalletBrowser,
     updateState
   }
 }) 
