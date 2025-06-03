@@ -29,14 +29,6 @@
           </button>
         </div>
         
-        <!-- Debug Info (remove in production) -->
-        <div v-if="true" class="mb-4 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-          <p>Debug: isMobile = {{ isMobileDevice }}</p>
-          <p>Available wallets: {{ availableWallets.length }}</p>
-          <p>All wallets: {{ allWallets.length }}</p>
-          <p>Wallets: {{ availableWallets.map(w => w.name).join(', ') }}</p>
-        </div>
-        
         <!-- Loading State -->
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
@@ -54,7 +46,7 @@
             <div>
               <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Mobile Wallet Connection</p>
               <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                If you have a wallet app installed, we'll open it for you. Otherwise, you'll be redirected to install it.
+                Tap a wallet to open its app. If not installed, you'll be redirected to download it.
               </p>
             </div>
           </div>
@@ -62,14 +54,14 @@
         
         <!-- Wallet List -->
         <div v-else-if="!connecting" class="space-y-3">
-          <!-- Available Wallets -->
-          <div v-if="availableWallets.length > 0">
+          <!-- Available Wallets (Mobile: All deeplink-compatible wallets) -->
+          <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ isMobileDevice ? 'Available Wallets' : 'Detected Wallets' }}
+              {{ isMobileDevice ? 'Wallet Apps' : 'Detected Wallets' }}
             </h3>
             <div class="space-y-2">
               <button
-                v-for="wallet in availableWallets"
+                v-for="wallet in displayWallets"
                 :key="wallet.name"
                 @click="connectWallet(wallet.name)"
                 class="w-full flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-primary-500 dark:hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
@@ -85,7 +77,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ isMobileDevice ? 'Open mobile app' : 'Ready to connect' }}
+                    {{ isMobileDevice ? 'Tap to connect or install' : 'Ready to connect' }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,7 +87,7 @@
             </div>
           </div>
           
-          <!-- Not Installed Wallets -->
+          <!-- Not Installed Wallets (Desktop only) -->
           <div v-if="notInstalledWallets.length > 0 && !isMobileDevice" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Install a Wallet
@@ -131,7 +123,7 @@
           </div>
           
           <!-- No Wallets Available -->
-          <div v-if="availableWallets.length === 0 && (notInstalledWallets.length === 0 || isMobileDevice)" class="text-center py-8">
+          <div v-if="displayWallets.length === 0 && (notInstalledWallets.length === 0 || isMobileDevice)" class="text-center py-8">
             <div class="text-gray-400 mb-4">
               <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
@@ -211,31 +203,34 @@ const isMobileDevice = computed(() => isMobile())
 // Computed properties
 const availableWallets = computed(() => {
   const wallets = walletStore.getAvailableWallets()
-  console.log('WalletModal - Available wallets:', wallets.length, wallets.map(w => w.name))
   return wallets
 })
 
 const allWallets = computed(() => {
   const wallets = walletStore.getAllWallets()
-  console.log('WalletModal - All wallets:', wallets.length, wallets.map(w => w.name))
   return wallets
+})
+
+// For mobile: show all deeplink-compatible wallets
+// For desktop: show only detected wallets
+const displayWallets = computed(() => {
+  if (isMobileDevice.value) {
+    // On mobile, show all wallets that support deeplinks
+    return allWallets.value.filter(wallet => wallet.supportsDeeplink)
+  } else {
+    // On desktop, show only installed/detected wallets
+    return availableWallets.value
+  }
 })
 
 const notInstalledWallets = computed(() => {
   if (isMobileDevice.value) {
-    // On mobile, don't show "not installed" wallets since they use deeplinks
+    // On mobile, don't show "not installed" section since we handle this in the connection flow
     return []
   }
   return allWallets.value.filter(wallet => 
     !availableWallets.value.some(available => available.name === wallet.name)
   )
-})
-
-// Debug logging
-onMounted(() => {
-  console.log('WalletModal mounted - Mobile detected:', isMobileDevice.value)
-  console.log('WalletModal mounted - Available wallets:', availableWallets.value.length)
-  console.log('WalletModal mounted - User agent:', navigator.userAgent)
 })
 
 // Watch for connection status changes
