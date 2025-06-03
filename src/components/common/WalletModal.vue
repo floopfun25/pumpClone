@@ -57,7 +57,7 @@
           <!-- Wallet Options -->
           <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ isMobileDevice ? 'Choose Wallet' : 'Available Wallets' }}
+              Choose Wallet
             </h3>
             <div class="space-y-2">
               <button
