@@ -60,6 +60,26 @@ onMounted(async () => {
       await authStore.initializeUser()
     }
     
+    // Handle mobile wallet returns
+    if (isMobile()) {
+      // Check immediately for wallet returns (from URL parameters)
+      await walletStore.handleMobileWalletReturn()
+      
+      // Listen for page visibility changes (user returning from wallet app)
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+          // Small delay to allow any URL changes to take effect
+          setTimeout(async () => {
+            try {
+              await walletStore.handleMobileWalletReturn()
+            } catch (error) {
+              console.warn('Failed to handle mobile wallet return:', error)
+            }
+          }, 500)
+        }
+      })
+    }
+    
     console.log('App initialized successfully')
   } catch (error) {
     console.error('Failed to initialize app:', error)

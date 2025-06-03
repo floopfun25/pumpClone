@@ -153,21 +153,28 @@ class WalletService {
             sessionStorage.setItem('mobileConnectionTime', Date.now().toString())
             
             if (walletName.toLowerCase() === 'phantom') {
-              // Create a connection request URL for Phantom
-              const dappUrl = window.location.origin
-              const phantomUrl = `https://phantom.app/ul/v1/connect?app_url=${encodeURIComponent(dappUrl)}&dapp_encryption_public_key=&nonce=&redirect_link=${encodeURIComponent(dappUrl + '?connected=true')}`
+              // Create a simpler connection request URL for Phantom
+              const dappUrl = window.location.href.split('?')[0] // Clean URL without params
+              const redirectUrl = `${dappUrl}?wallet_return=phantom`
               
-              console.log('Opening Phantom with connect URL:', phantomUrl)
+              // Use simpler Phantom deeplink format
+              const phantomUrl = `phantom://browse/?ref=${encodeURIComponent(dappUrl)}`
+              
+              console.log('Opening Phantom with URL:', phantomUrl)
+              console.log('Redirect URL will be:', redirectUrl)
               
               // Open Phantom app
               window.location.href = phantomUrl
               
             } else if (walletName.toLowerCase() === 'solflare') {
-              // Create a connection request URL for Solflare  
-              const dappUrl = window.location.origin
-              const solflareUrl = `https://solflare.com/ul/v1/connect?app_url=${encodeURIComponent(dappUrl)}&redirect_link=${encodeURIComponent(dappUrl + '?connected=true')}`
+              // Create a simpler connection request URL for Solflare  
+              const dappUrl = window.location.href.split('?')[0] // Clean URL without params
+              const redirectUrl = `${dappUrl}?wallet_return=solflare`
               
-              console.log('Opening Solflare with connect URL:', solflareUrl)
+              // Use simpler Solflare deeplink format
+              const solflareUrl = `solflare://browse/?ref=${encodeURIComponent(dappUrl)}`
+              
+              console.log('Opening Solflare with URL:', solflareUrl)
               
               // Open Solflare app
               window.location.href = solflareUrl
@@ -412,6 +419,19 @@ class WalletService {
       return
     }
 
+    // Check URL parameters for wallet return
+    const urlParams = new URLSearchParams(window.location.search)
+    const walletReturn = urlParams.get('wallet_return')
+    const connected = urlParams.get('connected')
+    const errorCode = urlParams.get('errorCode')
+    const errorMessage = urlParams.get('errorMessage')
+    
+    // Clean up URL parameters immediately
+    if (walletReturn || connected || errorCode) {
+      const cleanUrl = window.location.href.split('?')[0]
+      window.history.replaceState({}, '', cleanUrl)
+    }
+
     // Check if we have a mobile wallet attempt in progress
     const walletAttempt = sessionStorage.getItem('mobileWalletAttempt')
     const connectionTime = sessionStorage.getItem('mobileConnectionTime')
@@ -428,42 +448,77 @@ class WalletService {
       return
     }
 
-    console.log('Checking for mobile wallet return...')
+    console.log('Checking for mobile wallet return...', {
+      walletReturn,
+      connected,
+      errorCode,
+      errorMessage
+    })
 
-    // Check URL parameters for connection data
-    const urlParams = new URLSearchParams(window.location.search)
-    const connected = urlParams.get('connected')
-    const publicKey = urlParams.get('public_key')
-    
-    if (connected === 'true' || publicKey) {
-      console.log('Mobile wallet connection detected!')
+    // Handle error cases
+    if (errorCode) {
+      console.error('Wallet connection error:', errorCode, errorMessage)
+      sessionStorage.removeItem('mobileWalletAttempt')
+      sessionStorage.removeItem('mobileConnectionTime')
+      
+      throw new WalletConnectionError(
+        `Wallet connection failed: ${decodeURIComponent(errorMessage || 'Unknown error')}`
+      )
+    }
+
+    // Handle successful return
+    if (walletReturn || connected === 'true') {
+      console.log('Mobile wallet return detected!')
       
       try {
-        // Clean up URL parameters
-        const cleanUrl = window.location.href.split('?')[0]
-        window.history.replaceState({}, '', cleanUrl)
+        // For now, we'll treat this as successful return and try to detect the wallet
+        // In a real implementation, the wallet would provide the connection data
         
-        // For now, try to connect using the desktop adapter as fallback
-        // In a real implementation, you'd use the returned connection data
-        const wallet = walletAdapters.find(w => w.name.toLowerCase() === walletAttempt.toLowerCase())
+        // Check if the wallet is now available in window object
+        let walletObj = null
         
-        if (wallet && wallet.adapter.readyState === WalletReadyState.Installed) {
-          await wallet.adapter.connect()
-          this.currentWallet.value = wallet.adapter
-          this._publicKey.value = wallet.adapter.publicKey
+        if (walletAttempt.toLowerCase() === 'phantom') {
+          walletObj = (window as any).phantom?.solana
+        } else if (walletAttempt.toLowerCase() === 'solflare') {
+          walletObj = (window as any).solflare
+        }
+        
+        if (walletObj) {
+          console.log('Wallet object found, attempting connection...')
+          
+          // Connect using the wallet object
+          const response = await walletObj.connect()
+          
+          // Set up a simple wallet state
+          this.currentWallet.value = {
+            name: walletAttempt,
+            connected: true,
+            publicKey: response.publicKey,
+            signTransaction: walletObj.signTransaction?.bind(walletObj),
+            signAllTransactions: walletObj.signAllTransactions?.bind(walletObj),
+            signMessage: walletObj.signMessage?.bind(walletObj),
+            sendTransaction: walletObj.signAndSendTransaction?.bind(walletObj)
+          } as any
+          
+          this._publicKey.value = response.publicKey
           await this.updateBalance()
+          
+          console.log('Mobile wallet connection successful!')
+        } else {
+          console.log('Wallet object not found, but user returned from wallet app')
+          // The user returned but we don't have access to the wallet object
+          // This might happen in certain browser contexts
         }
         
         // Clean up session storage
         sessionStorage.removeItem('mobileWalletAttempt')
         sessionStorage.removeItem('mobileConnectionTime')
         
-        console.log('Mobile wallet connection successful!')
-        
       } catch (error) {
         console.error('Failed to complete mobile wallet connection:', error)
         sessionStorage.removeItem('mobileWalletAttempt')
         sessionStorage.removeItem('mobileConnectionTime')
+        throw error
       }
     }
   }
