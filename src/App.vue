@@ -65,6 +65,15 @@ onMounted(async () => {
       // Check immediately for wallet returns (from URL parameters)
       await walletStore.handleMobileWalletReturn()
       
+      // Check again after a delay to catch wallet browser context
+      setTimeout(async () => {
+        try {
+          await walletStore.handleMobileWalletReturn()
+        } catch (error) {
+          console.warn('Delayed mobile wallet check failed:', error)
+        }
+      }, 1000)
+      
       // Listen for page visibility changes (user returning from wallet app)
       document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState === 'visible') {

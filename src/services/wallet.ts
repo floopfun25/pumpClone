@@ -436,23 +436,30 @@ class WalletService {
     const walletAttempt = sessionStorage.getItem('mobileWalletAttempt')
     const connectionTime = sessionStorage.getItem('mobileConnectionTime')
     
-    if (!walletAttempt || !connectionTime) {
+    // Also check if we're running inside a wallet's browser (auto-connect scenario)
+    const isInWalletBrowser = this.checkIfInWalletBrowser()
+    
+    if (!walletAttempt && !isInWalletBrowser) {
       return
     }
 
-    // Check if this is a recent connection attempt (within 5 minutes)
-    const timeDiff = Date.now() - parseInt(connectionTime)
-    if (timeDiff > 5 * 60 * 1000) { // 5 minutes
-      sessionStorage.removeItem('mobileWalletAttempt')
-      sessionStorage.removeItem('mobileConnectionTime')
-      return
+    if (walletAttempt && connectionTime) {
+      // Check if this is a recent connection attempt (within 5 minutes)
+      const timeDiff = Date.now() - parseInt(connectionTime)
+      if (timeDiff > 5 * 60 * 1000) { // 5 minutes
+        sessionStorage.removeItem('mobileWalletAttempt')
+        sessionStorage.removeItem('mobileConnectionTime')
+        return
+      }
     }
 
-    console.log('Checking for mobile wallet return...', {
+    console.log('Checking for mobile wallet context...', {
       walletReturn,
       connected,
       errorCode,
-      errorMessage
+      errorMessage,
+      isInWalletBrowser,
+      walletAttempt
     })
 
     // Handle error cases
@@ -466,32 +473,33 @@ class WalletService {
       )
     }
 
-    // Handle successful return
-    if (walletReturn || connected === 'true') {
-      console.log('Mobile wallet return detected!')
+    // Handle successful return or auto-connect in wallet browser
+    if (walletReturn || connected === 'true' || isInWalletBrowser) {
+      console.log('Mobile wallet context detected!')
       
       try {
-        // For now, we'll treat this as successful return and try to detect the wallet
-        // In a real implementation, the wallet would provide the connection data
-        
         // Check if the wallet is now available in window object
         let walletObj = null
+        let walletName = walletAttempt
         
-        if (walletAttempt.toLowerCase() === 'phantom') {
-          walletObj = (window as any).phantom?.solana
-        } else if (walletAttempt.toLowerCase() === 'solflare') {
+        // Detect wallet based on available objects or attempt
+        if ((window as any).phantom?.solana) {
+          walletObj = (window as any).phantom.solana
+          walletName = walletName || 'Phantom'
+        } else if ((window as any).solflare) {
           walletObj = (window as any).solflare
+          walletName = walletName || 'Solflare'
         }
         
         if (walletObj) {
-          console.log('Wallet object found, attempting connection...')
+          console.log(`${walletName} wallet object found, attempting connection...`)
           
-          // Connect using the wallet object
+          // Connect using the wallet object - this will show the approval dialog
           const response = await walletObj.connect()
           
           // Set up a simple wallet state
           this.currentWallet.value = {
-            name: walletAttempt,
+            name: walletName,
             connected: true,
             publicKey: response.publicKey,
             signTransaction: walletObj.signTransaction?.bind(walletObj),
@@ -503,7 +511,7 @@ class WalletService {
           this._publicKey.value = response.publicKey
           await this.updateBalance()
           
-          console.log('Mobile wallet connection successful!')
+          console.log(`Mobile ${walletName} connection successful!`)
         } else {
           console.log('Wallet object not found, but user returned from wallet app')
           // The user returned but we don't have access to the wallet object
@@ -521,6 +529,20 @@ class WalletService {
         throw error
       }
     }
+  }
+
+  // Check if we're running inside a wallet's browser
+  private checkIfInWalletBrowser(): boolean {
+    // Check for wallet objects that indicate we're in the wallet's browser
+    const hasPhantom = !!(window as any).phantom?.solana
+    const hasSolflare = !!(window as any).solflare
+    
+    // Also check user agent for wallet browser indicators
+    const userAgent = navigator.userAgent.toLowerCase()
+    const isPhantomBrowser = userAgent.includes('phantom')
+    const isSolflareBrowser = userAgent.includes('solflare')
+    
+    return hasPhantom || hasSolflare || isPhantomBrowser || isSolflareBrowser
   }
 }
 
