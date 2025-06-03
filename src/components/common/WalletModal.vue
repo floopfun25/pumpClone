@@ -29,16 +29,24 @@
           </button>
         </div>
         
+        <!-- Debug Info (remove in production) -->
+        <div v-if="true" class="mb-4 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+          <p>Debug: isMobile = {{ isMobileDevice }}</p>
+          <p>Available wallets: {{ availableWallets.length }}</p>
+          <p>All wallets: {{ allWallets.length }}</p>
+          <p>Wallets: {{ availableWallets.map(w => w.name).join(', ') }}</p>
+        </div>
+        
         <!-- Loading State -->
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ isMobile ? 'Opening wallet app...' : 'Connecting to wallet...' }}
+            {{ isMobileDevice ? 'Opening wallet app...' : 'Connecting to wallet...' }}
           </p>
         </div>
         
         <!-- Mobile Info Banner -->
-        <div v-if="isMobile && !connecting" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div v-if="isMobileDevice && !connecting" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div class="flex items-start">
             <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -57,7 +65,7 @@
           <!-- Available Wallets -->
           <div v-if="availableWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ isMobile ? 'Available Wallets' : 'Detected Wallets' }}
+              {{ isMobileDevice ? 'Available Wallets' : 'Detected Wallets' }}
             </h3>
             <div class="space-y-2">
               <button
@@ -77,7 +85,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ isMobile ? 'Open mobile app' : 'Ready to connect' }}
+                    {{ isMobileDevice ? 'Open mobile app' : 'Ready to connect' }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +96,7 @@
           </div>
           
           <!-- Not Installed Wallets -->
-          <div v-if="notInstalledWallets.length > 0 && !isMobile" class="mt-6">
+          <div v-if="notInstalledWallets.length > 0 && !isMobileDevice" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Install a Wallet
             </h3>
@@ -123,22 +131,22 @@
           </div>
           
           <!-- No Wallets Available -->
-          <div v-if="availableWallets.length === 0 && (notInstalledWallets.length === 0 || isMobile)" class="text-center py-8">
+          <div v-if="availableWallets.length === 0 && (notInstalledWallets.length === 0 || isMobileDevice)" class="text-center py-8">
             <div class="text-gray-400 mb-4">
               <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
               </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 mb-4">
-              {{ isMobile ? 'No wallet apps detected' : 'No Solana wallets found' }}
+              {{ isMobileDevice ? 'No wallet apps detected' : 'No Solana wallets found' }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-              {{ isMobile 
+              {{ isMobileDevice 
                 ? 'Install a Solana wallet app to continue' 
                 : 'Please install a Solana wallet extension to continue' }}
             </p>
             <!-- Mobile install links -->
-            <div v-if="isMobile" class="space-y-2">
+            <div v-if="isMobileDevice" class="space-y-2">
               <a
                 href="https://phantom.app/download"
                 target="_blank"
@@ -171,9 +179,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
+import { isMobile } from '@/utils/mobile'
 
 // Props
 interface Props {
@@ -196,22 +205,37 @@ const uiStore = useUIStore()
 const connecting = ref(false)
 const error = ref<string | null>(null)
 
-// Mobile detection
-const isMobile = computed(() => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-})
+// Mobile detection using our utility
+const isMobileDevice = computed(() => isMobile())
 
 // Computed properties
-const availableWallets = computed(() => walletStore.getAvailableWallets())
-const allWallets = computed(() => walletStore.getAllWallets())
+const availableWallets = computed(() => {
+  const wallets = walletStore.getAvailableWallets()
+  console.log('WalletModal - Available wallets:', wallets.length, wallets.map(w => w.name))
+  return wallets
+})
+
+const allWallets = computed(() => {
+  const wallets = walletStore.getAllWallets()
+  console.log('WalletModal - All wallets:', wallets.length, wallets.map(w => w.name))
+  return wallets
+})
+
 const notInstalledWallets = computed(() => {
-  if (isMobile.value) {
+  if (isMobileDevice.value) {
     // On mobile, don't show "not installed" wallets since they use deeplinks
     return []
   }
   return allWallets.value.filter(wallet => 
     !availableWallets.value.some(available => available.name === wallet.name)
   )
+})
+
+// Debug logging
+onMounted(() => {
+  console.log('WalletModal mounted - Mobile detected:', isMobileDevice.value)
+  console.log('WalletModal mounted - Available wallets:', availableWallets.value.length)
+  console.log('WalletModal mounted - User agent:', navigator.userAgent)
 })
 
 // Watch for connection status changes
@@ -228,10 +252,12 @@ const connectWallet = async (walletName: string) => {
     connecting.value = true
     error.value = null
     
+    console.log(`WalletModal - Attempting to connect to ${walletName}`)
+    
     await walletStore.connectWallet(walletName)
     
     // Show success message only if not on mobile (mobile connections redirect to app)
-    if (!isMobile.value) {
+    if (!isMobileDevice.value) {
       uiStore.showToast({
         type: 'success',
         title: '🔗 Wallet Connected Successfully',

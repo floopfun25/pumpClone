@@ -111,16 +111,36 @@ class WalletService {
   getAvailableWallets(): WalletAdapter[] {
     const mobile = isMobile()
     
+    console.log('WalletService.getAvailableWallets() - Mobile detected:', mobile)
+    console.log('WalletService.getAvailableWallets() - User agent:', navigator.userAgent)
+    console.log('WalletService.getAvailableWallets() - Total wallet adapters:', walletAdapters.length)
+    console.log('WalletService.getAvailableWallets() - Wallet adapters:', walletAdapters.map(w => ({
+      name: w.name,
+      supportsDeeplink: w.supportsDeeplink,
+      readyState: w.adapter.readyState
+    })))
+    
     if (mobile) {
       // On mobile, we always show Phantom and other wallets that support deeplinks
-      return walletAdapters.filter(wallet => wallet.supportsDeeplink)
+      const mobileWallets = walletAdapters.filter(wallet => {
+        console.log(`WalletService - Checking wallet ${wallet.name}, supportsDeeplink: ${wallet.supportsDeeplink}`)
+        return wallet.supportsDeeplink
+      })
+      
+      console.log('WalletService.getAvailableWallets() - Mobile wallets found:', mobileWallets.length, mobileWallets.map(w => w.name))
+      return mobileWallets
     }
     
     // Desktop behavior - check for browser extensions
-    return walletAdapters.filter(wallet => 
-      wallet.adapter.readyState === WalletReadyState.Installed ||
-      wallet.adapter.readyState === WalletReadyState.Loadable
-    )
+    const desktopWallets = walletAdapters.filter(wallet => {
+      const isAvailable = wallet.adapter.readyState === WalletReadyState.Installed ||
+                         wallet.adapter.readyState === WalletReadyState.Loadable
+      console.log(`WalletService - Desktop wallet ${wallet.name}, readyState: ${wallet.adapter.readyState}, available: ${isAvailable}`)
+      return isAvailable
+    })
+    
+    console.log('WalletService.getAvailableWallets() - Desktop wallets found:', desktopWallets.length, desktopWallets.map(w => w.name))
+    return desktopWallets
   }
 
   // Get all wallets (including not installed)
