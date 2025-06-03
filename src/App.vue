@@ -46,6 +46,15 @@ const isLoading = computed(() => uiStore.isLoading)
 // Check for mobile wallet return
 const checkMobileWalletReturn = () => {
   if (isMobile()) {
+    // Check if we're running in a wallet's in-app browser immediately
+    setTimeout(async () => {
+      try {
+        await walletStore.connectIfInMobileWalletBrowser()
+      } catch (error) {
+        console.warn('Failed to check mobile wallet browser context:', error)
+      }
+    }, 100)
+    
     // Check if user is returning from a wallet app
     const urlParams = new URLSearchParams(window.location.search)
     const walletReturn = urlParams.get('wallet_return')
@@ -71,9 +80,9 @@ const checkMobileWalletReturn = () => {
         // Small delay to allow wallet state to update
         setTimeout(async () => {
           try {
-            await walletStore.connectIfReturningFromMobileWallet()
+            await walletStore.connectIfInMobileWalletBrowser()
           } catch (error) {
-            console.warn('Failed to check returning mobile wallet:', error)
+            console.warn('Failed to check mobile wallet browser context:', error)
           }
         }, 500)
       }

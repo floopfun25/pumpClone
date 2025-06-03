@@ -149,68 +149,33 @@ class WalletService {
             sessionStorage.setItem('mobileWalletAttempt', walletName)
             
             if (walletName.toLowerCase() === 'phantom') {
-              // For mobile browsers, use a simpler approach
-              // Open Phantom app and let it handle the connection
+              // For mobile browsers, use the browse deeplink to open dApp inside Phantom's browser
+              // This is different from connection deeplinks - browse opens the dApp in wallet's webview
+              // where window.phantom becomes available
               
-              // Try the direct phantom:// protocol first
-              const phantomProtocolUrl = `phantom://browse?url=${encodeURIComponent(window.location.href)}`
+              const currentUrl = window.location.href
+              const phantomBrowseUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(window.location.origin)}`
               
-              console.log(`Trying Phantom protocol URL:`, phantomProtocolUrl)
+              console.log(`Opening Phantom browse URL:`, phantomBrowseUrl)
               
-              // Create a hidden iframe to test if the protocol is supported
-              const iframe = document.createElement('iframe')
-              iframe.style.display = 'none'
-              iframe.src = phantomProtocolUrl
-              document.body.appendChild(iframe)
-              
-              // Clean up iframe after a short delay
-              setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                  document.body.removeChild(iframe)
-                }
-              }, 1000)
-              
-              // Fallback to app store if protocol doesn't work
-              setTimeout(() => {
-                // If we're still on the page after 2 seconds, assume app isn't installed
-                const userWantsToInstall = confirm('Phantom app not found. Would you like to install it?')
-                if (userWantsToInstall) {
-                  window.location.href = 'https://phantom.app/download'
-                }
-                sessionStorage.removeItem('mobileWalletAttempt')
-              }, 2000)
+              // Open Phantom's in-app browser
+              window.location.href = phantomBrowseUrl
               
             } else if (walletName.toLowerCase() === 'solflare') {
-              // Try Solflare mobile app
-              const solflareProtocolUrl = `solflare://browse?url=${encodeURIComponent(window.location.href)}`
+              // Similar approach for Solflare
+              const currentUrl = window.location.href
+              const solflareBrowseUrl = `https://solflare.com/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(window.location.origin)}`
               
-              console.log(`Trying Solflare protocol URL:`, solflareProtocolUrl)
+              console.log(`Opening Solflare browse URL:`, solflareBrowseUrl)
               
-              const iframe = document.createElement('iframe')
-              iframe.style.display = 'none'
-              iframe.src = solflareProtocolUrl
-              document.body.appendChild(iframe)
-              
-              setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                  document.body.removeChild(iframe)
-                }
-              }, 1000)
-              
-              setTimeout(() => {
-                const userWantsToInstall = confirm('Solflare app not found. Would you like to install it?')
-                if (userWantsToInstall) {
-                  window.location.href = 'https://solflare.com/download'
-                }
-                sessionStorage.removeItem('mobileWalletAttempt')
-              }, 2000)
+              window.location.href = solflareBrowseUrl
               
             } else {
               throw new Error(`Mobile deeplink not supported for ${walletName}`)
             }
             
-            // Note: For mobile browsers, connection state is managed differently
-            // The wallet app will open our dApp in its browser with connection established
+            // The connection will be completed when the dApp loads in the wallet's browser
+            // where window.phantom or window.solflare will be available
             return
             
           } catch (error) {
@@ -362,72 +327,88 @@ class WalletService {
     }
   }
 
-  // Manual connection for returning mobile users (when they come back from wallet app)
-  async connectIfReturningFromMobileWallet(): Promise<void> {
+  // Check for wallet availability in mobile context (when opened in wallet's browser)
+  async connectIfInMobileWalletBrowser(): Promise<void> {
     if (!isMobile()) {
       return
     }
 
-    // With the new mobile approach, the wallet app opens our dApp in its own browser
-    // In this context, window.phantom or window.solflare should be available
-    const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
+    // Check if we're running inside a wallet's in-app browser
+    // In this context, wallet objects should be available
     
-    if (lastAttemptedWallet) {
-      console.log('Checking for wallet in mobile context:', lastAttemptedWallet)
-      
-      // Check if wallet is now available in this context
-      if (lastAttemptedWallet.toLowerCase() === 'phantom' && (window as any).phantom?.solana) {
-        try {
-          console.log('Phantom detected in mobile browser context')
-          sessionStorage.removeItem('mobileWalletAttempt')
-          
-          // Connect using the available phantom object
-          const phantom = (window as any).phantom.solana
-          
-          // Request connection
-          const response = await phantom.connect()
-          
-          // Set up the connection state
-          this.currentWallet.value = {
-            name: 'Phantom',
-            connected: true,
-            publicKey: response.publicKey
-          } as any
-          
-          this._publicKey.value = response.publicKey
-          await this.updateBalance()
-          
-          console.log('Mobile Phantom connection successful')
-          
-        } catch (error) {
-          console.warn('Failed to connect with mobile Phantom:', error)
-          sessionStorage.removeItem('mobileWalletAttempt')
-        }
-      } else if (lastAttemptedWallet.toLowerCase() === 'solflare' && (window as any).solflare) {
-        try {
-          console.log('Solflare detected in mobile browser context')
-          sessionStorage.removeItem('mobileWalletAttempt')
-          
-          // Connect using the available solflare object
-          const solflare = (window as any).solflare
-          
-          const response = await solflare.connect()
-          
-          this.currentWallet.value = {
-            name: 'Solflare', 
-            connected: true,
-            publicKey: response.publicKey
-          } as any
-          
-          this._publicKey.value = response.publicKey
-          await this.updateBalance()
-          
-          console.log('Mobile Solflare connection successful')
-          
-        } catch (error) {
-          console.warn('Failed to connect with mobile Solflare:', error)
-          sessionStorage.removeItem('mobileWalletAttempt')
-        }
+    // Check for Phantom in mobile webview
+    if ((window as any).phantom?.solana) {
+      try {
+        console.log('Detected Phantom in mobile webview context')
+        
+        // We're in Phantom's browser - connect automatically
+        const phantom = (window as any).phantom.solana
+        
+        // Request connection
+        const response = await phantom.connect({ onlyIfTrusted: false })
+        
+        // Set up the connection state
+        this.currentWallet.value = {
+          name: 'Phantom',
+          connected: true,
+          publicKey: response.publicKey,
+          signTransaction: phantom.signTransaction?.bind(phantom),
+          signAllTransactions: phantom.signAllTransactions?.bind(phantom),
+          signMessage: phantom.signMessage?.bind(phantom),
+          sendTransaction: phantom.signAndSendTransaction?.bind(phantom)
+        } as any
+        
+        this._publicKey.value = response.publicKey
+        await this.updateBalance()
+        
+        // Clean up mobile wallet attempt
+        sessionStorage.removeItem('mobileWalletAttempt')
+        
+        console.log('Mobile Phantom connection successful')
+        
+      } catch (error) {
+        console.warn('Failed to connect with mobile Phantom:', error)
+      }
+    }
+    
+    // Check for Solflare in mobile webview
+    else if ((window as any).solflare) {
+      try {
+        console.log('Detected Solflare in mobile webview context')
+        
+        // We're in Solflare's browser - connect automatically
+        const solflare = (window as any).solflare
+        
+        const response = await solflare.connect()
+        
+        this.currentWallet.value = {
+          name: 'Solflare',
+          connected: true,
+          publicKey: response.publicKey,
+          signTransaction: solflare.signTransaction?.bind(solflare),
+          signAllTransactions: solflare.signAllTransactions?.bind(solflare),
+          signMessage: solflare.signMessage?.bind(solflare),
+          sendTransaction: solflare.signAndSendTransaction?.bind(solflare)
+        } as any
+        
+        this._publicKey.value = response.publicKey
+        await this.updateBalance()
+        
+        sessionStorage.removeItem('mobileWalletAttempt')
+        
+        console.log('Mobile Solflare connection successful')
+        
+      } catch (error) {
+        console.warn('Failed to connect with mobile Solflare:', error)
+      }
+    }
+    
+    // If no wallet detected but we have a mobile wallet attempt, we're probably in regular mobile browser
+    else {
+      const lastAttemptedWallet = sessionStorage.getItem('mobileWalletAttempt')
+      if (lastAttemptedWallet) {
+        console.log('Mobile wallet attempt detected but no wallet object found - likely in regular browser')
+        // Keep the attempt for potential future detection
       }
     }
   }
