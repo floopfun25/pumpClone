@@ -69,7 +69,29 @@
     "topGainers": "Mayores Ganancias",
     "topLosers": "Mayores Pérdidas",
     "tokens": "Tokens",
-    "createdBy": "Creado por"
+    "createdBy": "Creado por",
+    "kingOfHill": "Rey de la Colina",
+    "kingOfHillDescription": "Los tokens más populares escalando posiciones",
+    "hot": "CALIENTE",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "Progreso de Curva de Enlace",
+    "noTrendingTokens": "Aún no hay tokens en tendencia",
+    "createTokenToStart": "¡Crea un token para empezar!",
+    "viewAllTrending": "Ver Todas las Tendencias",
+    "createYourMemeToken": "Crea Tu Token Meme",
+    "createTokenDescription": "Lanza tu token con curvas de enlace de lanzamiento justo. Sin preventas, sin asignaciones de equipo.",
+    "walletRequired": "Billetera Requerida",
+    "namePlaceholder": "ej., Doge Coin",
+    "symbolPlaceholder": "ej., DOGE",
+    "descriptionPlaceholder": "Cuéntale a todos sobre tu token...",
+    "websitePlaceholder": "https://tutoken.com",
+    "twitterPlaceholder": "https://twitter.com/tutoken",
+    "creationCost": "Costo de Creación",
+    "platform": "Plataforma",
+    "rent": "Renta",
+    "gas": "Gas",
+    "creatingToken": "Creando Token"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Arrastra y suelta la imagen aquí",
     "selectFile": "Seleccionar Archivo",
     "preview": "Vista Previa",
-    "remove": "Eliminar"
+    "remove": "Eliminar",
+    "pleaseFixErrors": "Por favor corrige los siguientes errores",
+    "clickUploadOrDrag": "Haz clic para subir o arrastra y suelta una imagen",
+    "imageFormats": "PNG, JPG, GIF hasta 5MB"
   },
   "time": {
     "now": "ahora",

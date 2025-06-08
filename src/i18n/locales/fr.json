@@ -69,7 +69,29 @@
     "topGainers": "Top Gains",
     "topLosers": "Top Pertes",
     "tokens": "Jetons",
-    "createdBy": "Créé par"
+    "createdBy": "Créé par",
+    "kingOfHill": "Roi de la Colline",
+    "kingOfHillDescription": "Les jetons les plus chauds grimpent dans le classement",
+    "hot": "CHAUD",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "Progrès de la Courbe de Liaison",
+    "noTrendingTokens": "Aucun jeton tendance pour le moment",
+    "createTokenToStart": "Créez un jeton pour commencer !",
+    "viewAllTrending": "Voir Toutes les Tendances",
+    "createYourMemeToken": "Créez Votre Jeton Mème",
+    "createTokenDescription": "Lancez votre jeton avec des courbes de liaison de lancement équitable. Pas de préventes, pas d'allocations d'équipe.",
+    "walletRequired": "Portefeuille Requis",
+    "namePlaceholder": "ex., Doge Coin",
+    "symbolPlaceholder": "ex., DOGE",
+    "descriptionPlaceholder": "Parlez de votre jeton à tout le monde...",
+    "websitePlaceholder": "https://votre-jeton.com",
+    "twitterPlaceholder": "https://twitter.com/votre-jeton",
+    "creationCost": "Coût de Création",
+    "platform": "Plateforme",
+    "rent": "Loyer",
+    "gas": "Gaz",
+    "creatingToken": "Création du Jeton"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Glissez et déposez l'image ici",
     "selectFile": "Sélectionner Fichier",
     "preview": "Aperçu",
-    "remove": "Supprimer"
+    "remove": "Supprimer",
+    "pleaseFixErrors": "Veuillez corriger les erreurs suivantes",
+    "clickUploadOrDrag": "Cliquez pour télécharger ou glissez-déposez une image",
+    "imageFormats": "PNG, JPG, GIF jusqu'à 5MB"
   },
   "time": {
     "now": "maintenant",

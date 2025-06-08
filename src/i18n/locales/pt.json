@@ -69,7 +69,29 @@
     "topGainers": "Maiores Ganhos",
     "topLosers": "Maiores Perdas",
     "tokens": "Tokens",
-    "createdBy": "Criado por"
+    "createdBy": "Criado por",
+    "kingOfHill": "Rei da Colina",
+    "kingOfHillDescription": "Tokens mais quentes subindo no ranking",
+    "hot": "QUENTE",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "Progresso da Curva de Ligação",
+    "noTrendingTokens": "Ainda não há tokens em tendência",
+    "createTokenToStart": "Crie um token para começar!",
+    "viewAllTrending": "Ver Todas as Tendências",
+    "createYourMemeToken": "Crie Seu Token Meme",
+    "createTokenDescription": "Lance seu token com curvas de ligação de lançamento justo. Sem pré-vendas, sem alocações de equipe.",
+    "walletRequired": "Carteira Necessária",
+    "namePlaceholder": "ex., Doge Coin",
+    "symbolPlaceholder": "ex., DOGE",
+    "descriptionPlaceholder": "Conte a todos sobre seu token...",
+    "websitePlaceholder": "https://seutoken.com",
+    "twitterPlaceholder": "https://twitter.com/seutoken",
+    "creationCost": "Custo de Criação",
+    "platform": "Plataforma",
+    "rent": "Aluguel",
+    "gas": "Gás",
+    "creatingToken": "Criando Token"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Arraste e solte a imagem aqui",
     "selectFile": "Selecionar Arquivo",
     "preview": "Visualizar",
-    "remove": "Remover"
+    "remove": "Remover",
+    "pleaseFixErrors": "Por favor, corrija os seguintes erros",
+    "clickUploadOrDrag": "Clique para fazer upload ou arraste e solte uma imagem",
+    "imageFormats": "PNG, JPG, GIF até 5MB"
   },
   "time": {
     "now": "agora",

@@ -69,7 +69,29 @@
     "topGainers": "Top Gainers",
     "topLosers": "Top Losers",
     "tokens": "Tokens",
-    "createdBy": "Created by"
+    "createdBy": "Created by",
+    "kingOfHill": "King of the Hill",
+    "kingOfHillDescription": "Hottest tokens climbing the ranks",
+    "hot": "HOT",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "Bonding Curve Progress",
+    "noTrendingTokens": "No trending tokens yet",
+    "createTokenToStart": "Create a token to get started!",
+    "viewAllTrending": "View All Trending",
+    "createYourMemeToken": "Create Your Meme Token",
+    "createTokenDescription": "Launch your token with fair launch bonding curves. No presales, no team allocations.",
+    "walletRequired": "Wallet Required",
+    "namePlaceholder": "e.g., Doge Coin",
+    "symbolPlaceholder": "e.g., DOGE",
+    "descriptionPlaceholder": "Tell everyone about your token...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "Creation Cost",
+    "platform": "Platform",
+    "rent": "Rent",
+    "gas": "Gas",
+    "creatingToken": "Creating Token"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Drag and drop image here",
     "selectFile": "Select File",
     "preview": "Preview",
-    "remove": "Remove"
+    "remove": "Remove",
+    "pleaseFixErrors": "Please fix the following errors",
+    "clickUploadOrDrag": "Click to upload or drag and drop an image",
+    "imageFormats": "PNG, JPG, GIF up to 5MB"
   },
   "time": {
     "now": "now",

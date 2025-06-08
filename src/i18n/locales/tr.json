@@ -69,7 +69,29 @@
     "topGainers": "En Çok Kazanan",
     "topLosers": "En Çok Kaybeden",
     "tokens": "Tokenler",
-    "createdBy": "Oluşturan"
+    "createdBy": "Oluşturan",
+    "kingOfHill": "Tepenin Kralı",
+    "kingOfHillDescription": "Sıralamada yükselen en sıcak tokenler",
+    "hot": "SICAK",
+    "marketCapShort": "PD",
+    "volumeShort": "Hac",
+    "bondingCurveProgress": "Bağlama Eğrisi İlerlemesi",
+    "noTrendingTokens": "Henüz trend olan token yok",
+    "createTokenToStart": "Başlamak için bir token oluşturun!",
+    "viewAllTrending": "Tüm Trendleri Görüntüle",
+    "createYourMemeToken": "Meme Tokeninizi Oluşturun",
+    "createTokenDescription": "Adil başlatma bağlama eğrileri ile tokeninizi başlatın. Ön satış yok, takım tahsisi yok.",
+    "walletRequired": "Cüzdan Gerekli",
+    "namePlaceholder": "örn., Doge Coin",
+    "symbolPlaceholder": "örn., DOGE",
+    "descriptionPlaceholder": "Tokeniniz hakkında herkese anlatın...",
+    "websitePlaceholder": "https://tokeniniz.com",
+    "twitterPlaceholder": "https://twitter.com/tokeniniz",
+    "creationCost": "Oluşturma Maliyeti",
+    "platform": "Platform",
+    "rent": "Kira",
+    "gas": "Gaz",
+    "creatingToken": "Token Oluşturuluyor"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Görseli buraya sürükleyin",
     "selectFile": "Dosya Seç",
     "preview": "Önizleme",
-    "remove": "Kaldır"
+    "remove": "Kaldır",
+    "pleaseFixErrors": "Lütfen aşağıdaki hataları düzeltin",
+    "clickUploadOrDrag": "Yüklemek için tıklayın veya resmi buraya sürükleyip bırakın",
+    "imageFormats": "PNG, JPG, GIF 5MB'a kadar"
   },
   "time": {
     "now": "şimdi",

@@ -69,7 +69,29 @@
     "topGainers": "涨幅榜",
     "topLosers": "跌幅榜",
     "tokens": "代币",
-    "createdBy": "创建者"
+    "createdBy": "创建者",
+    "kingOfHill": "王者之巅",
+    "kingOfHillDescription": "最热门的代币正在攀升",
+    "hot": "热门",
+    "marketCapShort": "市值",
+    "volumeShort": "成交量",
+    "bondingCurveProgress": "联合曲线进度",
+    "noTrendingTokens": "暂无热门代币",
+    "createTokenToStart": "创建代币开始吧！",
+    "viewAllTrending": "查看所有热门",
+    "createYourMemeToken": "创建您的模因代币",
+    "createTokenDescription": "使用公平启动绑定曲线启动您的代币。无预售，无团队分配。",
+    "walletRequired": "需要钱包",
+    "namePlaceholder": "例如：狗狗币",
+    "symbolPlaceholder": "例如：DOGE",
+    "descriptionPlaceholder": "告诉大家您的代币...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "创建成本",
+    "platform": "平台",
+    "rent": "租金",
+    "gas": "燃料",
+    "creatingToken": "创建代币中"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "将图片拖拽到此处",
     "selectFile": "选择文件",
     "preview": "预览",
-    "remove": "移除"
+    "remove": "移除",
+    "pleaseFixErrors": "请修复以下错误",
+    "clickUploadOrDrag": "点击上传或拖拽图片到此处",
+    "imageFormats": "PNG、JPG、GIF最大5MB"
   },
   "time": {
     "now": "现在",

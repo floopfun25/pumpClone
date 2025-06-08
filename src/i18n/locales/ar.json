@@ -69,7 +69,29 @@
     "topGainers": "أكبر المكاسب",
     "topLosers": "أكبر الخسائر",
     "tokens": "الرموز",
-    "createdBy": "أنشأه"
+    "createdBy": "أنشأه",
+    "kingOfHill": "ملك التل",
+    "kingOfHillDescription": "أشهر الرموز التي تتسلق المراتب",
+    "hot": "ساخن",
+    "marketCapShort": "ق.س",
+    "volumeShort": "حجم",
+    "bondingCurveProgress": "تقدم منحنى الربط",
+    "noTrendingTokens": "لا توجد رموز شائعة بعد",
+    "createTokenToStart": "أنشئ رمزاً للبدء!",
+    "viewAllTrending": "عرض جميع الشائع",
+    "createYourMemeToken": "أنشئ رمز الميم الخاص بك",
+    "createTokenDescription": "اطلق رمزك باستخدام منحنيات الربط العادلة. لا مبيعات مسبقة، لا تخصيصات للفريق.",
+    "walletRequired": "المحفظة مطلوبة",
+    "namePlaceholder": "مثال: دوج كوين",
+    "symbolPlaceholder": "مثال: DOGE",
+    "descriptionPlaceholder": "أخبر الجميع عن رمزك...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "تكلفة الإنشاء",
+    "platform": "المنصة",
+    "rent": "الإيجار",
+    "gas": "الغاز",
+    "creatingToken": "إنشاء الرمز"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "اسحب الصورة وأفلتها هنا",
     "selectFile": "اختر ملف",
     "preview": "معاينة",
-    "remove": "إزالة"
+    "remove": "إزالة",
+    "pleaseFixErrors": "يرجى إصلاح الأخطاء التالية",
+    "clickUploadOrDrag": "انقر للرفع أو اسحب الصورة وأفلتها هنا",
+    "imageFormats": "PNG، JPG، GIF حتى 5 ميجابايت"
   },
   "time": {
     "now": "الآن",

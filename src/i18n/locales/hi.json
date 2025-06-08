@@ -69,7 +69,29 @@
     "topGainers": "टॉप गेनर्स",
     "topLosers": "टॉप लूज़र्स",
     "tokens": "टोकन",
-    "createdBy": "द्वारा निर्मित"
+    "createdBy": "द्वारा निर्मित",
+    "kingOfHill": "पहाड़ी का राजा",
+    "kingOfHillDescription": "रैंकिंग में चढ़ने वाले सबसे हॉट टोकन",
+    "hot": "हॉट",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "बॉन्डिंग कर्व प्रगति",
+    "noTrendingTokens": "अभी तक कोई ट्रेंडिंग टोकन नहीं",
+    "createTokenToStart": "शुरू करने के लिए एक टोकन बनाएं!",
+    "viewAllTrending": "सभी ट्रेंडिंग देखें",
+    "createYourMemeToken": "अपना मीम टोकन बनाएं",
+    "createTokenDescription": "निष्पक्ष लॉन्च बॉन्डिंग कर्व्स के साथ अपना टोकन लॉन्च करें। कोई प्रीसेल नहीं, कोई टीम आवंटन नहीं।",
+    "walletRequired": "वॉलेट आवश्यक",
+    "namePlaceholder": "उदा., डॉज कॉइन",
+    "symbolPlaceholder": "उदा., DOGE",
+    "descriptionPlaceholder": "सभी को अपने टोकन के बारे में बताएं...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "निर्माण लागत",
+    "platform": "प्लेटफॉर्म",
+    "rent": "किराया",
+    "gas": "गैस",
+    "creatingToken": "टोकन बनाया जा रहा है"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "छवि को यहां खींचें और छोड़ें",
     "selectFile": "फाइल चुनें",
     "preview": "पूर्वावलोकन",
-    "remove": "हटाएं"
+    "remove": "हटाएं",
+    "pleaseFixErrors": "कृपया निम्नलिखित त्रुटियों को ठीक करें",
+    "clickUploadOrDrag": "अपलोड करने के लिए क्लिक करें या छवि को यहां खींचें और छोड़ें",
+    "imageFormats": "PNG, JPG, GIF 5MB तक"
   },
   "time": {
     "now": "अभी",

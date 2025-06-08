@@ -69,7 +69,29 @@
     "topGainers": "সর্বোচ্চ লাভবান",
     "topLosers": "সর্বোচ্চ ক্ষতিগ্রস্ত",
     "tokens": "টোকেন",
-    "createdBy": "দ্বারা তৈরি"
+    "createdBy": "দ্বারা তৈরি",
+    "kingOfHill": "পাহাড়ের রাজা",
+    "kingOfHillDescription": "র‍্যাঙ্কিং এ উঠতে থাকা সবচেয়ে হট টোকেন",
+    "hot": "হট",
+    "marketCapShort": "MC",
+    "volumeShort": "Vol",
+    "bondingCurveProgress": "বন্ডিং কার্ভ অগ্রগতি",
+    "noTrendingTokens": "এখনও কোন ট্রেন্ডিং টোকেন নেই",
+    "createTokenToStart": "শুরু করতে একটি টোকেন তৈরি করুন!",
+    "viewAllTrending": "সমস্ত ট্রেন্ডিং দেখুন",
+    "createYourMemeToken": "আপনার মিম টোকেন তৈরি করুন",
+    "createTokenDescription": "ন্যায্য লঞ্চ বন্ডিং কার্ভের সাথে আপনার টোকেন লঞ্চ করুন। কোন প্রি-সেল নেই, কোন টিম বরাদ্দ নেই।",
+    "walletRequired": "ওয়ালেট প্রয়োজন",
+    "namePlaceholder": "যেমন, ডগ কয়েন",
+    "symbolPlaceholder": "যেমন, DOGE",
+    "descriptionPlaceholder": "আপনার টোকেন সম্পর্কে সবাইকে বলুন...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "তৈরির খরচ",
+    "platform": "প্ল্যাটফর্ম",
+    "rent": "ভাড়া",
+    "gas": "গ্যাস",
+    "creatingToken": "টোকেন তৈরি করা হচ্ছে"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "এখানে ছবি টেনে আনুন এবং ছেড়ে দিন",
     "selectFile": "ফাইল নির্বাচন করুন",
     "preview": "পূর্বরূপ",
-    "remove": "অপসারণ"
+    "remove": "অপসারণ",
+    "pleaseFixErrors": "অনুগ্রহ করে নিম্নলিখিত ত্রুটিগুলি ঠিক করুন",
+    "clickUploadOrDrag": "আপলোড করতে ক্লিক করুন বা ছবি এখানে টেনে আনুন এবং ছেড়ে দিন",
+    "imageFormats": "PNG, JPG, GIF ৫MB পর্যন্ত"
   },
   "time": {
     "now": "এখন",

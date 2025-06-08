@@ -69,7 +69,29 @@
     "topGainers": "Топ Прибыли",
     "topLosers": "Топ Убытков",
     "tokens": "Токены",
-    "createdBy": "Создано"
+    "createdBy": "Создано",
+    "kingOfHill": "Король Горы",
+    "kingOfHillDescription": "Самые горячие токены поднимаются в рейтинге",
+    "hot": "ГОРЯЧИЙ",
+    "marketCapShort": "МК",
+    "volumeShort": "Об",
+    "bondingCurveProgress": "Прогресс Кривой Связи",
+    "noTrendingTokens": "Пока нет трендовых токенов",
+    "createTokenToStart": "Создайте токен, чтобы начать!",
+    "viewAllTrending": "Посмотреть Все Трендовые",
+    "createYourMemeToken": "Создайте Свой Мем-Токен",
+    "createTokenDescription": "Запустите свой токен с кривыми связи справедливого запуска. Без предпродаж, без распределения команде.",
+    "walletRequired": "Требуется Кошелек",
+    "namePlaceholder": "напр., Doge Coin",
+    "symbolPlaceholder": "напр., DOGE",
+    "descriptionPlaceholder": "Расскажите всем о вашем токене...",
+    "websitePlaceholder": "https://yourtoken.com",
+    "twitterPlaceholder": "https://twitter.com/yourtoken",
+    "creationCost": "Стоимость Создания",
+    "platform": "Платформа",
+    "rent": "Аренда",
+    "gas": "Газ",
+    "creatingToken": "Создание Токена"
   },
   "dashboard": {
     "stats": {
@@ -204,7 +226,10 @@
     "dragDropImage": "Перетащите изображение сюда",
     "selectFile": "Выбрать Файл",
     "preview": "Предпросмотр",
-    "remove": "Удалить"
+    "remove": "Удалить",
+    "pleaseFixErrors": "Пожалуйста, исправьте следующие ошибки",
+    "clickUploadOrDrag": "Нажмите для загрузки или перетащите изображение сюда",
+    "imageFormats": "PNG, JPG, GIF до 5MB"
   },
   "time": {
     "now": "сейчас",

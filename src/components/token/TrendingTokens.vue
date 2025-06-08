@@ -2,8 +2,8 @@
   <div class="card">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">👑 King of the Hill</h2>
-        <p class="text-gray-600 dark:text-gray-400">Hottest tokens climbing the ranks</p>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">👑 {{ $t('token.kingOfHill') }}</h2>
+        <p class="text-gray-600 dark:text-gray-400">{{ $t('token.kingOfHillDescription') }}</p>
       </div>
       <button 
         @click="refreshTrending" 
@@ -41,7 +41,7 @@
       <div class="text-4xl mb-2">⚠️</div>
       <p class="text-red-500 mb-4">{{ error }}</p>
       <button @click="refreshTrending" class="btn-primary">
-        Try Again
+        {{ $t('trading.retry') }}
       </button>
     </div>
 
@@ -69,7 +69,7 @@
         <!-- Hot Badge -->
         <div v-if="token.volume_24h_change > 100" class="absolute top-2 right-2">
           <span class="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-            🔥 HOT
+            🔥 {{ $t('token.hot') }}
           </span>
         </div>
 
@@ -97,12 +97,12 @@
                 ${{ token.symbol }}
               </span>
               <span v-if="token.is_featured" class="px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded-full">
-                Featured
+                {{ $t('token.featured') }}
               </span>
             </div>
             <div class="flex items-center space-x-4 text-sm">
               <span class="text-gray-600 dark:text-gray-400">
-                MC: ${{ formatNumber(token.market_cap) }}
+                {{ $t('token.marketCapShort') }}: ${{ formatNumber(token.market_cap) }}
               </span>
               <span :class="[
                 'font-medium',
@@ -119,7 +119,7 @@
               ${{ formatPrice(token.current_price) }}
             </div>
             <div class="text-sm text-gray-500 dark:text-gray-400">
-              Vol: ${{ formatNumber(token.volume_24h) }}
+              {{ $t('token.volumeShort') }}: ${{ formatNumber(token.volume_24h) }}
             </div>
           </div>
 
@@ -132,7 +132,7 @@
         <!-- Progress Bar -->
         <div class="mt-3 ml-10">
           <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Bonding Curve Progress</span>
+            <span>{{ $t('token.bondingCurveProgress') }}</span>
             <span>{{ token.bonding_curve_progress || 0 }}%</span>
           </div>
           <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -148,8 +148,8 @@
     <!-- Empty State -->
     <div v-else class="text-center py-8">
       <div class="text-4xl mb-2">🏆</div>
-      <p class="text-gray-500 dark:text-gray-400">No trending tokens yet</p>
-      <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Create a token to get started!</p>
+      <p class="text-gray-500 dark:text-gray-400">{{ $t('token.noTrendingTokens') }}</p>
+      <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">{{ $t('token.createTokenToStart') }}</p>
     </div>
 
     <!-- View All Button -->
@@ -158,7 +158,7 @@
         to="/?sort=trending" 
         class="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium"
       >
-        View All Trending →
+        {{ $t('token.viewAllTrending') }} →
       </router-link>
     </div>
   </div>
@@ -167,8 +167,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { SupabaseService } from '@/services/supabase'
 import { useUIStore } from '@/stores/ui'
+
+const { t } = useI18n()
 
 interface TrendingToken {
   id: string
@@ -206,14 +209,14 @@ const loading = ref(false)
 const error = ref('')
 const selectedFilter = ref('volume')
 
-// Filter options
-const filters = [
-  { label: '🔥 Volume', value: 'volume' },
-  { label: '📈 Price', value: 'price' },
-  { label: '👥 Holders', value: 'holders' },
-  { label: '🆕 New', value: 'new' },
-  { label: '🎯 Featured', value: 'featured' }
-]
+// Filter options with translations
+const filters = computed(() => [
+  { label: '🔥 ' + t('token.volume'), value: 'volume' },
+  { label: '📈 ' + t('token.price'), value: 'price' },
+  { label: '👥 ' + t('token.holders'), value: 'holders' },
+  { label: '🆕 ' + t('token.new'), value: 'new' },
+  { label: '🎯 ' + t('token.featured'), value: 'featured' }
+])
 
 // Methods
 const loadTrendingTokens = async () => {
