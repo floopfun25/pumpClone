@@ -174,6 +174,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { createChart, ColorType } from 'lightweight-charts'
+// Try alternative imports for v5
+import * as LightweightCharts from 'lightweight-charts'
 
 interface Props {
   tokenId: string
@@ -261,6 +263,23 @@ const initChart = async () => {
     })
 
     console.log('Chart created:', chart.value)
+    
+    // Debug: Log all available methods in the library
+    console.log('LightweightCharts exports:', Object.keys(LightweightCharts))
+    console.log('createChart function:', typeof createChart)
+    
+    // Debug: Log all available methods on the chart object
+    console.log('Chart prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(chart.value)))
+    console.log('Chart own properties:', Object.getOwnPropertyNames(chart.value))
+    
+    // Try to find the correct method by listing all methods
+    const allMethods = []
+    let obj = chart.value
+    do {
+      allMethods.push(...Object.getOwnPropertyNames(obj))
+    } while ((obj = Object.getPrototypeOf(obj)) && obj !== Object.prototype)
+    
+    console.log('All available methods on chart:', allMethods.filter(method => typeof chart.value[method] === 'function'))
 
     // Generate data first
     console.log('Generating chart data...')
@@ -270,14 +289,45 @@ const initChart = async () => {
     
     console.log('Generated data:', priceData.value.length, 'candles')
 
-    // Create candlestick series with data
+    // Try different methods to create candlestick series
     console.log('Creating candlestick series...')
-    candlestickSeries.value = chart.value.addCandlestickSeries()
     
-    // Set data immediately after creating series
-    if (priceData.value.length > 0) {
-      candlestickSeries.value.setData(priceData.value)
-      console.log('Candlestick data set successfully')
+    try {
+      // Try method 1: addCandlestickSeries (original)
+      if (typeof chart.value.addCandlestickSeries === 'function') {
+        console.log('Using addCandlestickSeries...')
+        candlestickSeries.value = chart.value.addCandlestickSeries()
+      } 
+      // Try method 2: addSeries with 'Candlestick'
+      else if (typeof chart.value.addSeries === 'function') {
+        console.log('Using addSeries with Candlestick...')
+        candlestickSeries.value = chart.value.addSeries('Candlestick')
+      }
+      // Try method 3: addCandlestickChart
+      else if (typeof chart.value.addCandlestickChart === 'function') {
+        console.log('Using addCandlestickChart...')
+        candlestickSeries.value = chart.value.addCandlestickChart()
+      }
+      // Try method 4: createSeries
+      else if (typeof chart.value.createSeries === 'function') {
+        console.log('Using createSeries...')
+        candlestickSeries.value = chart.value.createSeries('candlestick')
+      }
+      else {
+        throw new Error('No candlestick series creation method found')
+      }
+      
+      console.log('Series created:', candlestickSeries.value)
+      
+      // Set data immediately after creating series
+      if (priceData.value.length > 0 && candlestickSeries.value) {
+        candlestickSeries.value.setData(priceData.value)
+        console.log('Candlestick data set successfully')
+      }
+      
+    } catch (seriesError: any) {
+      console.error('Failed to create any series:', seriesError)
+      throw new Error('Could not create candlestick series: ' + seriesError.message)
     }
     
     // Update current price
