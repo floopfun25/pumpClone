@@ -254,113 +254,37 @@ const initChart = async () => {
       throw new Error('Chart container has no dimensions')
     }
 
+    // Create chart with minimal configuration
     chart.value = createChart(chartContainer.value, {
       width: chartContainer.value.clientWidth,
-      height: 400,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#d1d5db',
-      },
-      grid: {
-        vertLines: { color: '#374151' },
-        horzLines: { color: '#374151' }
-      },
-      crosshair: {
-        mode: 0,
-        vertLine: {
-          width: 1,
-          color: '#6b7280',
-          style: 0
-        },
-        horzLine: {
-          width: 1,
-          color: '#6b7280',
-          style: 0
-        }
-      },
-      rightPriceScale: {
-        borderColor: '#374151'
-      },
-      timeScale: {
-        borderColor: '#374151',
-        timeVisible: true,
-        secondsVisible: false
-      }
+      height: 400
     })
 
     console.log('Chart created:', chart.value)
 
-    // Try different approaches for v5 API
-    try {
-      // Method 1: Direct method call
-      if (typeof chart.value.addCandlestickSeries === 'function') {
-        candlestickSeries.value = chart.value.addCandlestickSeries({
-          upColor: '#10b981',
-          downColor: '#ef4444',
-          borderDownColor: '#ef4444',
-          borderUpColor: '#10b981',
-          wickDownColor: '#ef4444',
-          wickUpColor: '#10b981'
-        })
-      } else {
-        // Method 2: addSeries with type
-        candlestickSeries.value = chart.value.addSeries('Candlestick', {
-          upColor: '#10b981',
-          downColor: '#ef4444',
-          borderDownColor: '#ef4444',
-          borderUpColor: '#10b981',
-          wickDownColor: '#ef4444',
-          wickUpColor: '#10b981'
-        })
-      }
-      
-      console.log('Candlestick series created:', candlestickSeries.value)
-    } catch (seriesError) {
-      console.error('Failed to create candlestick series:', seriesError)
-      console.log('Available methods on chart:', Object.getOwnPropertyNames(chart.value))
-      throw seriesError
-    }
-
-    // Create volume series using v5 API
-    if (indicators.value.volume) {
-      try {
-        if (typeof chart.value.addHistogramSeries === 'function') {
-          volumeSeries.value = chart.value.addHistogramSeries({
-            color: '#6b7280',
-            priceFormat: {
-              type: 'volume'
-            },
-            priceScaleId: ''
-          })
-        } else {
-          volumeSeries.value = chart.value.addSeries('Histogram', {
-            color: '#6b7280',
-            priceFormat: {
-              type: 'volume'
-            },
-            priceScaleId: ''
-          })
-        }
-        
-        chart.value.priceScale('').applyOptions({
-          scaleMargins: {
-            top: 0.8,
-            bottom: 0
-          }
-        })
-        
-        console.log('Volume series created:', volumeSeries.value)
-      } catch (volumeError) {
-        console.warn('Failed to create volume series:', volumeError)
-        // Continue without volume series
-      }
-    }
-
-    // Load initial data
-    await loadChartData()
+    // Generate data first
+    console.log('Generating chart data...')
+    const data = generateCandlestickData()
+    priceData.value = data.candlesticks
+    volumeData.value = data.volumes
     
-    // Set up real-time updates
-    startRealTimeUpdates()
+    console.log('Generated data:', priceData.value.length, 'candles')
+
+    // Create candlestick series with data
+    console.log('Creating candlestick series...')
+    candlestickSeries.value = chart.value.addCandlestickSeries()
+    
+    // Set data immediately after creating series
+    if (priceData.value.length > 0) {
+      candlestickSeries.value.setData(priceData.value)
+      console.log('Candlestick data set successfully')
+    }
+    
+    // Update current price
+    if (priceData.value.length > 0) {
+      const latest = priceData.value[priceData.value.length - 1]
+      currentPrice.value = latest.close
+    }
     
     console.log('Chart initialization complete')
 
@@ -373,29 +297,8 @@ const initChart = async () => {
 }
 
 const loadChartData = async () => {
-  try {
-    // Generate realistic candlestick data for demonstration
-    const data = generateCandlestickData()
-    priceData.value = data.candlesticks
-    volumeData.value = data.volumes
-    
-    if (candlestickSeries.value) {
-      candlestickSeries.value.setData(priceData.value)
-    }
-    
-    if (volumeSeries.value) {
-      volumeSeries.value.setData(volumeData.value)
-    }
-    
-    // Update current price
-    if (priceData.value.length > 0) {
-      const latest = priceData.value[priceData.value.length - 1]
-      currentPrice.value = latest.close
-    }
-    
-  } catch (error) {
-    console.error('Failed to load chart data:', error)
-  }
+  // This method is now integrated into initChart
+  console.log('loadChartData is deprecated - using inline data generation')
 }
 
 const generateCandlestickData = () => {
@@ -404,18 +307,18 @@ const generateCandlestickData = () => {
   const now = Date.now()
   const basePrice = 0.000001 + Math.random() * 0.00001
   
-  for (let i = 100; i >= 0; i--) {
-    const time = (now - i * 3600000) / 1000 // 1 hour intervals
+  for (let i = 24; i >= 0; i--) { // Reduced to 24 hours for simpler data
+    const time = Math.floor((now - i * 3600000) / 1000) // 1 hour intervals
     const volatility = 0.02
     
-    const open = i === 100 ? basePrice : candlesticks[candlesticks.length - 1].close
+    const open = i === 24 ? basePrice : candlesticks[candlesticks.length - 1].close
     const change = (Math.random() - 0.5) * volatility * open
     const close = Math.max(open + change, 0.000001)
     const high = Math.max(open, close) * (1 + Math.random() * 0.02)
     const low = Math.min(open, close) * (1 - Math.random() * 0.02)
     
     candlesticks.push({
-      time: time as any,
+      time,
       open,
       high,
       low,
@@ -423,12 +326,13 @@ const generateCandlestickData = () => {
     })
     
     volumes.push({
-      time: time as any,
+      time,
       value: Math.random() * 1000000,
       color: close > open ? '#10b981' : '#ef4444'
     })
   }
   
+  console.log('Generated sample data:', candlesticks.length, 'candles')
   return { candlesticks, volumes }
 }
 
@@ -449,7 +353,7 @@ const setChartType = (type: string) => {
 
 const setTimeframe = (timeframe: string) => {
   selectedTimeframe.value = timeframe
-  loadChartData()
+  initChart()
 }
 
 const toggleIndicator = (indicator: string) => {
@@ -521,32 +425,6 @@ const toggleFullscreen = () => {
       chartContainer.value?.clientHeight || 400
     )
   })
-}
-
-const startRealTimeUpdates = () => {
-  // Simulate real-time price updates
-  setInterval(() => {
-    if (priceData.value.length === 0) return
-    
-    const lastCandle = priceData.value[priceData.value.length - 1]
-    const change = (Math.random() - 0.5) * 0.01 * lastCandle.close
-    const newPrice = Math.max(lastCandle.close + change, 0.000001)
-    
-    const newCandle = {
-      time: (Date.now() / 1000) as any,
-      open: lastCandle.close,
-      high: Math.max(lastCandle.close, newPrice),
-      low: Math.min(lastCandle.close, newPrice),
-      close: newPrice
-    }
-    
-    priceData.value = [...priceData.value.slice(0, -1), newCandle]
-    currentPrice.value = newPrice
-    
-    if (candlestickSeries.value) {
-      candlestickSeries.value.update(newCandle)
-    }
-  }, 5000) // Update every 5 seconds
 }
 
 // Utility functions
