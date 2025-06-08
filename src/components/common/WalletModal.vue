@@ -17,7 +17,7 @@
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-            Connect Wallet
+            {{ $t('wallet.selectWallet') }}
           </h2>
           <button
             @click="closeModal"
@@ -33,7 +33,7 @@
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ isMobileDevice ? 'Opening wallet app...' : 'Connecting to wallet...' }}
+            {{ isMobileDevice ? $t('messages.info.processing') : $t('wallet.connecting') }}
           </p>
         </div>
         
@@ -42,7 +42,7 @@
           <!-- Regular Wallet List -->
           <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Choose Wallet
+              {{ $t('wallet.selectWallet') }}
             </h3>
             <div class="space-y-2">
               <button
@@ -72,7 +72,7 @@
           <!-- Not Installed Wallets (Desktop only) -->
           <div v-if="notInstalledWallets.length > 0 && !isMobileDevice" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Install a Wallet
+              {{ $t('wallet.installWallet', { wallet: '' }).replace(' to continue', '') }}
             </h3>
             <div class="space-y-2">
               <a
@@ -94,7 +94,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Not installed
+                    {{ $t('messages.info.noDataAvailable') }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,10 +112,10 @@
               </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 mb-4">
-              No Solana wallets available
+              {{ $t('wallet.noWallet') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-              Please install a Solana wallet to continue
+              {{ $t('messages.info.connectWalletFirst') }}
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div class="flex-1">
-              <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">Connection Error</h4>
+              <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">{{ $t('messages.error.walletConnection') }}</h4>
               <p class="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">
                 {{ error }}
               </p>
@@ -138,7 +138,7 @@
         <!-- Footer -->
         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
           <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
-            By connecting a wallet, you agree to FloppFun's 
+            By connecting a wallet, you agree to {{ $t('app.name') }}'s 
             <a href="/terms" class="text-primary-600 dark:text-primary-400 hover:underline">Terms of Service</a>
           </p>
         </div>

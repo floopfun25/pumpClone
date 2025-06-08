@@ -9,7 +9,7 @@
             <span class="text-binance-dark font-bold text-sm">F</span>
           </div>
           <span class="text-xl font-bold text-white text-shadow">
-            Flopp<span class="text-binance-gradient">Fun</span>
+            {{ $t('app.name') }}
           </span>
         </router-link>
         
@@ -19,25 +19,25 @@
             to="/" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            Home
+            {{ $t('navigation.home') }}
           </router-link>
           <router-link 
             to="/create" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            Create Token
+            {{ $t('navigation.create') }}
           </router-link>
           <router-link 
             to="/leaderboard" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            Leaderboard
+            {{ $t('navigation.leaderboard') }}
           </router-link>
           <router-link 
             to="/about" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            About
+            {{ $t('navigation.about') }}
           </router-link>
         </div>
         
@@ -49,7 +49,7 @@
               <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Search tokens..."
+                :placeholder="$t('search.placeholder')"
                 class="pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-surface text-white focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow placeholder-binance-gray"
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -80,7 +80,7 @@
             @click="connectWallet"
             class="btn-primary px-6 py-2 font-semibold"
           >
-            Connect Wallet
+            {{ $t('wallet.connect') }}
           </button>
           
           <!-- User Menu (when wallet connected) -->
@@ -115,24 +115,27 @@
                 class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
-                Profile
+                {{ $t('navigation.profile') }}
               </router-link>
               <router-link 
                 to="/portfolio" 
                 class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
-                Portfolio
+                {{ $t('navigation.portfolio') }}
               </router-link>
               <hr class="my-1 border-binance-border">
               <button 
                 @click="disconnectWallet"
                 class="block w-full text-left px-4 py-2 text-sm text-trading-sell hover:bg-trading-elevated transition-colors"
               >
-                Disconnect
+                {{ $t('wallet.disconnect') }}
               </button>
             </div>
           </div>
+          
+          <!-- Language Selector - Moved to topmost right -->
+          <LanguageSelector />
           
           <!-- Mobile Menu Button -->
           <button 
@@ -155,7 +158,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search tokens..."
+            :placeholder="$t('search.placeholder')"
             class="w-full pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-elevated text-white placeholder-binance-gray"
           />
         </div>
@@ -166,28 +169,28 @@
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          Home
+          {{ $t('navigation.home') }}
         </router-link>
         <router-link 
           to="/create" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          Create Token
+          {{ $t('navigation.create') }}
         </router-link>
         <router-link 
           to="/leaderboard" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          Leaderboard
+          {{ $t('navigation.leaderboard') }}
         </router-link>
         <router-link 
           to="/about" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          About
+          {{ $t('navigation.about') }}
         </router-link>
       </div>
     </div>
@@ -207,6 +210,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import WalletModal from '@/components/common/WalletModal.vue'
+import LanguageSelector from '@/components/common/LanguageSelector.vue'
 
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
