@@ -173,7 +173,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { createChart, ColorType } from 'lightweight-charts'
+import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts'
 // Try alternative imports for v5
 import * as LightweightCharts from 'lightweight-charts'
 
@@ -293,41 +293,57 @@ const initChart = async () => {
     console.log('Creating candlestick series...')
     
     try {
-      // Try method 1: addCandlestickSeries (original)
-      if (typeof chart.value.addCandlestickSeries === 'function') {
-        console.log('Using addCandlestickSeries...')
-        candlestickSeries.value = chart.value.addCandlestickSeries()
-      } 
-      // Try method 2: addSeries with 'Candlestick'
-      else if (typeof chart.value.addSeries === 'function') {
-        console.log('Using addSeries with Candlestick...')
-        candlestickSeries.value = chart.value.addSeries('Candlestick')
-      }
-      // Try method 3: addCandlestickChart
-      else if (typeof chart.value.addCandlestickChart === 'function') {
-        console.log('Using addCandlestickChart...')
-        candlestickSeries.value = chart.value.addCandlestickChart()
-      }
-      // Try method 4: createSeries
-      else if (typeof chart.value.createSeries === 'function') {
-        console.log('Using createSeries...')
-        candlestickSeries.value = chart.value.createSeries('candlestick')
-      }
-      else {
-        throw new Error('No candlestick series creation method found')
-      }
+      // Method 1: Use the CandlestickSeries constructor (v5 style)
+      console.log('Trying CandlestickSeries from import...')
+      candlestickSeries.value = chart.value.addSeries(CandlestickSeries, {
+        upColor: '#10b981',
+        downColor: '#ef4444'
+      })
+      console.log('CandlestickSeries method succeeded!')
       
-      console.log('Series created:', candlestickSeries.value)
+    } catch (firstError: any) {
+      console.log('CandlestickSeries import failed, trying alternative...', firstError.message)
       
-      // Set data immediately after creating series
-      if (priceData.value.length > 0 && candlestickSeries.value) {
-        candlestickSeries.value.setData(priceData.value)
-        console.log('Candlestick data set successfully')
+      try {
+        // Method 2: Use string with exact case from exports
+        console.log('Trying addSeries with exact case...')
+        candlestickSeries.value = chart.value.addSeries('CandlestickSeries', {
+          upColor: '#10b981',
+          downColor: '#ef4444'
+        })
+        console.log('Exact case method succeeded!')
+        
+      } catch (secondError: any) {
+        console.log('Exact case failed, trying lowercase...', secondError.message)
+        
+        try {
+          // Method 3: Try lowercase
+          candlestickSeries.value = chart.value.addSeries('candlestick', {
+            upColor: '#10b981',
+            downColor: '#ef4444'
+          })
+          console.log('Lowercase method succeeded!')
+          
+        } catch (thirdError: any) {
+          console.log('All string methods failed, trying LightweightCharts export...', thirdError.message)
+          
+          // Method 4: Try using the namespace export
+          candlestickSeries.value = chart.value.addSeries(LightweightCharts.CandlestickSeries, {
+            upColor: '#10b981',
+            downColor: '#ef4444'
+          })
+          console.log('Namespace export method succeeded!')
+        }
       }
-      
-    } catch (seriesError: any) {
-      console.error('Failed to create any series:', seriesError)
-      throw new Error('Could not create candlestick series: ' + seriesError.message)
+    }
+    
+    // If we get here, the series was created successfully
+    console.log('Series created successfully:', candlestickSeries.value)
+    
+    // Set data immediately after creating series
+    if (priceData.value.length > 0 && candlestickSeries.value) {
+      candlestickSeries.value.setData(priceData.value)
+      console.log('Candlestick data set successfully')
     }
     
     // Update current price
