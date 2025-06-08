@@ -115,6 +115,7 @@
           'chart-area',
           isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-800' : 'h-96'
         ]"
+        style="width: 100%; height: 400px;"
       ></div>
       
       <!-- Loading Overlay -->
@@ -124,6 +125,35 @@
           <span class="text-sm text-gray-600 dark:text-gray-400">Loading chart data...</span>
         </div>
       </div>
+      
+      <!-- Error state -->
+      <div v-if="chartError" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 bg-opacity-90">
+        <div class="text-center">
+          <div class="text-red-500 text-sm mb-2">Chart Error</div>
+          <div class="text-xs text-gray-600 dark:text-gray-400">{{ chartError }}</div>
+          <button @click="retryChart" class="mt-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+            Retry
+          </button>
+        </div>
+      </div>
+      
+      <!-- Debug info (temporary) -->
+      <div v-if="showDebug" class="absolute top-2 left-2 text-xs bg-black text-white p-2 rounded z-10">
+        Container: {{ chartContainer ? 'Ready' : 'Not ready' }}<br>
+        Chart: {{ chart ? 'Initialized' : 'Not initialized' }}<br>
+        Data: {{ priceData.length }} candles<br>
+        Loading: {{ loading }}<br>
+        Error: {{ chartError || 'None' }}
+      </div>
+      
+      <!-- Fallback Simple Chart -->
+      <canvas 
+        v-if="!chart && !loading && !chartError"
+        ref="fallbackCanvas"
+        class="absolute inset-0 w-full h-full"
+        width="800"
+        height="400"
+      ></canvas>
     </div>
 
     <!-- Chart Footer with Stats -->
@@ -155,6 +185,7 @@ const props = defineProps<Props>()
 
 // Chart refs and state
 const chartContainer = ref<HTMLElement>()
+const fallbackCanvas = ref<HTMLCanvasElement>()
 const chart = ref<any>()
 const candlestickSeries = ref<any>()
 const volumeSeries = ref<any>()
@@ -165,6 +196,8 @@ const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
 const selectedTimeframe = ref('1H')
 const isFullscreen = ref(false)
 const loading = ref(true)
+const chartError = ref('')
+const showDebug = ref(true) // Enable for debugging
 
 // Chart data
 const priceData = ref<any[]>([])
@@ -199,10 +232,31 @@ const priceChangeColor = ref('text-green-500')
 
 // Methods
 const initChart = async () => {
-  if (!chartContainer.value) return
-
   try {
+    chartError.value = ''
+    loading.value = true
+    
+    console.log('Initializing chart...')
+    
+    if (!chartContainer.value) {
+      throw new Error('Chart container not found')
+    }
+    
+    console.log('Container dimensions:', {
+      width: chartContainer.value.clientWidth,
+      height: chartContainer.value.clientHeight,
+      offsetWidth: chartContainer.value.offsetWidth,
+      offsetHeight: chartContainer.value.offsetHeight
+    })
+    
+    // Ensure container has dimensions
+    if (chartContainer.value.clientWidth === 0 || chartContainer.value.clientHeight === 0) {
+      throw new Error('Chart container has no dimensions')
+    }
+
     chart.value = createChart(chartContainer.value, {
+      width: chartContainer.value.clientWidth,
+      height: 400,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#d1d5db',
@@ -234,6 +288,8 @@ const initChart = async () => {
       }
     })
 
+    console.log('Chart created:', chart.value)
+
     // Create candlestick series using correct API
     candlestickSeries.value = chart.value.addCandlestickSeries({
       upColor: '#10b981',
@@ -243,6 +299,8 @@ const initChart = async () => {
       wickDownColor: '#ef4444',
       wickUpColor: '#10b981'
     })
+
+    console.log('Candlestick series created:', candlestickSeries.value)
 
     // Create volume series
     if (indicators.value.volume) {
@@ -260,6 +318,8 @@ const initChart = async () => {
           bottom: 0
         }
       })
+      
+      console.log('Volume series created:', volumeSeries.value)
     }
 
     // Load initial data
@@ -267,9 +327,12 @@ const initChart = async () => {
     
     // Set up real-time updates
     startRealTimeUpdates()
+    
+    console.log('Chart initialization complete')
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to initialize chart:', error)
+    chartError.value = error.message || 'Unknown error'
   } finally {
     loading.value = false
   }
@@ -462,10 +525,95 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
-  nextTick(() => {
+  // Wait a bit for DOM to be fully rendered
+  setTimeout(() => {
     initChart()
-  })
+  }, 100)
+  
+  // Also prepare fallback chart after a delay
+  setTimeout(() => {
+    if (!chart.value && priceData.value.length === 0) {
+      // Generate data for fallback
+      const data = generateCandlestickData()
+      priceData.value = data.candlesticks
+      drawFallbackChart()
+    }
+  }, 3000)
 })
+
+const retryChart = () => {
+  chartError.value = ''
+  if (chart.value) {
+    chart.value.remove()
+    chart.value = null
+  }
+  initChart()
+}
+
+const drawFallbackChart = () => {
+  const canvas = fallbackCanvas.value
+  if (!canvas) return
+  
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  const width = canvas.width
+  const height = canvas.height
+  
+  // Clear canvas
+  ctx.fillStyle = '#1f2937'
+  ctx.fillRect(0, 0, width, height)
+  
+  // Draw simple grid
+  ctx.strokeStyle = '#374151'
+  ctx.lineWidth = 1
+  
+  // Vertical lines
+  for (let i = 0; i <= 10; i++) {
+    const x = (width / 10) * i
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, height)
+    ctx.stroke()
+  }
+  
+  // Horizontal lines
+  for (let i = 0; i <= 8; i++) {
+    const y = (height / 8) * i
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(width, y)
+    ctx.stroke()
+  }
+  
+  // Draw simple price line
+  if (priceData.value.length > 0) {
+    ctx.strokeStyle = '#10b981'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    
+    priceData.value.forEach((data, index) => {
+      const x = (width / priceData.value.length) * index
+      const y = height - (data.close / Math.max(...priceData.value.map(p => p.high))) * height
+      
+      if (index === 0) {
+        ctx.moveTo(x, y)
+      } else {
+        ctx.lineTo(x, y)
+      }
+    })
+    
+    ctx.stroke()
+  }
+  
+  // Draw text
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '14px Arial'
+  ctx.fillText(`${props.tokenSymbol}/SOL - Fallback Chart`, 10, 30)
+  ctx.fillStyle = '#9ca3af'
+  ctx.font = '12px Arial'
+  ctx.fillText('TradingView chart failed to load', 10, 50)
+}
 
 onUnmounted(() => {
   if (chart.value) {
