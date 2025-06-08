@@ -319,14 +319,51 @@
     "disclaimerText": "Ceci est un projet éducatif à des fins d'apprentissage. FloppFun est une plateforme indépendante inspirée des plateformes de lancement de tokens décentralisées."
   },
   "footer": {
-    "description": "Le moyen le plus simple de créer et d'échanger des tokens meme sur Solana avec des courbes de liaison de lancement équitable.",
+    "description": "Le moyen le plus simple de créer et échanger des tokens mème sur Solana avec des courbes de liaison de lancement équitable.",
     "platform": "Plateforme",
     "resources": "Ressources",
     "community": "Communauté",
     "documentation": "Documentation",
     "api": "API",
     "copyright": "© 2024 FloppFun. Construit à des fins éducatives.",
-    "privacyPolicy": "Politique de Confidentialité",
+    "privacyPolicy": "Politique de confidentialité",
+    "termsOfService": "Conditions de service"
+  },
+  "tokenDetail": {
+    "change24h": "Changement 24h",
+    "amountSOL": "Montant (SOL)",
+    "buyToken": "Acheter le Token",
+    "messageCreator": "Message au Créateur",
+    "liveAnalytics": "Analyses en Direct",
+    "realTime": "Temps réel",
+    "volatility": "Volatilité",
+    "sentiment": "Sentiment",
+    "riskLevel": "Niveau de Risque",
+    "transactions24h": "Transactions 24h",
+    "tokenStats": "Statistiques du Token",
+    "currentPrice": "Prix Actuel",
+    "totalSupply": "Offre Totale",
+    "liquidity": "Liquidité",
+    "technicalAnalysis": "Analyse Technique",
+    "sma7d": "SMA 7J",
+    "sma30d": "SMA 30J",
+    "momentum": "Élan",
+    "volumeSMA": "SMA du Volume",
+    "progressToDEX": "Progrès vers DEX",
+    "goal69K": "Objectif $69K",
+    "graduationDescription": "Lorsque la capitalisation de marché atteindra $69K, toute la liquidité sera déposée sur DEX et le token sera diplômé.",
+    "socialActivity": "Activité Sociale",
+    "mentions24h": "Mentions 24h",
+    "trendingRank": "Rang des Tendances",
+    "communityActivity": "Activité Communautaire",
+    "recentTrades": "Échanges Récents",
+    "by": "par",
+    "noTradesYet": "Pas encore d'échanges"
+  },
+  "walletModal": {
+    "notInstalled": "Non installé",
+    "installInstructions": "Veuillez installer un portefeuille compatible pour continuer",
+    "termsAgreement": "En connectant un portefeuille, vous acceptez les conditions de {appName}",
     "termsOfService": "Conditions de Service"
   }
 } 

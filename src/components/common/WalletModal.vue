@@ -72,7 +72,7 @@
           <!-- Not Installed Wallets (Desktop only) -->
           <div v-if="notInstalledWallets.length > 0 && !isMobileDevice" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ $t('wallet.installWallet', { wallet: '' }).replace(' to continue', '') }}
+              {{ $t('walletModal.notInstalled') }}
             </h3>
             <div class="space-y-2">
               <a
@@ -94,7 +94,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ $t('messages.info.noDataAvailable') }}
+                    {{ $t('walletModal.notInstalled') }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,7 +115,7 @@
               {{ $t('wallet.noWallet') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-              {{ $t('messages.info.connectWalletFirst') }}
+              {{ $t('walletModal.installInstructions') }}
             </p>
           </div>
         </div>
@@ -138,8 +138,8 @@
         <!-- Footer -->
         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
           <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
-            By connecting a wallet, you agree to {{ $t('app.name') }}'s 
-            <a href="/terms" class="text-primary-600 dark:text-primary-400 hover:underline">Terms of Service</a>
+            {{ $t('walletModal.termsAgreement', { appName: $t('app.name') }) }}
+            <a href="/terms" class="text-primary-600 dark:text-primary-400 hover:underline">{{ $t('walletModal.termsOfService') }}</a>
           </p>
         </div>
       </div>

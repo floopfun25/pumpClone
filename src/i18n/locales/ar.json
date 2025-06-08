@@ -329,5 +329,42 @@
     "copyright": "© 2024 FloppFun. مبني لأغراض تعليمية.",
     "privacyPolicy": "سياسة الخصوصية",
     "termsOfService": "شروط الخدمة"
+  },
+  "tokenDetail": {
+    "change24h": "التغيير خلال 24 ساعة",
+    "amountSOL": "الكمية (SOL)",
+    "buyToken": "شراء الرمز",
+    "messageCreator": "رسالة للمنشئ",
+    "liveAnalytics": "التحليلات المباشرة",
+    "realTime": "الوقت الفعلي",
+    "volatility": "التقلب",
+    "sentiment": "المشاعر",
+    "riskLevel": "مستوى المخاطر",
+    "transactions24h": "معاملات 24 ساعة",
+    "tokenStats": "إحصائيات الرمز",
+    "currentPrice": "السعر الحالي",
+    "totalSupply": "العرض الإجمالي",
+    "liquidity": "السيولة",
+    "technicalAnalysis": "التحليل الفني",
+    "sma7d": "SMA 7 أيام",
+    "sma30d": "SMA 30 يوم",
+    "momentum": "الزخم",
+    "volumeSMA": "SMA الحجم",
+    "progressToDEX": "التقدم إلى DEX",
+    "goal69K": "هدف $69K",
+    "graduationDescription": "عندما تصل القيمة السوقية إلى $69K، ستودع جميع السيولة في DEX وسيتخرج الرمز.",
+    "socialActivity": "النشاط الاجتماعي",
+    "mentions24h": "الإشارات خلال 24 ساعة",
+    "trendingRank": "ترتيب الترند",
+    "communityActivity": "نشاط المجتمع",
+    "recentTrades": "التداولات الأخيرة",
+    "by": "بواسطة",
+    "noTradesYet": "لا توجد صفقات بعد"
+  },
+  "walletModal": {
+    "notInstalled": "غير مثبت",
+    "installInstructions": "يرجى تثبيت محفظة متوافقة للمتابعة",
+    "termsAgreement": "من خلال ربط محفظة، فإنك توافق على شروط {appName}",
+    "termsOfService": "شروط الخدمة"
   }
 } 

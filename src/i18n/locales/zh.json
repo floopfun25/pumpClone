@@ -329,5 +329,42 @@
     "copyright": "© 2024 FloppFun. 为教育目的而构建。",
     "privacyPolicy": "隐私政策",
     "termsOfService": "服务条款"
+  },
+  "tokenDetail": {
+    "change24h": "24小时变化",
+    "amountSOL": "数量 (SOL)",
+    "buyToken": "购买代币",
+    "messageCreator": "消息创建者",
+    "liveAnalytics": "实时分析",
+    "realTime": "实时",
+    "volatility": "波动性",
+    "sentiment": "情绪",
+    "riskLevel": "风险等级",
+    "transactions24h": "24小时交易",
+    "tokenStats": "代币统计",
+    "currentPrice": "当前价格",
+    "totalSupply": "总供应量",
+    "liquidity": "流动性",
+    "technicalAnalysis": "技术分析",
+    "sma7d": "7日SMA",
+    "sma30d": "30日SMA",
+    "momentum": "动量",
+    "volumeSMA": "成交量SMA",
+    "progressToDEX": "进展到DEX",
+    "goal69K": "$69K目标",
+    "graduationDescription": "当市值达到$69K时，所有流动性将存入DEX，代币将毕业。",
+    "socialActivity": "社交活动",
+    "mentions24h": "24小时提及",
+    "trendingRank": "趋势排名",
+    "communityActivity": "社区活动",
+    "recentTrades": "最近交易",
+    "by": "由",
+    "noTradesYet": "暂无交易"
+  },
+  "walletModal": {
+    "notInstalled": "未安装",
+    "installInstructions": "请安装兼容的钱包以继续",
+    "termsAgreement": "通过连接钱包，您同意 {appName} 的",
+    "termsOfService": "服务条款"
   }
 } 

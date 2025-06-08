@@ -329,5 +329,42 @@
     "unknown": "Unknown",
     "active": "Active",
     "back": "Go Back"
+  },
+  "tokenDetail": {
+    "change24h": "24h Change",
+    "amountSOL": "Amount (SOL)",
+    "buyToken": "Buy Token",
+    "messageCreator": "Message Creator",
+    "liveAnalytics": "Live Analytics",
+    "realTime": "Real-time",
+    "volatility": "Volatility",
+    "sentiment": "Sentiment",
+    "riskLevel": "Risk Level",
+    "transactions24h": "24h Transactions",
+    "tokenStats": "Token Stats",
+    "currentPrice": "Current Price",
+    "totalSupply": "Total Supply",
+    "liquidity": "Liquidity",
+    "technicalAnalysis": "Technical Analysis",
+    "sma7d": "7D SMA",
+    "sma30d": "30D SMA",
+    "momentum": "Momentum",
+    "volumeSMA": "Volume SMA",
+    "progressToDEX": "Progress to DEX",
+    "goal69K": "$69K Goal",
+    "graduationDescription": "When the market cap reaches $69K, all liquidity will be deposited to DEX and the token will graduate.",
+    "socialActivity": "Social Activity",
+    "mentions24h": "24h Mentions",
+    "trendingRank": "Trending Rank",
+    "communityActivity": "Community Activity",
+    "recentTrades": "Recent Trades",
+    "by": "by",
+    "noTradesYet": "No trades yet"
+  },
+  "walletModal": {
+    "notInstalled": "Not installed",
+    "installInstructions": "Please install a compatible wallet to continue",
+    "termsAgreement": "By connecting a wallet, you agree to {appName}'s",
+    "termsOfService": "Terms of Service"
   }
 } 

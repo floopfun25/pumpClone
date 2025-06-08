@@ -329,5 +329,42 @@
     "copyright": "© 2024 FloppFun. शैक्षिक उद्देश्यों के लिए निर्मित।",
     "privacyPolicy": "गोपनीयता नीति",
     "termsOfService": "सेवा की शर्तें"
+  },
+  "tokenDetail": {
+    "change24h": "24 घंटे बदलाव",
+    "amountSOL": "राशि (SOL)",
+    "buyToken": "टोकन खरीदें",
+    "messageCreator": "निर्माता को संदेश",
+    "liveAnalytics": "लाइव एनालिटिक्स",
+    "realTime": "रियल-टाइम",
+    "volatility": "अस्थिरता",
+    "sentiment": "भावना",
+    "riskLevel": "जोखिम स्तर",
+    "transactions24h": "24 घंटे लेन-देन",
+    "tokenStats": "टोकन आंकड़े",
+    "currentPrice": "वर्तमान कीमत",
+    "totalSupply": "कुल आपूर्ति",
+    "liquidity": "तरलता",
+    "technicalAnalysis": "तकनीकी विश्लेषण",
+    "sma7d": "7D SMA",
+    "sma30d": "30D SMA",
+    "momentum": "गति",
+    "volumeSMA": "वॉल्यूम SMA",
+    "progressToDEX": "DEX की प्रगति",
+    "goal69K": "$69K लक्ष्य",
+    "graduationDescription": "जब मार्केट कैप $69K तक पहुंच जाएगा, सभी तरलता DEX में जमा हो जाएगी और टोकन स्नातक हो जाएगा।",
+    "socialActivity": "सामाजिक गतिविधि",
+    "mentions24h": "24 घंटे उल्लेख",
+    "trendingRank": "ट्रेंडिंग रैंक",
+    "communityActivity": "कम्युनिटी गतिविधि",
+    "recentTrades": "हाल के ट्रेड्स",
+    "by": "द्वारा",
+    "noTradesYet": "अभी तक कोई ट्रेड नहीं"
+  },
+  "walletModal": {
+    "notInstalled": "इंस्टॉल नहीं",
+    "installInstructions": "कृपया जारी रखने के लिए एक संगत वॉलेट इंस्टॉल करें",
+    "termsAgreement": "वॉलेट कनेक्ट करके, आप {appName} की शर्तों से सहमत हैं",
+    "termsOfService": "सेवा की शर्तें"
   }
 } 

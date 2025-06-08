@@ -320,14 +320,51 @@
     "disclaimerText": "Bu öğrenme amaçlı eğitici bir projedir. FloppFun, merkezi olmayan token başlatma platformlarından ilham alan bağımsız bir platformdur."
   },
   "footer": {
-    "description": "Adil başlatma bağlama eğrileri ile Solana'da meme tokenları oluşturmanın ve ticaretinin en kolay yolu.",
+    "description": "Adil başlatma bağlama eğrileri ile Solana'da meme token oluşturmanın ve ticaretinin en kolay yolu.",
     "platform": "Platform",
     "resources": "Kaynaklar",
     "community": "Topluluk",
     "documentation": "Dokümantasyon",
     "api": "API",
-    "copyright": "© 2024 FloppFun. Eğitim amaçlı inşa edildi.",
+    "copyright": "© 2024 FloppFun. Eğitim amaçlı inşa edilmiştir.",
     "privacyPolicy": "Gizlilik Politikası",
+    "termsOfService": "Hizmet Şartları"
+  },
+  "tokenDetail": {
+    "change24h": "24s Değişim",
+    "amountSOL": "Miktar (SOL)",
+    "buyToken": "Token Satın Al",
+    "messageCreator": "Yaratıcıya Mesaj",
+    "liveAnalytics": "Canlı Analitik",
+    "realTime": "Gerçek zamanlı",
+    "volatility": "Volatilite",
+    "sentiment": "Duygu",
+    "riskLevel": "Risk Seviyesi",
+    "transactions24h": "24s İşlemler",
+    "tokenStats": "Token İstatistikleri",
+    "currentPrice": "Mevcut Fiyat",
+    "totalSupply": "Toplam Arz",
+    "liquidity": "Likidite",
+    "technicalAnalysis": "Teknik Analiz",
+    "sma7d": "7G SMA",
+    "sma30d": "30G SMA",
+    "momentum": "Momentum",
+    "volumeSMA": "Hacim SMA",
+    "progressToDEX": "DEX'e İlerleme",
+    "goal69K": "$69K Hedef",
+    "graduationDescription": "Piyasa değeri $69K'ya ulaştığında, tüm likidite DEX'e yatırılacak ve token mezun olacak.",
+    "socialActivity": "Sosyal Aktivite",
+    "mentions24h": "24s Bahsetme",
+    "trendingRank": "Trend Sıralaması",
+    "communityActivity": "Topluluk Aktivitesi",
+    "recentTrades": "Son İşlemler",
+    "by": "tarafından",
+    "noTradesYet": "Henüz işlem yok"
+  },
+  "walletModal": {
+    "notInstalled": "Kurulu değil",
+    "installInstructions": "Devam etmek için lütfen uyumlu bir cüzdan yükleyin",
+    "termsAgreement": "Bir cüzdan bağlayarak, {appName}'in şartlarını kabul etmiş olursunuz",
     "termsOfService": "Hizmet Şartları"
   }
 } 

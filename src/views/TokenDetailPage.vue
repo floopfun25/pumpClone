@@ -13,7 +13,7 @@
         <div v-if="error" class="text-center py-12">
           <div class="text-6xl mb-4">❌</div>
           <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{{ error }}</h2>
-          <router-link to="/" class="btn-primary">Back to Home</router-link>
+          <router-link to="/" class="btn-primary">{{ $t('common.back') }}</router-link>
         </div>
 
         <!-- Token Header -->
@@ -46,7 +46,7 @@
               
               <!-- Creator Info -->
               <div v-if="token?.creator" class="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <span>Created by</span>
+                <span>{{ $t('token.createdBy') }}</span>
                 <span class="font-medium text-primary-600 dark:text-primary-400">
                   {{ token.creator.username || `${token.creator.wallet_address.slice(0, 4)}...${token.creator.wallet_address.slice(-4)}` }}
                 </span>
@@ -59,11 +59,11 @@
                 <div class="text-2xl font-bold text-gray-900 dark:text-white">
                   ${{ token?.current_price?.toFixed(6) || '0.000000' }}
                 </div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">Price</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.price') }}</div>
               </div>
               <div>
                 <div class="text-2xl font-bold text-gray-500">-</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">24h Change</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.change24h') }}</div>
               </div>
             </div>
           </div>
@@ -82,7 +82,7 @@
 
             <!-- Trading Interface -->
             <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Trade</h2>
+              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{ $t('token.trade') }}</h2>
               
               <div class="grid grid-cols-2 gap-4 mb-6">
                 <button 
@@ -94,7 +94,7 @@
                   ]"
                   @click="tradeType = 'buy'"
                 >
-                  Buy
+                  {{ $t('token.buy') }}
                 </button>
                 <button 
                   :class="[
@@ -105,14 +105,14 @@
                   ]"
                   @click="tradeType = 'sell'"
                 >
-                  Sell
+                  {{ $t('token.sell') }}
                 </button>
               </div>
 
               <div class="space-y-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Amount (SOL)
+                    {{ $t('tokenDetail.amountSOL') }}
                   </label>
                   <input
                     v-model="tradeAmount"
@@ -131,7 +131,7 @@
                   ]"
                   @click="executeTrade"
                 >
-                  {{ tradeType === 'buy' ? '🚀 Buy' : '💰 Sell' }} {{ tokenSymbol }}
+                  {{ tradeType === 'buy' ? '🚀 ' + $t('token.buy') : '💰 ' + $t('token.sell') }} {{ tokenSymbol }}
                 </button>
               </div>
             </div>
@@ -147,17 +147,17 @@
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3">
               <button class="btn-primary flex-1">
-                🚀 Buy Token
+                🚀 {{ $t('tokenDetail.buyToken') }}
               </button>
               <button class="btn-secondary">
-                📊 Trade
+                📊 {{ $t('token.trade') }}
               </button>
               
               <!-- Social Share -->
               <SocialShare
                 content-type="token"
                 :share-data="shareData"
-                button-text="Share"
+                :button-text="$t('common.share')"
                 button-class="btn-secondary"
               />
               
@@ -165,7 +165,7 @@
               <DirectMessages
                 v-if="token.creator"
                 :recipient-address="token.creator.wallet_address"
-                button-text="Message Creator"
+                :button-text="$t('tokenDetail.messageCreator')"
                 button-class="btn-secondary"
               />
             </div>
@@ -176,10 +176,10 @@
             <!-- Real-time Market Analytics -->
             <div v-if="tokenAnalytics" class="card">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Live Analytics</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $t('tokenDetail.liveAnalytics') }}</h3>
                 <div class="flex items-center space-x-2">
                   <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span class="text-xs text-green-600">Real-time</span>
+                  <span class="text-xs text-green-600">{{ $t('tokenDetail.realTime') }}</span>
                 </div>
               </div>
               
@@ -192,7 +192,7 @@
                 </div>
                 
                 <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <div class="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide">Volatility</div>
+                  <div class="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide">{{ $t('tokenDetail.volatility') }}</div>
                   <div class="text-lg font-bold text-purple-900 dark:text-purple-100">
                     {{ tokenAnalytics.technicalIndicators.volatility.toFixed(1) }}%
                   </div>
@@ -201,21 +201,21 @@
 
               <div class="space-y-3">
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Sentiment</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sentiment') }}</span>
                   <span :class="formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).color" class="font-medium">
                     {{ formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).text }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Risk Level</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.riskLevel') }}</span>
                   <span :class="formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).color" class="font-medium">
                     {{ formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).text }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">24h Transactions</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.transactions24h') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ tokenAnalytics.marketData.transactions24h }}
                   </span>
@@ -225,45 +225,45 @@
 
             <!-- Enhanced Token Stats -->
             <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Token Stats</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.tokenStats') }}</h3>
               <div class="space-y-3">
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Current Price</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.currentPrice') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     ${{ token?.current_price?.toFixed(8) || '0.00000000' }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Market Cap</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.marketCap') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ marketCapFormatted }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">24h Volume</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.volume24h') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     ${{ tokenAnalytics ? formatVolume(tokenAnalytics.marketData.volume24h) : formatNumber(token?.volume_24h || 0) }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Holders</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.holders') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ tokenAnalytics ? tokenAnalytics.marketData.holders : (token?.holders_count || 0) }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Total Supply</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.totalSupply') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ token?.total_supply ? formatNumber(token.total_supply) : '0' }}
                   </span>
                 </div>
                 
                 <div v-if="tokenAnalytics" class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Liquidity</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.liquidity') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     ${{ formatNumber(tokenAnalytics.marketData.liquidity) }}
                   </span>
@@ -273,24 +273,24 @@
 
             <!-- Technical Indicators -->
             <div v-if="tokenAnalytics" class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Technical Analysis</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.technicalAnalysis') }}</h3>
               <div class="space-y-3">
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">7D SMA</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sma7d') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     ${{ tokenAnalytics.technicalIndicators.price_sma_7d.toFixed(8) }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">30D SMA</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sma30d') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     ${{ tokenAnalytics.technicalIndicators.price_sma_30d.toFixed(8) }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Momentum</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.momentum') }}</span>
                   <span :class="[
                     'font-medium',
                     tokenAnalytics.technicalIndicators.momentum >= 0 ? 'text-green-600' : 'text-red-600'
@@ -300,7 +300,7 @@
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Volume SMA</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.volumeSMA') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ formatVolume(tokenAnalytics.technicalIndicators.volume_sma) }}
                   </span>
@@ -310,10 +310,10 @@
 
             <!-- Bonding Curve Progress -->
             <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Progress to DEX</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.progressToDEX') }}</h3>
               <div class="space-y-2">
                 <div class="flex justify-between text-sm">
-                  <span class="text-gray-600 dark:text-gray-400">Bonding Curve Progress</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.bondingCurveProgress') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ progressPercentage }}%
                   </span>
@@ -326,34 +326,34 @@
                 </div>
                 <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>${{ formatNumber(token?.market_cap || 0) }}</span>
-                  <span>$69K Goal</span>
+                  <span>{{ $t('tokenDetail.goal69K') }}</span>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  When the market cap reaches $69K, all liquidity will be deposited to DEX and the token will graduate.
+                  {{ $t('tokenDetail.graduationDescription') }}
                 </p>
               </div>
             </div>
 
             <!-- Social Metrics (if available) -->
             <div v-if="tokenAnalytics" class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Social Activity</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.socialActivity') }}</h3>
               <div class="space-y-3">
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">24h Mentions</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.mentions24h') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ tokenAnalytics.socialMetrics.mentions_24h }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Trending Rank</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.trendingRank') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     #{{ tokenAnalytics.socialMetrics.trending_rank }}
                   </span>
                 </div>
                 
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Community Activity</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.communityActivity') }}</span>
                   <span class="font-medium text-gray-900 dark:text-white">
                     {{ tokenAnalytics.socialMetrics.community_activity.toFixed(1) }}/100
                   </span>
@@ -363,7 +363,7 @@
 
             <!-- Recent Trades -->
             <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Trades</h3>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.recentTrades') }}</h3>
               <div v-if="recentTrades.length > 0" class="space-y-3">
                 <div v-for="trade in recentTrades" :key="trade.id" class="flex justify-between items-center">
                   <div class="flex items-center space-x-2">
@@ -374,7 +374,7 @@
                       {{ trade.amount }}
                     </span>
                     <span v-if="trade.user" class="text-xs text-gray-400">
-                      by {{ trade.user }}
+                      {{ $t('tokenDetail.by') }} {{ trade.user }}
                     </span>
                   </div>
                   <span class="text-xs text-gray-500 dark:text-gray-400">
@@ -384,7 +384,7 @@
               </div>
               <div v-else class="text-center py-8">
                 <div class="text-4xl mb-2">📊</div>
-                <p class="text-gray-500 dark:text-gray-400">No trades yet</p>
+                <p class="text-gray-500 dark:text-gray-400">{{ $t('tokenDetail.noTradesYet') }}</p>
               </div>
             </div>
           </div>

@@ -329,5 +329,42 @@
     "copyright": "© 2024 FloppFun. Construido con fines educativos.",
     "privacyPolicy": "Política de Privacidad",
     "termsOfService": "Términos de Servicio"
+  },
+  "tokenDetail": {
+    "change24h": "Cambio 24h",
+    "amountSOL": "Cantidad (SOL)",
+    "buyToken": "Comprar Token",
+    "messageCreator": "Mensaje al Creador",
+    "liveAnalytics": "Análisis en Vivo",
+    "realTime": "Tiempo real",
+    "volatility": "Volatilidad",
+    "sentiment": "Sentimiento",
+    "riskLevel": "Nivel de Riesgo",
+    "transactions24h": "Transacciones 24h",
+    "tokenStats": "Estadísticas del Token",
+    "currentPrice": "Precio Actual",
+    "totalSupply": "Suministro Total",
+    "liquidity": "Liquidez",
+    "technicalAnalysis": "Análisis Técnico",
+    "sma7d": "SMA 7D",
+    "sma30d": "SMA 30D",
+    "momentum": "Impulso",
+    "volumeSMA": "SMA de Volumen",
+    "progressToDEX": "Progreso a DEX",
+    "goal69K": "Meta $69K",
+    "graduationDescription": "Cuando la capitalización de mercado alcance $69K, toda la liquidez se depositará en DEX y el token se graduará.",
+    "socialActivity": "Actividad Social",
+    "mentions24h": "Menciones 24h",
+    "trendingRank": "Rango de Tendencia",
+    "communityActivity": "Actividad de la Comunidad",
+    "recentTrades": "Operaciones Recientes",
+    "by": "por",
+    "noTradesYet": "Aún no hay operaciones"
+  },
+  "walletModal": {
+    "notInstalled": "No instalado",
+    "installInstructions": "Por favor instala una billetera compatible para continuar",
+    "termsAgreement": "Al conectar una billetera, aceptas los",
+    "termsOfService": "Términos de Servicio"
   }
 } 
