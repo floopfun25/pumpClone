@@ -290,36 +290,70 @@ const initChart = async () => {
 
     console.log('Chart created:', chart.value)
 
-    // Create candlestick series using correct API
-    candlestickSeries.value = chart.value.addCandlestickSeries({
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderDownColor: '#ef4444',
-      borderUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-      wickUpColor: '#10b981'
-    })
+    // Try different approaches for v5 API
+    try {
+      // Method 1: Direct method call
+      if (typeof chart.value.addCandlestickSeries === 'function') {
+        candlestickSeries.value = chart.value.addCandlestickSeries({
+          upColor: '#10b981',
+          downColor: '#ef4444',
+          borderDownColor: '#ef4444',
+          borderUpColor: '#10b981',
+          wickDownColor: '#ef4444',
+          wickUpColor: '#10b981'
+        })
+      } else {
+        // Method 2: addSeries with type
+        candlestickSeries.value = chart.value.addSeries('Candlestick', {
+          upColor: '#10b981',
+          downColor: '#ef4444',
+          borderDownColor: '#ef4444',
+          borderUpColor: '#10b981',
+          wickDownColor: '#ef4444',
+          wickUpColor: '#10b981'
+        })
+      }
+      
+      console.log('Candlestick series created:', candlestickSeries.value)
+    } catch (seriesError) {
+      console.error('Failed to create candlestick series:', seriesError)
+      console.log('Available methods on chart:', Object.getOwnPropertyNames(chart.value))
+      throw seriesError
+    }
 
-    console.log('Candlestick series created:', candlestickSeries.value)
-
-    // Create volume series
+    // Create volume series using v5 API
     if (indicators.value.volume) {
-      volumeSeries.value = chart.value.addHistogramSeries({
-        color: '#6b7280',
-        priceFormat: {
-          type: 'volume'
-        },
-        priceScaleId: ''
-      })
-      
-      chart.value.priceScale('').applyOptions({
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0
+      try {
+        if (typeof chart.value.addHistogramSeries === 'function') {
+          volumeSeries.value = chart.value.addHistogramSeries({
+            color: '#6b7280',
+            priceFormat: {
+              type: 'volume'
+            },
+            priceScaleId: ''
+          })
+        } else {
+          volumeSeries.value = chart.value.addSeries('Histogram', {
+            color: '#6b7280',
+            priceFormat: {
+              type: 'volume'
+            },
+            priceScaleId: ''
+          })
         }
-      })
-      
-      console.log('Volume series created:', volumeSeries.value)
+        
+        chart.value.priceScale('').applyOptions({
+          scaleMargins: {
+            top: 0.8,
+            bottom: 0
+          }
+        })
+        
+        console.log('Volume series created:', volumeSeries.value)
+      } catch (volumeError) {
+        console.warn('Failed to create volume series:', volumeError)
+        // Continue without volume series
+      }
     }
 
     // Load initial data
@@ -431,15 +465,26 @@ const toggleIndicator = (indicator: string) => {
 const addMovingAverage = () => {
   if (!chart.value) return
   
-  maSeries.value = chart.value.addLineSeries({
-    color: '#8b5cf6',
-    lineWidth: 2
-  })
-  
-  // Calculate simple moving average
-  const maData = calculateMovingAverage(priceData.value, 20)
-  if (maSeries.value) {
-    maSeries.value.setData(maData)
+  try {
+    if (typeof chart.value.addLineSeries === 'function') {
+      maSeries.value = chart.value.addLineSeries({
+        color: '#8b5cf6',
+        lineWidth: 2
+      })
+    } else {
+      maSeries.value = chart.value.addSeries('Line', {
+        color: '#8b5cf6',
+        lineWidth: 2
+      })
+    }
+    
+    // Calculate simple moving average
+    const maData = calculateMovingAverage(priceData.value, 20)
+    if (maSeries.value) {
+      maSeries.value.setData(maData)
+    }
+  } catch (error) {
+    console.error('Failed to add moving average:', error)
   }
 }
 
