@@ -83,7 +83,7 @@
           <!-- Left Column: Chart & Comments (2/3 width) -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Price Chart -->
-            <SimpleTokenChart 
+            <TradingViewChart 
               v-if="token?.id" 
               :token-id="token.id"
               :token-symbol="token.symbol"
@@ -315,7 +315,7 @@ import { formatVolume } from '@/services/priceOracle'
 import TokenComments from '@/components/token/TokenComments.vue'
 import SocialShare from '@/components/social/SocialShare.vue'
 import DirectMessages from '@/components/social/DirectMessages.vue'
-import SimpleTokenChart from '@/components/charts/SimpleTokenChart.vue'
+import TradingViewChart from '@/components/charts/TradingViewChart.vue'
 import EnhancedTradingInterface from '@/components/token/EnhancedTradingInterface.vue'
 import BondingCurveProgress from '@/components/token/BondingCurveProgress.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
