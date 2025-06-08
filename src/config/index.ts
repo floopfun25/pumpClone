@@ -57,7 +57,7 @@ export const config = {
   tokenDefaults: {
     decimals: 9,
     totalSupply: 1_000_000_000, // 1 billion tokens
-    graduationThreshold: 69_000_000_000, // 69 SOL in lamports
+    graduationThreshold: 69_000, // $69K market cap in USD (not SOL)
     platformFeePercentage: 1.0, // 1% platform fee
     creationFee: 0.02 // 0.02 SOL creation fee
   },
@@ -67,12 +67,15 @@ export const config = {
     initialVirtualTokenReserves: 1_073_000_000_000_000, // ~1.073M tokens with decimals
     initialVirtualSolReserves: 30_000_000_000, // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
-    // Graduation parameters
-    graduationSolTarget: 69_000_000_000, // 69 SOL to graduate
-    graduationTokensRemaining: 200_000_000_000_000, // ~200K tokens remaining
+    // Graduation parameters (matching pump.fun exactly)
+    graduationMarketCapUSD: 69_000, // $69K USD market cap to graduate
+    graduationLiquidityUSD: 12_000, // $12K liquidity deposited to Raydium
+    graduationSolTarget: 85_000_000_000, // ~85 SOL to complete bonding curve
+    graduationTokensRemaining: 200_000_000_000_000, // ~200M tokens for LP
+    creatorRewardSOL: 0.5, // 0.5 SOL reward to creator upon graduation
     // Fee configuration
     tradeFeePercentage: 1.0, // 1% trading fee
-    creatorRoyaltyPercentage: 0.5 // 0.5% to creator on trades
+    platformFeeSOL: 6_000_000_000 // 6 SOL fee deducted during graduation
   },
   
   // Trading configuration

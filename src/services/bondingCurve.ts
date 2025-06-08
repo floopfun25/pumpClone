@@ -38,8 +38,13 @@ const BASIS_POINTS = 10000
 // Total tokens for bonding curve (80% of total supply)
 const BONDING_CURVE_TOKENS = BigInt(tokenDefaults.totalSupply * 0.8)
 
-// Graduation threshold ($69K in SOL at current price)
-const GRADUATION_THRESHOLD_SOL = BigInt(tokenDefaults.graduationThreshold)
+// Graduation threshold ($69K in USD market cap)
+const GRADUATION_THRESHOLD_USD = 69_000 // $69K market cap
+
+// Graduation mechanics
+const GRADUATION_LIQUIDITY_USD = 12_000 // $12K liquidity to Raydium
+const CREATOR_REWARD_SOL = 0.5 // 0.5 SOL to creator
+const PLATFORM_FEE_SOL = 6.0 // 6 SOL platform fee
 
 class BondingCurveService {
   /**
@@ -58,13 +63,14 @@ class BondingCurveService {
   }
 
   /**
-   * Calculate market cap based on current price and total supply
+   * Calculate market cap based on current price and total supply (in USD)
    */
-  static calculateMarketCap(state: BondingCurveState, solPrice: number = 100): number {
+  static calculateMarketCap(state: BondingCurveState, solPriceUSD: number = 169): number {
     const tokenPrice = this.calculatePrice(state)
     const totalSupply = Number(state.tokenTotalSupply) / 1e6
     
-    return tokenPrice * totalSupply * solPrice // Market cap in USD
+    const marketCapSOL = tokenPrice * totalSupply
+    return marketCapSOL * solPriceUSD // Market cap in USD
   }
 
   /**
@@ -240,34 +246,33 @@ class BondingCurveService {
   }
 
   /**
-   * Check if bonding curve should graduate to DEX
+   * Check if token should graduate based on $69K USD market cap
    */
-  static shouldGraduate(state: BondingCurveState): boolean {
-    const progress = this.calculateProgress(state)
-    return progress.progress >= 100 || state.realSolReserves >= GRADUATION_THRESHOLD_SOL
+  static shouldGraduate(state: BondingCurveState, solPriceUSD: number = 169): boolean {
+    const marketCapUSD = this.calculateMarketCap(state, solPriceUSD)
+    return marketCapUSD >= GRADUATION_THRESHOLD_USD
   }
 
   /**
-   * Get graduation info for UI display
+   * Get graduation information
    */
-  static getGraduationInfo(state: BondingCurveState, solPrice: number = 100): {
+  static getGraduationInfo(state: BondingCurveState, solPriceUSD: number = 169): {
     currentMarketCap: number
     graduationMarketCap: number
-    solNeeded: number
-    tokensNeeded: bigint
+    graduationLiquidity: number
+    creatorReward: number
+    platformFee: number
+    readyToGraduate: boolean
   } {
-    const currentMarketCap = this.calculateMarketCap(state, solPrice)
-    const graduationMarketCap = 69000 // $69K target
+    const currentMarketCap = this.calculateMarketCap(state, solPriceUSD)
     
-    const progress = this.calculateProgress(state)
-    const solNeeded = progress.solRequired
-    const tokensNeeded = progress.tokensRemaining
-
     return {
       currentMarketCap,
-      graduationMarketCap,
-      solNeeded,
-      tokensNeeded
+      graduationMarketCap: GRADUATION_THRESHOLD_USD,
+      graduationLiquidity: GRADUATION_LIQUIDITY_USD,
+      creatorReward: CREATOR_REWARD_SOL,
+      platformFee: PLATFORM_FEE_SOL,
+      readyToGraduate: currentMarketCap >= GRADUATION_THRESHOLD_USD
     }
   }
 
@@ -300,7 +305,7 @@ class BondingCurveService {
     const data: Array<{ sol: number; price: number; marketCap: number }> = []
     
     // Calculate price at different SOL levels
-    const maxSol = Number(GRADUATION_THRESHOLD_SOL) / 1e9
+    const maxSol = Number(GRADUATION_THRESHOLD_USD) / 1e9
     const solStep = maxSol / points
 
     for (let i = 0; i <= points; i++) {

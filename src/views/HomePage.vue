@@ -62,6 +62,13 @@
       </div>
     </section>
 
+    <!-- King of the Hill Section -->
+    <section class="py-16 bg-binance-dark">
+      <div class="container mx-auto px-4">
+        <KingOfTheHill @buy-token="handleQuickBuy" />
+      </div>
+    </section>
+
     <!-- Trending Tokens Section -->
     <section class="py-16 bg-binance-dark">
       <div class="container mx-auto px-4">
@@ -187,6 +194,7 @@ import TokenCard from '@/components/token/TokenCard.vue'
 import { SupabaseService } from '@/services/supabase'
 import TrendingTokens from '@/components/token/TrendingTokens.vue'
 import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
+import KingOfTheHill from '@/components/token/KingOfTheHill.vue'
 
 const router = useRouter()
 
@@ -322,6 +330,12 @@ const handleFilterChange = (filters: any) => {
  */
 const handleSimpleSearch = () => {
   // Implement simple search logic
+}
+
+// Methods
+const handleQuickBuy = (token: any) => {
+  // Navigate to token detail page for quick buy
+  router.push(`/token/${token.id}`)
 }
 
 // Load initial data when component mounts

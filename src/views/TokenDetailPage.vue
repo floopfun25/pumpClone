@@ -81,60 +81,22 @@
             />
 
             <!-- Trading Interface -->
-            <div class="card">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{ $t('token.trade') }}</h2>
-              
-              <div class="grid grid-cols-2 gap-4 mb-6">
-                <button 
-                  :class="[
-                    'py-3 px-6 rounded-lg font-medium transition-colors',
-                    tradeType === 'buy' 
-                      ? 'bg-pump-green text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  ]"
-                  @click="tradeType = 'buy'"
-                >
-                  {{ $t('token.buy') }}
-                </button>
-                <button 
-                  :class="[
-                    'py-3 px-6 rounded-lg font-medium transition-colors',
-                    tradeType === 'sell' 
-                      ? 'bg-pump-red text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  ]"
-                  @click="tradeType = 'sell'"
-                >
-                  {{ $t('token.sell') }}
-                </button>
-              </div>
+            <EnhancedTradingInterface
+              v-if="token?.id"
+              :token-id="token.id"
+              :token-symbol="token.symbol"
+              :token-price="token.current_price"
+              :bonding-curve-state="bondingCurveState"
+              @trade-executed="handleTradeExecuted"
+              @connect-wallet="connectWallet"
+            />
 
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ $t('tokenDetail.amountSOL') }}
-                  </label>
-                  <input
-                    v-model="tradeAmount"
-                    type="number"
-                    placeholder="0.1"
-                    class="input-field"
-                    step="0.001"
-                    min="0"
-                  />
-                </div>
-
-                <button 
-                  :class="[
-                    'w-full py-3 px-6 rounded-lg font-medium',
-                    tradeType === 'buy' ? 'btn-success' : 'btn-danger'
-                  ]"
-                  @click="executeTrade"
-                >
-                  {{ tradeType === 'buy' ? '🚀 ' + $t('token.buy') : '💰 ' + $t('token.sell') }} {{ tokenSymbol }}
-                </button>
-              </div>
-            </div>
+            <!-- Bonding Curve Progress -->
+            <BondingCurveProgress
+              v-if="token?.id"
+              :token-id="token.id"
+              :initial-progress="bondingProgress"
+            />
 
             <!-- Comments Section -->
             <TokenComments
@@ -308,32 +270,6 @@
               </div>
             </div>
 
-            <!-- Bonding Curve Progress -->
-            <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.progressToDEX') }}</h3>
-              <div class="space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.bondingCurveProgress') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ progressPercentage }}%
-                  </span>
-                </div>
-                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                  <div 
-                    class="bg-gradient-to-r from-pump-green to-primary-500 h-3 rounded-full transition-all duration-300" 
-                    :style="`width: ${progressPercentage}%`"
-                  ></div>
-                </div>
-                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span>${{ formatNumber(token?.market_cap || 0) }}</span>
-                  <span>{{ $t('tokenDetail.goal69K') }}</span>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {{ $t('tokenDetail.graduationDescription') }}
-                </p>
-              </div>
-            </div>
-
             <!-- Social Metrics (if available) -->
             <div v-if="tokenAnalytics" class="card">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.socialActivity') }}</h3>
@@ -395,7 +331,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
@@ -408,6 +344,9 @@ import TokenComments from '@/components/token/TokenComments.vue'
 import SocialShare from '@/components/social/SocialShare.vue'
 import DirectMessages from '@/components/social/DirectMessages.vue'
 import SimpleTokenChart from '@/components/charts/SimpleTokenChart.vue'
+import EnhancedTradingInterface from '@/components/token/EnhancedTradingInterface.vue'
+import BondingCurveProgress from '@/components/token/BondingCurveProgress.vue'
+import { BondingCurveService } from '@/services/bondingCurve'
 
 const route = useRoute()
 const router = useRouter()
@@ -427,6 +366,10 @@ const recentTrades = ref<any[]>([])
 // Market analytics data
 const tokenAnalytics = ref<TokenAnalytics | null>(null)
 let analyticsSubscription: (() => void) | null = null
+
+// Bonding curve state and progress
+const bondingCurveState = ref<any>(null)
+const bondingProgress = ref<any>(null)
 
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
@@ -650,6 +593,26 @@ const formatNumber = (num: number): string => {
   return num.toString()
 }
 
+const handleTradeExecuted = (result: any) => {
+  console.log('Trade executed:', result)
+  // Refresh token data and bonding curve state
+  loadTokenData()
+}
+
+const loadBondingCurveData = async () => {
+  if (!token.value) return
+  
+  try {
+    // Create bonding curve state (mock for now - would come from blockchain)
+    bondingCurveState.value = BondingCurveService.createInitialState(token.value.mint_address)
+    
+    // Load bonding curve progress
+    bondingProgress.value = await SupabaseService.getBondingCurveProgress(token.value.id)
+  } catch (error) {
+    console.error('Failed to load bonding curve data:', error)
+  }
+}
+
 onMounted(() => {
   loadTokenData()
 })
@@ -657,5 +620,12 @@ onMounted(() => {
 onUnmounted(() => {
   // Clean up analytics subscription
   analyticsSubscription?.()
+})
+
+// Load bonding curve data after token loads
+watch(() => token.value, () => {
+  if (token.value) {
+    loadBondingCurveData()
+  }
 })
 </script> 

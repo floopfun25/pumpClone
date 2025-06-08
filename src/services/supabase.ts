@@ -458,6 +458,29 @@ export class SupabaseService {
       return null
     }
   }
+
+  /**
+   * Get token by ID
+   * Used for token lookups by database ID
+   */
+  static async getTokenById(tokenId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('tokens')
+        .select(`
+          *,
+          creator:users(id, username, wallet_address, avatar_url)
+        `)
+        .eq('id', tokenId)
+        .single()
+      
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Failed to get token by ID:', error)
+      return null
+    }
+  }
   
   /**
    * Get user's token holdings
@@ -1458,6 +1481,209 @@ export class SupabaseService {
       console.error('Failed to create conversation:', error)
       throw error
     }
+  }
+
+  /**
+   * Get King of the Hill token based on pump.fun algorithm
+   * Criteria: Market cap >$35K, >20 replies, launched <1 hour ago
+   */
+  static async getKingOfTheHillToken() {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      
+      const { data: tokens, error } = await supabase
+        .from('tokens')
+        .select(`
+          *,
+          creator:users!tokens_creator_id_fkey(id, username, wallet_address),
+          comments:token_comments(count),
+          transactions:transactions(count)
+        `)
+        .gte('market_cap', 35000) // $35K minimum market cap
+        .gte('created_at', oneHourAgo) // Created within last hour
+        .eq('status', 'active')
+        .order('market_cap', { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+
+      // Filter by comment count (>20 replies) and calculate king score
+      const eligibleTokens = (tokens || [])
+        .filter(token => {
+          const commentCount = Array.isArray(token.comments) ? token.comments.length : token.comments?.count || 0
+          return commentCount >= 20
+        })
+        .map(token => ({
+          ...token,
+          kingScore: this.calculateKingScore(token)
+        }))
+        .sort((a, b) => b.kingScore - a.kingScore)
+
+      return eligibleTokens[0] || null
+    } catch (error) {
+      console.error('Failed to get King of the Hill token:', error)
+      return null
+    }
+  }
+
+  /**
+   * Calculate King of the Hill score based on pump.fun algorithm
+   */
+  static calculateKingScore(token: any): number {
+    const marketCapScore = Math.min(token.market_cap / 1000, 100) // Max 100 points for market cap
+    const commentCount = Array.isArray(token.comments) ? token.comments.length : token.comments?.count || 0
+    const engagementScore = Math.min(commentCount * 2, 200) // Max 200 points for engagement
+    
+    // Recency bonus (newer tokens get higher score)
+    const ageInMinutes = (Date.now() - new Date(token.created_at).getTime()) / (1000 * 60)
+    const recencyScore = Math.max(0, 100 - ageInMinutes) // Max 100 points, decreases with age
+    
+    // Volume bonus
+    const volumeScore = Math.min((token.volume_24h || 0) / 1000, 50) // Max 50 points for volume
+    
+    return marketCapScore + engagementScore + recencyScore + volumeScore
+  }
+
+  /**
+   * Check if token should graduate (reach $69K market cap)
+   */
+  static async checkTokenGraduation(tokenId: string) {
+    try {
+      const { data: token, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('id', tokenId)
+        .single()
+
+      if (error) throw error
+
+      const GRADUATION_THRESHOLD = 69000 // $69K USD
+      
+      if (token.market_cap >= GRADUATION_THRESHOLD && token.status === 'active') {
+        // Mark as ready for graduation
+        await this.graduateToken(tokenId)
+        return true
+      }
+      
+      return false
+    } catch (error) {
+      console.error('Failed to check token graduation:', error)
+      return false
+    }
+  }
+
+  /**
+   * Graduate token to Raydium with $12K liquidity
+   */
+  static async graduateToken(tokenId: string) {
+    try {
+      const { data: token, error } = await supabase
+        .from('tokens')
+        .update({
+          status: 'graduated',
+          graduated_at: new Date().toISOString(),
+          liquidity_pool_address: null, // Will be set after Raydium integration
+          graduation_market_cap: 69000
+        })
+        .eq('id', tokenId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // TODO: Integrate with Raydium API to create liquidity pool
+      // This would involve:
+      // 1. Creating LP on Raydium with $12K liquidity
+      // 2. Burning LP tokens for permanent lock
+      // 3. Sending 0.5 SOL reward to creator
+      
+      console.log(`Token ${tokenId} graduated with $69K market cap`)
+      return token
+    } catch (error) {
+      console.error('Failed to graduate token:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get bonding curve progress for token
+   */
+  static async getBondingCurveProgress(tokenId: string) {
+    try {
+      const { data: token, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('id', tokenId)
+        .single()
+
+      if (error) throw error
+
+      const GRADUATION_THRESHOLD = 69000 // $69K
+      const progress = Math.min((token.market_cap / GRADUATION_THRESHOLD) * 100, 100)
+      
+      return {
+        progress,
+        currentMarketCap: token.market_cap,
+        graduationThreshold: GRADUATION_THRESHOLD,
+        graduated: token.status === 'graduated',
+        remaining: Math.max(0, GRADUATION_THRESHOLD - token.market_cap)
+      }
+    } catch (error) {
+      console.error('Failed to get bonding curve progress:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get trending tokens with enhanced sorting
+   */
+  static async getTrendingTokensEnhanced(limit: number = 10) {
+    try {
+      const { data: tokens, error } = await supabase
+        .from('tokens')
+        .select(`
+          *,
+          creator:users!tokens_creator_id_fkey(id, username, wallet_address, avatar_url),
+          comments:token_comments(count),
+          transactions:transactions(count)
+        `)
+        .eq('status', 'active')
+        .gte('market_cap', 1000) // Minimum $1K market cap
+        .order('volume_24h', { ascending: false })
+        .limit(limit * 2) // Get more for filtering
+
+      if (error) throw error
+
+      // Calculate trending scores
+      const trendingTokens = (tokens || [])
+        .map(token => ({
+          ...token,
+          trendingScore: this.calculateTrendingScore(token)
+        }))
+        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .slice(0, limit)
+
+      return trendingTokens
+    } catch (error) {
+      console.error('Failed to get trending tokens:', error)
+      return []
+    }
+  }
+
+  /**
+   * Calculate trending score for token ranking
+   */
+  static calculateTrendingScore(token: any): number {
+    const volumeScore = (token.volume_24h || 0) / 1000 // Volume weight
+    const marketCapScore = (token.market_cap || 0) / 10000 // Market cap weight
+    const commentCount = Array.isArray(token.comments) ? token.comments.length : token.comments?.count || 0
+    const engagementScore = commentCount * 10 // Engagement weight
+    
+    // Recency bonus (tokens created in last 24h get bonus)
+    const ageInHours = (Date.now() - new Date(token.created_at).getTime()) / (1000 * 60 * 60)
+    const recencyBonus = ageInHours < 24 ? Math.max(0, 100 - ageInHours * 4) : 0
+    
+    return volumeScore + marketCapScore + engagementScore + recencyBonus
   }
 }
 
