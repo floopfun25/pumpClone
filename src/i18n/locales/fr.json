@@ -139,16 +139,20 @@
   },
   "leaderboard": {
     "title": "Classement",
-    "topTraders": "Top Traders",
-    "topCreators": "Top Créateurs",
-    "topTokens": "Top Tokens",
+    "topTraders": "Meilleurs Traders",
+    "topCreators": "Meilleurs Créateurs",
+    "topTokens": "Meilleurs Tokens",
     "rank": "Rang",
     "user": "Utilisateur",
     "volume": "Volume",
     "profit": "Profit",
     "tokens": "Tokens",
     "winRate": "Taux de Victoire",
-    "trades": "Échanges"
+    "trades": "Échanges",
+    "noTradingData": "Aucune donnée de trading pour le moment",
+    "startTradingMessage": "Commencez à trader pour apparaître dans le classement !",
+    "noTokensYet": "Aucun token pour le moment",
+    "createFirstToken": "Créez le premier token pour commencer !"
   },
   "profile": {
     "title": "Profil",
@@ -292,5 +296,37 @@
     "loadMore": "Charger Plus",
     "unknown": "Inconnu",
     "active": "Actif"
+  },
+  "about": {
+    "title": "À propos de FloppFun",
+    "whatIsFloppFun": "Qu'est-ce que FloppFun ?",
+    "description": "FloppFun est une plateforme de lancement de tokens meme décentralisée construite sur la blockchain Solana. Elle permet à quiconque de créer et d'échanger des tokens meme avec des mécaniques de lancement équitable utilisant des courbes de liaison. Pas de préventes, pas d'allocations d'équipe - juste des tokens purement pilotés par la communauté.",
+    "howItWorks": "Comment ça marche",
+    "create": "Créer",
+    "createDescription": "Lancez votre token meme en quelques clics seulement",
+    "trade": "Échanger",
+    "tradeDescription": "Achetez et vendez des tokens en utilisant des courbes de liaison",
+    "graduate": "Diplômer",
+    "graduateDescription": "Les tokens réussis obtiennent de la liquidité sur DEX",
+    "features": "Fonctionnalités",
+    "fairLaunchBondingCurves": "Courbes de liaison de lancement équitable",
+    "noPresalesOrTeamAllocations": "Pas de préventes ou d'allocations d'équipe",
+    "builtOnSolana": "Construit sur Solana pour de faibles frais",
+    "realTimeTradingCharts": "Trading et graphiques en temps réel",
+    "communityDrivenTokens": "Tokens pilotés par la communauté",
+    "technology": "Technologie",
+    "disclaimer": "Avertissement",
+    "disclaimerText": "Ceci est un projet éducatif à des fins d'apprentissage. FloppFun est une plateforme indépendante inspirée des plateformes de lancement de tokens décentralisées."
+  },
+  "footer": {
+    "description": "Le moyen le plus simple de créer et d'échanger des tokens meme sur Solana avec des courbes de liaison de lancement équitable.",
+    "platform": "Plateforme",
+    "resources": "Ressources",
+    "community": "Communauté",
+    "documentation": "Documentation",
+    "api": "API",
+    "copyright": "© 2024 FloppFun. Construit à des fins éducatives.",
+    "privacyPolicy": "Politique de Confidentialité",
+    "termsOfService": "Conditions de Service"
   }
 } 

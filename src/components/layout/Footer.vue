@@ -14,27 +14,27 @@
             </h3>
           </div>
           <p class="text-gray-600 dark:text-gray-400 text-sm">
-            The easiest way to create and trade meme tokens on Solana with fair launch bonding curves.
+            {{ $t('footer.description') }}
           </p>
         </div>
         
         <!-- Quick Links -->
         <div>
-          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">Platform</h3>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">{{ $t('footer.platform') }}</h3>
           <ul class="space-y-2 text-sm">
             <li>
               <router-link to="/" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                Home
+                {{ $t('navigation.home') }}
               </router-link>
             </li>
             <li>
               <router-link to="/create" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                Create Token
+                {{ $t('navigation.create') }}
               </router-link>
             </li>
             <li>
               <router-link to="/leaderboard" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                Leaderboard
+                {{ $t('navigation.leaderboard') }}
               </router-link>
             </li>
           </ul>
@@ -42,21 +42,21 @@
         
         <!-- Resources -->
         <div>
-          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">Resources</h3>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">{{ $t('footer.resources') }}</h3>
           <ul class="space-y-2 text-sm">
             <li>
               <router-link to="/about" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                About
+                {{ $t('navigation.about') }}
               </router-link>
             </li>
             <li>
               <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                Documentation
+                {{ $t('footer.documentation') }}
               </a>
             </li>
             <li>
               <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                API
+                {{ $t('footer.api') }}
               </a>
             </li>
           </ul>
@@ -64,7 +64,7 @@
         
         <!-- Social Links -->
         <div>
-          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">Community</h3>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-4">{{ $t('footer.community') }}</h3>
           <div class="flex space-x-4">
             <a href="#" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
               <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -88,14 +88,14 @@
       <!-- Bottom Bar -->
       <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          © 2024 FloppFun. Built for educational purposes.
+          {{ $t('footer.copyright') }}
         </p>
         <div class="flex space-x-6 mt-4 md:mt-0">
           <a href="#" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-            Privacy Policy
+            {{ $t('footer.privacyPolicy') }}
           </a>
           <a href="#" class="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-            Terms of Service
+            {{ $t('footer.termsOfService') }}
           </a>
         </div>
       </div>

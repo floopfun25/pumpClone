@@ -148,7 +148,11 @@
     "profit": "Lucro",
     "tokens": "Tokens",
     "winRate": "Taxa de Vitória",
-    "trades": "Negociações"
+    "trades": "Negociações",
+    "noTradingData": "Ainda não há dados de negociação",
+    "startTradingMessage": "Comece a negociar para aparecer na classificação!",
+    "noTokensYet": "Ainda não há tokens",
+    "createFirstToken": "Crie o primeiro token para começar!"
   },
   "profile": {
     "title": "Perfil",
@@ -292,5 +296,37 @@
     "loadMore": "Carregar Mais",
     "unknown": "Desconhecido",
     "active": "Ativo"
+  },
+  "about": {
+    "title": "Sobre FloppFun",
+    "whatIsFloppFun": "O que é FloppFun?",
+    "description": "FloppFun é uma plataforma de lançamento de tokens meme descentralizada construída na blockchain Solana. Permite que qualquer pessoa crie e negocie tokens meme com mecânicas de lançamento justo usando curvas de ligação. Sem pré-vendas, sem alocações de equipe - apenas tokens puramente orientados pela comunidade.",
+    "howItWorks": "Como Funciona",
+    "create": "Criar",
+    "createDescription": "Lance seu token meme com apenas alguns cliques",
+    "trade": "Negociar",
+    "tradeDescription": "Compre e venda tokens usando curvas de ligação",
+    "graduate": "Graduar",
+    "graduateDescription": "Tokens bem-sucedidos obtêm liquidez no DEX",
+    "features": "Recursos",
+    "fairLaunchBondingCurves": "Curvas de ligação de lançamento justo",
+    "noPresalesOrTeamAllocations": "Sem pré-vendas ou alocações de equipe",
+    "builtOnSolana": "Construído na Solana para taxas baixas",
+    "realTimeTradingCharts": "Negociação e gráficos em tempo real",
+    "communityDrivenTokens": "Tokens orientados pela comunidade",
+    "technology": "Tecnologia",
+    "disclaimer": "Aviso Legal",
+    "disclaimerText": "Este é um projeto educacional para fins de aprendizado. FloppFun é uma plataforma independente inspirada em plataformas de lançamento de tokens descentralizadas."
+  },
+  "footer": {
+    "description": "A maneira mais fácil de criar e negociar tokens meme na Solana com curvas de ligação de lançamento justo.",
+    "platform": "Plataforma",
+    "resources": "Recursos",
+    "community": "Comunidade",
+    "documentation": "Documentação",
+    "api": "API",
+    "copyright": "© 2024 FloppFun. Construído para fins educacionais.",
+    "privacyPolicy": "Política de Privacidade",
+    "termsOfService": "Termos de Serviço"
   }
 } 

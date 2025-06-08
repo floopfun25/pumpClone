@@ -148,7 +148,11 @@
     "profit": "الربح",
     "tokens": "الرموز",
     "winRate": "معدل الفوز",
-    "trades": "الصفقات"
+    "trades": "الصفقات",
+    "noTradingData": "لا توجد بيانات تداول بعد",
+    "startTradingMessage": "ابدأ التداول للظهور في لوحة المتصدرين!",
+    "noTokensYet": "لا توجد رموز بعد",
+    "createFirstToken": "أنشئ أول رمز للبدء!"
   },
   "profile": {
     "title": "الملف الشخصي",
@@ -293,5 +297,37 @@
     "unknown": "غير معروف",
     "active": "نشط",
     "back": "العودة"
+  },
+  "about": {
+    "title": "حول FloppFun",
+    "whatIsFloppFun": "ما هو FloppFun؟",
+    "description": "FloppFun هي منصة إطلاق رموز مضحكة لامركزية مبنية على بلوك تشين سولانا. تتيح لأي شخص إنشاء وتداول الرموز المضحكة باستخدام آليات الإطلاق العادل باستخدام منحنيات الربط. لا مبيعات مسبقة، لا تخصيصات للفريق - فقط رموز مدفوعة بالمجتمع بحتة.",
+    "howItWorks": "كيف يعمل",
+    "create": "إنشاء",
+    "createDescription": "اطلق رمزك المضحك بنقرات قليلة فقط",
+    "trade": "تداول",
+    "tradeDescription": "اشتري وبع الرموز باستخدام منحنيات الربط",
+    "graduate": "التخرج",
+    "graduateDescription": "الرموز الناجحة تحصل على سيولة في DEX",
+    "features": "المميزات",
+    "fairLaunchBondingCurves": "منحنيات ربط الإطلاق العادل",
+    "noPresalesOrTeamAllocations": "لا مبيعات مسبقة أو تخصيصات للفريق",
+    "builtOnSolana": "مبني على سولانا للرسوم المنخفضة",
+    "realTimeTradingCharts": "التداول والرسوم البيانية في الوقت الفعلي",
+    "communityDrivenTokens": "رموز مدفوعة بالمجتمع",
+    "technology": "التكنولوجيا",
+    "disclaimer": "إخلاء المسؤولية",
+    "disclaimerText": "هذا مشروع تعليمي لأغراض التعلم. FloppFun منصة مستقلة مستوحاة من منصات إطلاق الرموز اللامركزية."
+  },
+  "footer": {
+    "description": "أسهل طريقة لإنشاء وتداول الرموز المضحكة على سولانا باستخدام منحنيات ربط الإطلاق العادل.",
+    "platform": "المنصة",
+    "resources": "الموارد",
+    "community": "المجتمع",
+    "documentation": "التوثيق",
+    "api": "واجهة برمجة التطبيقات",
+    "copyright": "© 2024 FloppFun. مبني لأغراض تعليمية.",
+    "privacyPolicy": "سياسة الخصوصية",
+    "termsOfService": "شروط الخدمة"
   }
 } 

@@ -148,7 +148,11 @@
     "profit": "盈利",
     "tokens": "代币",
     "winRate": "胜率",
-    "trades": "交易"
+    "trades": "交易",
+    "noTradingData": "暂无交易数据",
+    "startTradingMessage": "开始交易以出现在排行榜上！",
+    "noTokensYet": "暂无代币",
+    "createFirstToken": "创建第一个代币开始吧！"
   },
   "profile": {
     "title": "个人资料",
@@ -293,5 +297,37 @@
     "unknown": "未知",
     "active": "活跃",
     "back": "返回"
+  },
+  "about": {
+    "title": "关于 FloppFun",
+    "whatIsFloppFun": "什么是 FloppFun？",
+    "description": "FloppFun 是建立在 Solana 区块链上的去中心化模因代币发射平台。它使任何人都可以使用联合曲线的公平启动机制创建和交易模因代币。无预售，无团队分配 - 只有纯粹的社区驱动代币。",
+    "howItWorks": "工作原理",
+    "create": "创建",
+    "createDescription": "只需几次点击即可启动您的模因代币",
+    "trade": "交易",
+    "tradeDescription": "使用联合曲线买卖代币",
+    "graduate": "毕业",
+    "graduateDescription": "成功的代币在 DEX 上获得流动性",
+    "features": "功能特色",
+    "fairLaunchBondingCurves": "公平启动联合曲线",
+    "noPresalesOrTeamAllocations": "无预售或团队分配",
+    "builtOnSolana": "基于 Solana 构建，费用低廉",
+    "realTimeTradingCharts": "实时交易和图表",
+    "communityDrivenTokens": "社区驱动代币",
+    "technology": "技术",
+    "disclaimer": "免责声明",
+    "disclaimerText": "这是一个用于学习目的的教育项目。FloppFun 是一个受去中心化代币发射平台启发的独立平台。"
+  },
+  "footer": {
+    "description": "在 Solana 上使用公平启动联合曲线创建和交易模因代币的最简单方式。",
+    "platform": "平台",
+    "resources": "资源",
+    "community": "社区",
+    "documentation": "文档",
+    "api": "API",
+    "copyright": "© 2024 FloppFun. 为教育目的而构建。",
+    "privacyPolicy": "隐私政策",
+    "termsOfService": "服务条款"
   }
 } 

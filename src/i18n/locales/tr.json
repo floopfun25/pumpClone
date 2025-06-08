@@ -139,16 +139,20 @@
   },
   "leaderboard": {
     "title": "Lider Tablosu",
-    "topTraders": "En İyi Tüccarlar",
+    "topTraders": "En İyi Yatırımcılar",
     "topCreators": "En İyi Yaratıcılar",
     "topTokens": "En İyi Tokenlar",
-    "rank": "Sıra",
+    "rank": "Sıralama",
     "user": "Kullanıcı",
     "volume": "Hacim",
     "profit": "Kar",
     "tokens": "Tokenlar",
     "winRate": "Kazanma Oranı",
-    "trades": "İşlemler"
+    "trades": "İşlemler",
+    "noTradingData": "Henüz ticaret verisi yok",
+    "startTradingMessage": "Lider tablosunda görünmek için ticarete başlayın!",
+    "noTokensYet": "Henüz token yok",
+    "createFirstToken": "Başlamak için ilk tokeni oluşturun!"
   },
   "profile": {
     "title": "Profil",
@@ -293,5 +297,37 @@
     "unknown": "Bilinmeyen",
     "active": "Aktif",
     "back": "Geri"
+  },
+  "about": {
+    "title": "FloppFun Hakkında",
+    "whatIsFloppFun": "FloppFun Nedir?",
+    "description": "FloppFun, Solana blok zinciri üzerine inşa edilmiş merkezi olmayan bir meme token başlatma platformudur. Bağlama eğrileri kullanarak adil başlatma mekanikleri ile herkesın meme tokenları oluşturmasına ve ticaretine olanak tanır. Ön satış yok, takım tahsisi yok - sadece saf topluluk odaklı tokenlar.",
+    "howItWorks": "Nasıl Çalışır",
+    "create": "Oluştur",
+    "createDescription": "Sadece birkaç tıklamayla meme tokenınızı başlatın",
+    "trade": "Ticaret",
+    "tradeDescription": "Bağlama eğrilerini kullanarak token alın ve satın",
+    "graduate": "Mezun Ol",
+    "graduateDescription": "Başarılı tokenlar DEX'te likidite kazanır",
+    "features": "Özellikler",
+    "fairLaunchBondingCurves": "Adil başlatma bağlama eğrileri",
+    "noPresalesOrTeamAllocations": "Ön satış veya takım tahsisi yok",
+    "builtOnSolana": "Düşük ücretler için Solana üzerine inşa edildi",
+    "realTimeTradingCharts": "Gerçek zamanlı ticaret ve grafikler",
+    "communityDrivenTokens": "Topluluk odaklı tokenlar",
+    "technology": "Teknoloji",
+    "disclaimer": "Sorumluluk Reddi",
+    "disclaimerText": "Bu öğrenme amaçlı eğitici bir projedir. FloppFun, merkezi olmayan token başlatma platformlarından ilham alan bağımsız bir platformdur."
+  },
+  "footer": {
+    "description": "Adil başlatma bağlama eğrileri ile Solana'da meme tokenları oluşturmanın ve ticaretinin en kolay yolu.",
+    "platform": "Platform",
+    "resources": "Kaynaklar",
+    "community": "Topluluk",
+    "documentation": "Dokümantasyon",
+    "api": "API",
+    "copyright": "© 2024 FloppFun. Eğitim amaçlı inşa edildi.",
+    "privacyPolicy": "Gizlilik Politikası",
+    "termsOfService": "Hizmet Şartları"
   }
 } 
