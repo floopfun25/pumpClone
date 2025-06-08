@@ -16,61 +16,71 @@
           <router-link to="/" class="btn-primary">{{ $t('common.back') }}</router-link>
         </div>
 
-        <!-- Token Header -->
-        <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <div class="flex flex-col md:flex-row items-start gap-6">
-            <!-- Token Image -->
-            <div class="w-20 h-20 rounded-full overflow-hidden">
+        <!-- Token Header - Pump.fun Style -->
+        <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-8">
+          <div class="flex items-center gap-3 text-lg flex-wrap">
+            <!-- Token Logo (small, inline with text) -->
+            <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
               <img 
                 v-if="token?.image_url" 
                 :src="token.image_url" 
                 :alt="tokenName"
                 class="w-full h-full object-cover"
               />
-              <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-2xl">
-                {{ tokenSymbol.slice(0, 2) }}
+              <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                {{ tokenSymbol.slice(0, 1) }}
               </div>
             </div>
-            
-            <!-- Token Info -->
-            <div class="flex-1">
-              <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {{ tokenName }}
-              </h1>
-              <p class="text-lg text-gray-600 dark:text-gray-400 mb-4">
-                ${{ tokenSymbol }}
-              </p>
-              <p class="text-gray-700 dark:text-gray-300">
-                {{ tokenDescription }}
-              </p>
-              
-              <!-- Creator Info -->
-              <div v-if="token?.creator" class="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <span>{{ $t('token.createdBy') }}</span>
-                <span class="font-medium text-primary-600 dark:text-primary-400">
-                  {{ token.creator.username || `${token.creator.wallet_address.slice(0, 4)}...${token.creator.wallet_address.slice(-4)}` }}
-                </span>
-              </div>
-            </div>
-            
-            <!-- Token Stats -->
-            <div class="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                  ${{ token?.current_price?.toFixed(6) || '0.000000' }}
-                </div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.price') }}</div>
-              </div>
-              <div>
-                <div class="text-2xl font-bold text-gray-500">-</div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.change24h') }}</div>
-              </div>
-            </div>
+
+            <!-- Token Name & Symbol -->
+            <span class="font-bold text-gray-900 dark:text-white">
+              {{ tokenName }} ({{ tokenSymbol }})
+            </span>
+
+            <span class="text-gray-400">|</span>
+
+            <!-- Creator with link -->
+            <router-link 
+              v-if="token?.creator" 
+              :to="`/profile/${token.creator.wallet_address}`"
+              class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+            >
+              {{ token.creator.username || formatWalletAddress(token.creator.wallet_address) }}
+            </router-link>
+            <span v-else class="text-gray-500">Unknown Creator</span>
+
+            <span class="text-gray-400">|</span>
+
+            <!-- Time ago -->
+            <span class="text-gray-600 dark:text-gray-400">
+              {{ formatTimeAgo(token?.created_at) }}
+            </span>
+
+            <span class="text-gray-400">|</span>
+
+            <!-- Market Cap -->
+            <span class="text-gray-900 dark:text-white">
+              <span class="text-gray-600 dark:text-gray-400">market cap:</span>
+              <span class="font-semibold ml-1">${{ formatMarketCap(token?.market_cap || 0) }}</span>
+            </span>
+
+            <span class="text-gray-400">|</span>
+
+            <!-- Replies Count -->
+            <span class="text-gray-900 dark:text-white">
+              <span class="text-gray-600 dark:text-gray-400">replies:</span>
+              <span class="font-semibold ml-1">{{ commentsCount }}</span>
+            </span>
+          </div>
+
+          <!-- Token Description (separate line, smaller) -->
+          <div v-if="tokenDescription && tokenDescription !== 'No description available.'" class="mt-3 text-gray-700 dark:text-gray-300 text-sm">
+            {{ tokenDescription }}
           </div>
         </div>
 
         <div v-if="!error" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <!-- Left Column: Chart & Trading -->
+          <!-- Left Column: Chart & Comments (2/3 width) -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Price Chart -->
             <SimpleTokenChart 
@@ -80,24 +90,6 @@
               :mint-address="token.mint_address"
             />
 
-            <!-- Trading Interface -->
-            <EnhancedTradingInterface
-              v-if="token?.id"
-              :token-id="token.id"
-              :token-symbol="token.symbol"
-              :token-price="token.current_price"
-              :bonding-curve-state="bondingCurveState"
-              @trade-executed="handleTradeExecuted"
-              @connect-wallet="connectWallet"
-            />
-
-            <!-- Bonding Curve Progress -->
-            <BondingCurveProgress
-              v-if="token?.id"
-              :token-id="token.id"
-              :initial-progress="bondingProgress"
-            />
-
             <!-- Comments Section -->
             <TokenComments
               v-if="token?.id"
@@ -105,222 +97,202 @@
               :token-creator="token.creator?.wallet_address"
               @connect-wallet="connectWallet"
             />
-
-            <!-- Action Buttons -->
-            <div class="flex flex-wrap gap-3">
-              <button class="btn-primary flex-1">
-                🚀 {{ $t('tokenDetail.buyToken') }}
-              </button>
-              <button class="btn-secondary">
-                📊 {{ $t('token.trade') }}
-              </button>
-              
-              <!-- Social Share -->
-              <SocialShare
-                content-type="token"
-                :share-data="shareData"
-                :button-text="$t('common.share')"
-                button-class="btn-secondary"
-              />
-              
-              <!-- Direct Message Creator -->
-              <DirectMessages
-                v-if="token.creator"
-                :recipient-address="token.creator.wallet_address"
-                :button-text="$t('tokenDetail.messageCreator')"
-                button-class="btn-secondary"
-              />
-            </div>
           </div>
 
-          <!-- Right Column: Token Info & Activity -->
-          <div class="space-y-6">
-            <!-- Real-time Market Analytics -->
-            <div v-if="tokenAnalytics" class="card">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $t('tokenDetail.liveAnalytics') }}</h3>
-                <div class="flex items-center space-x-2">
-                  <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span class="text-xs text-green-600">{{ $t('tokenDetail.realTime') }}</span>
+          <!-- Right Sidebar: Trading & Token Info (1/3 width) -->
+          <div class="space-y-4">
+            <!-- Trading Interface - Pump.fun Style -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <!-- Buy/Sell Toggle -->
+              <div class="grid grid-cols-2 gap-1 mb-4">
+                <button 
+                  :class="[
+                    'py-2 px-4 text-sm font-medium rounded-lg transition-colors',
+                    tradeType === 'buy' 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ]"
+                  @click="tradeType = 'buy'"
+                >
+                  buy
+                </button>
+                <button 
+                  :class="[
+                    'py-2 px-4 text-sm font-medium rounded-lg transition-colors',
+                    tradeType === 'sell' 
+                      ? 'bg-red-500 text-white' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ]"
+                  @click="tradeType = 'sell'"
+                >
+                  sell
+                </button>
+              </div>
+
+              <!-- Switch to Token -->
+              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                switch to {{ tokenSymbol }}
+              </div>
+
+              <!-- Slippage Setting -->
+              <button class="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4">
+                set max slippage
+              </button>
+
+              <!-- Balance -->
+              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">balance:</div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                {{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}
+              </div>
+
+              <!-- Amount Input -->
+              <div class="mb-4">
+                <div class="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
+                  <input
+                    v-model="tradeAmount"
+                    type="number"
+                    placeholder="0.00"
+                    class="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white focus:outline-none"
+                    step="0.001"
+                    min="0"
+                  />
+                  <span class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border-l border-gray-300 dark:border-gray-600">
+                    SOL
+                  </span>
                 </div>
+              </div>
+
+              <!-- Quick Amount Buttons -->
+              <div class="grid grid-cols-4 gap-2 mb-4">
+                <button 
+                  v-for="amount in ['0.1', '0.5', '1', 'max']" 
+                  :key="amount"
+                  @click="setQuickAmount(amount)"
+                  class="py-2 px-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
+                </button>
+              </div>
+
+              <!-- Reset Button -->
+              <button class="w-full py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 mb-4">
+                reset
+              </button>
+
+              <!-- Place Trade Button -->
+              <button 
+                @click="executeTrade"
+                :disabled="!canTrade"
+                :class="[
+                  'w-full py-3 px-4 font-medium rounded-lg transition-colors',
+                  tradeType === 'buy' 
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white',
+                  !canTrade ? 'opacity-50 cursor-not-allowed' : ''
+                ]"
+              >
+                place trade
+              </button>
+            </div>
+
+            <!-- Token Info Card -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <!-- Token Logo & Name -->
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-full overflow-hidden">
+                  <img 
+                    v-if="token?.image_url" 
+                    :src="token.image_url" 
+                    :alt="tokenName"
+                    class="w-full h-full object-cover"
+                  />
+                  <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                    {{ tokenSymbol.slice(0, 1) }}
+                  </div>
+                </div>
+                <span class="font-medium text-gray-900 dark:text-white">
+                  {{ tokenName.toLowerCase() }} ({{ tokenSymbol }})
+                </span>
+              </div>
+
+              <!-- Bonding Curve Progress -->
+              <div class="mb-4">
+                <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  bonding curve progress: {{ progressPercentage.toFixed(0) }}%
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div 
+                    class="h-full bg-green-500 rounded-full transition-all duration-500"
+                    :style="{ width: `${progressPercentage}%` }"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Graduation Status -->
+              <div v-if="progressPercentage >= 100" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="text-blue-600 dark:text-blue-400">🎉</span>
+                  <span class="text-blue-800 dark:text-blue-200">PumpSwap pool seeded! view on PumpSwap</span>
+                  <a href="#" class="text-blue-600 dark:text-blue-400 hover:underline">here</a>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="space-y-2">
+                <button class="w-full py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                  add to watchlist
+                </button>
+                <button class="w-full py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                  twitter
+                </button>
+              </div>
+            </div>
+
+            <!-- Contract Address -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">contract address:</div>
+              <div class="flex items-center gap-2">
+                <code class="text-xs font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                  {{ formatContractAddress(token?.mint_address || '') }}
+                </code>
+                <button 
+                  @click="copyToClipboard(token?.mint_address || '')"
+                  class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  copy
+                </button>
+              </div>
+            </div>
+
+            <!-- External Trading -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <button class="w-full py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors flex items-center justify-center gap-2">
+                <span>📊</span>
+                trade on MEXC
+              </button>
+            </div>
+
+            <!-- Top Holders -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-sm font-medium text-gray-900 dark:text-white">top holders</span>
+                <button class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                  generate bubble map
+                </button>
               </div>
               
-              <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div class="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wide">RSI</div>
-                  <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
-                    {{ formatRSI(tokenAnalytics.technicalIndicators.rsi) }}
+              <div class="space-y-2">
+                <div 
+                  v-for="(holder, index) in topHolders" 
+                  :key="holder.address"
+                  class="flex items-center justify-between text-sm"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-500 dark:text-gray-400">{{ index + 1 }}.</span>
+                    <code class="text-xs font-mono text-gray-900 dark:text-white">{{ holder.address }}</code>
                   </div>
+                  <span class="text-gray-600 dark:text-gray-400">{{ holder.percentage }}%</span>
                 </div>
-                
-                <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <div class="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide">{{ $t('tokenDetail.volatility') }}</div>
-                  <div class="text-lg font-bold text-purple-900 dark:text-purple-100">
-                    {{ tokenAnalytics.technicalIndicators.volatility.toFixed(1) }}%
-                  </div>
-                </div>
-              </div>
-
-              <div class="space-y-3">
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sentiment') }}</span>
-                  <span :class="formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).color" class="font-medium">
-                    {{ formatSentiment(tokenAnalytics.socialMetrics.sentiment_score).text }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.riskLevel') }}</span>
-                  <span :class="formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).color" class="font-medium">
-                    {{ formatRiskLevel(tokenAnalytics.riskMetrics.volatility_score).text }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.transactions24h') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ tokenAnalytics.marketData.transactions24h }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Enhanced Token Stats -->
-            <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.tokenStats') }}</h3>
-              <div class="space-y-3">
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.currentPrice') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ token?.current_price?.toFixed(8) || '0.00000000' }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.marketCap') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ marketCapFormatted }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.volume24h') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ tokenAnalytics ? formatVolume(tokenAnalytics.marketData.volume24h) : formatNumber(token?.volume_24h || 0) }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('token.holders') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ tokenAnalytics ? tokenAnalytics.marketData.holders : (token?.holders_count || 0) }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.totalSupply') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ token?.total_supply ? formatNumber(token.total_supply) : '0' }}
-                  </span>
-                </div>
-                
-                <div v-if="tokenAnalytics" class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.liquidity') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ formatNumber(tokenAnalytics.marketData.liquidity) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Technical Indicators -->
-            <div v-if="tokenAnalytics" class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.technicalAnalysis') }}</h3>
-              <div class="space-y-3">
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sma7d') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ tokenAnalytics.technicalIndicators.price_sma_7d.toFixed(8) }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.sma30d') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ tokenAnalytics.technicalIndicators.price_sma_30d.toFixed(8) }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.momentum') }}</span>
-                  <span :class="[
-                    'font-medium',
-                    tokenAnalytics.technicalIndicators.momentum >= 0 ? 'text-green-600' : 'text-red-600'
-                  ]">
-                    {{ tokenAnalytics.technicalIndicators.momentum >= 0 ? '+' : '' }}{{ tokenAnalytics.technicalIndicators.momentum.toFixed(2) }}%
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.volumeSMA') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ formatVolume(tokenAnalytics.technicalIndicators.volume_sma) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Social Metrics (if available) -->
-            <div v-if="tokenAnalytics" class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.socialActivity') }}</h3>
-              <div class="space-y-3">
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.mentions24h') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ tokenAnalytics.socialMetrics.mentions_24h }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.trendingRank') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    #{{ tokenAnalytics.socialMetrics.trending_rank }}
-                  </span>
-                </div>
-                
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">{{ $t('tokenDetail.communityActivity') }}</span>
-                  <span class="font-medium text-gray-900 dark:text-white">
-                    {{ tokenAnalytics.socialMetrics.community_activity.toFixed(1) }}/100
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Recent Trades -->
-            <div class="card">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $t('tokenDetail.recentTrades') }}</h3>
-              <div v-if="recentTrades.length > 0" class="space-y-3">
-                <div v-for="trade in recentTrades" :key="trade.id" class="flex justify-between items-center">
-                  <div class="flex items-center space-x-2">
-                    <span :class="trade.type === 'buy' ? 'text-pump-green' : 'text-pump-red'" class="text-sm font-medium">
-                      {{ trade.type.toUpperCase() }}
-                    </span>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">
-                      {{ trade.amount }}
-                    </span>
-                    <span v-if="trade.user" class="text-xs text-gray-400">
-                      {{ $t('tokenDetail.by') }} {{ trade.user }}
-                    </span>
-                  </div>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ trade.time }}
-                  </span>
-                </div>
-              </div>
-              <div v-else class="text-center py-8">
-                <div class="text-4xl mb-2">📊</div>
-                <p class="text-gray-500 dark:text-gray-400">{{ $t('tokenDetail.noTradesYet') }}</p>
               </div>
             </div>
           </div>
@@ -362,6 +334,7 @@ const error = ref('')
 // Real token data from Supabase
 const token = ref<any>(null)
 const recentTrades = ref<any[]>([])
+const topHolders = ref<any[]>([])
 
 // Market analytics data
 const tokenAnalytics = ref<TokenAnalytics | null>(null)
@@ -388,6 +361,13 @@ const progressPercentage = computed(() => {
   return Math.min(100, (marketCap / graduationThreshold) * 100)
 })
 
+// Computed for comments count from token data
+const commentsCount = computed(() => {
+  // This would typically come from the token's comments relation
+  // For now, we'll use a placeholder or fetch separately
+  return token.value?.comments_count || 0
+})
+
 const shareData = computed(() => ({
   title: token.value ? `${token.value.name} ($${token.value.symbol})` : '',
   description: token.value?.description || 'Check out this amazing meme token on FloppFun!',
@@ -398,6 +378,13 @@ const shareData = computed(() => ({
 const priceChangeColor = computed(() => {
   const change = token.value?.price_change_24h || 0
   return change >= 0 ? 'text-pump-green' : 'text-pump-red'
+})
+
+// Computed for trading validation
+const canTrade = computed(() => {
+  if (!walletStore.isConnected) return false
+  if (!tradeAmount.value || parseFloat(tradeAmount.value) <= 0) return false
+  return true
 })
 
 /**
@@ -498,6 +485,27 @@ const executeTrade = async () => {
 }
 
 /**
+ * Generate mock top holders data
+ */
+const generateMockHolders = () => {
+  const mockAddresses = [
+    '4LKAVY', 'EQBgro', '3uJLuZ', 'NW3NWn', '2K8PPq', 'GCBVFy', 'DS2VAo', 'Dp96KW',
+    '35PhrV', '6qtArm', 'GbvbMa', 'EeuykU', '6rRT5V', 'CSeLLJ', 'DZZ7Wy', 'GkULz5',
+    'J4r3df', '4u3cUs', 'AeNeGw', '3ApRom'
+  ]
+  
+  const mockPercentages = [
+    4.85, 2.14, 2.11, 1.98, 1.92, 1.19, 1.13, 1.08, 1.01, 0.96,
+    0.88, 0.85, 0.82, 0.81, 0.80, 0.75, 0.73, 0.72, 0.70, 0.69
+  ]
+  
+  return mockAddresses.map((address, index) => ({
+    address,
+    percentage: mockPercentages[index]
+  }))
+}
+
+/**
  * Load token data from Supabase
  */
 const loadTokenData = async () => {
@@ -520,6 +528,18 @@ const loadTokenData = async () => {
     
     // Load recent transactions for this token
     const transactions = await SupabaseService.getTokenTransactions(tokenData.id, 10)
+    
+    // Load comments count for display in header
+    try {
+      const commentsData = await SupabaseService.getTokenComments(tokenData.id, 1, 1)
+      token.value.comments_count = commentsData.total || 0
+    } catch (error) {
+      console.warn('Failed to load comments count:', error)
+      token.value.comments_count = 0
+    }
+    
+    // Generate mock top holders data (would come from blockchain in real implementation)
+    topHolders.value = generateMockHolders()
     
     // Format transactions for display
     recentTrades.value = transactions.map((tx: any) => ({
@@ -591,6 +611,67 @@ const formatNumber = (num: number): string => {
   if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
   if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
   return num.toString()
+}
+
+/**
+ * Format wallet address for display
+ */
+const formatWalletAddress = (address: string): string => {
+  if (!address) return 'Unknown'
+  return `${address.slice(0, 4)}...${address.slice(-4)}`
+}
+
+/**
+ * Format market cap with proper formatting
+ */
+const formatMarketCap = (marketCap: number): string => {
+  if (marketCap >= 1000000) {
+    return (marketCap / 1000000).toFixed(2) + 'M'
+  } else if (marketCap >= 1000) {
+    return (marketCap / 1000).toFixed(0) + 'K'
+  }
+  return marketCap.toLocaleString()
+}
+
+/**
+ * Set quick amount for trading
+ */
+const setQuickAmount = (amount: string) => {
+  if (amount === 'max') {
+    // TODO: Set to maximum available balance
+    tradeAmount.value = '1.0'
+  } else {
+    tradeAmount.value = amount
+  }
+}
+
+/**
+ * Format contract address for display
+ */
+const formatContractAddress = (address: string): string => {
+  if (!address) return 'N/A'
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+/**
+ * Copy text to clipboard
+ */
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    uiStore.showToast({
+      type: 'success',
+      title: 'Copied!',
+      message: 'Address copied to clipboard'
+    })
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error)
+    uiStore.showToast({
+      type: 'error',
+      title: 'Copy Failed',
+      message: 'Failed to copy address'
+    })
+  }
 }
 
 const handleTradeExecuted = (result: any) => {

@@ -43,7 +43,7 @@ const router = createRouter({
       props: true // Pass route params as props
     },
     {
-      path: '/profile/:userId?',
+      path: '/profile/:address',
       name: 'profile',
       component: () => import('@/views/ProfilePage.vue'),
       meta: {
