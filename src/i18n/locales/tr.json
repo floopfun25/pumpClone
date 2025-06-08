@@ -67,7 +67,9 @@
     "new": "Yeni",
     "topVolume": "En Yüksek Hacim",
     "topGainers": "En Çok Kazanan",
-    "topLosers": "En Çok Kaybeden"
+    "topLosers": "En Çok Kaybeden",
+    "tokens": "Tokenler",
+    "createdBy": "Oluşturan"
   },
   "dashboard": {
     "stats": {
@@ -174,14 +176,20 @@
       "networkError": "Ağ hatası oluştu",
       "unknownError": "Bilinmeyen bir hata oluştu",
       "insufficientFunds": "Yetersiz bakiye",
-      "transactionRejected": "İşlem kullanıcı tarafından reddedildi"
+      "transactionRejected": "İşlem kullanıcı tarafından reddedildi",
+      "pageNotFound": "Sayfa Bulunamadı",
+      "pageNotFoundDescription": "Aradığınız sayfa mevcut değil. Taşınmış veya silinmiş olabilir."
     },
     "info": {
       "loading": "Yükleniyor...",
       "processing": "İşleniyor...",
       "waitingConfirmation": "Onay bekleniyor...",
       "connectWalletFirst": "Lütfen önce cüzdanınızı bağlayın",
-      "noDataAvailable": "Veri mevcut değil"
+      "noDataAvailable": "Veri mevcut değil",
+      "launchDescription": "Adil başlatma bağlama eğrileri ile kendi tokenınızı başlatın. Ön satış yok, takım tahsisi yok - Solana'da sadece saf topluluk odaklı tokenler.",
+      "trendingDescription": "En yüksek işlem hacmi ve topluluk katılımı ile en popüler meme tokenları keşfedin",
+      "browseDescription": "Ekosistemde mevcut tüm tokenlara göz atın",
+      "createFirstToken": "İlk meme tokenını oluşturan sen ol!"
     }
   },
   "forms": {
@@ -254,6 +262,11 @@
     "select": "Seç",
     "all": "Tümü",
     "none": "Hiçbiri",
-    "any": "Herhangi"
+    "any": "Herhangi",
+    "browse": "Gözat",
+    "loadMore": "Daha Fazla Yükle",
+    "unknown": "Bilinmeyen",
+    "active": "Aktif",
+    "back": "Geri"
   }
 } 

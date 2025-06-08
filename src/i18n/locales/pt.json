@@ -67,7 +67,9 @@
     "new": "Novo",
     "topVolume": "Maior Volume",
     "topGainers": "Maiores Ganhos",
-    "topLosers": "Maiores Perdas"
+    "topLosers": "Maiores Perdas",
+    "tokens": "Tokens",
+    "createdBy": "Criado por"
   },
   "dashboard": {
     "stats": {
@@ -174,14 +176,20 @@
       "networkError": "Erro de rede ocorreu",
       "unknownError": "Ocorreu um erro desconhecido",
       "insufficientFunds": "Fundos insuficientes",
-      "transactionRejected": "Transação rejeitada pelo usuário"
+      "transactionRejected": "Transação rejeitada pelo usuário",
+      "pageNotFound": "Página Não Encontrada",
+      "pageNotFoundDescription": "A página que você está procurando não existe. Pode ter sido movida ou excluída."
     },
     "info": {
       "loading": "Carregando...",
       "processing": "Processando...",
       "waitingConfirmation": "Aguardando confirmação...",
-      "connectWalletFirst": "Por favor, conecte sua carteira primeiro",
-      "noDataAvailable": "Nenhum dado disponível"
+      "connectWalletFirst": "Por favor conecte sua carteira primeiro",
+      "noDataAvailable": "Nenhum dado disponível",
+      "launchDescription": "Lance seu próprio token com curvas de ligação de lançamento justo. Sem pré-vendas, sem alocações de equipe - apenas tokens puramente orientados pela comunidade na Solana.",
+      "trendingDescription": "Descubra os tokens meme mais quentes com o maior volume de negociação e engajamento da comunidade",
+      "browseDescription": "Navegue por todos os tokens disponíveis no ecossistema",
+      "createFirstToken": "Seja o primeiro a criar um token meme!"
     }
   },
   "forms": {
@@ -254,6 +262,10 @@
     "select": "Selecionar",
     "all": "Todos",
     "none": "Nenhum",
-    "any": "Qualquer"
+    "any": "Qualquer",
+    "browse": "Navegar",
+    "loadMore": "Carregar Mais",
+    "unknown": "Desconhecido",
+    "active": "Ativo"
   }
 } 

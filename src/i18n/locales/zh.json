@@ -67,13 +67,15 @@
     "new": "最新",
     "topVolume": "最高成交量",
     "topGainers": "涨幅榜",
-    "topLosers": "跌幅榜"
+    "topLosers": "跌幅榜",
+    "tokens": "代币",
+    "createdBy": "创建者"
   },
   "dashboard": {
     "stats": {
-      "totalTokens": "代币总数",
-      "totalVolume": "总成交量",
-      "totalUsers": "用户总数",
+      "totalTokens": "总代币数",
+      "totalVolume": "总交易量",
+      "totalUsers": "总用户数",
       "graduatedTokens": "毕业代币",
       "activeTraders": "活跃交易者",
       "totalMarketCap": "总市值"
@@ -85,11 +87,11 @@
   "trading": {
     "buy": "买入",
     "sell": "卖出",
-    "swap": "兑换",
+    "swap": "交换",
     "slippage": "滑点",
     "slippageTolerance": "滑点容忍度",
     "priceImpact": "价格影响",
-    "minimumReceived": "最小接收量",
+    "minimumReceived": "最少收到",
     "maxSlippage": "最大滑点",
     "enterAmount": "输入数量",
     "insufficientBalance": "余额不足",
@@ -103,7 +105,7 @@
   "portfolio": {
     "title": "投资组合",
     "totalValue": "总价值",
-    "totalTokens": "代币总数",
+    "totalTokens": "总代币数",
     "change24h": "24小时变化",
     "holdings": "持仓",
     "noHoldings": "投资组合中没有代币",
@@ -120,7 +122,7 @@
     "topTokens": "顶级代币",
     "rank": "排名",
     "user": "用户",
-    "volume": "成交量",
+    "volume": "交易量",
     "profit": "盈利",
     "tokens": "代币",
     "winRate": "胜率",
@@ -132,7 +134,7 @@
     "bio": "简介",
     "avatar": "头像",
     "joinedDate": "加入日期",
-    "totalVolume": "总成交量",
+    "totalVolume": "总交易量",
     "tokensCreated": "创建的代币",
     "reputation": "声誉",
     "verified": "已验证",
@@ -145,18 +147,18 @@
   "search": {
     "placeholder": "搜索代币...",
     "noResults": "未找到结果",
-    "filters": "筛选器",
+    "filters": "筛选",
     "sortBy": "排序方式",
     "marketCap": "市值",
-    "volume": "成交量",
-    "age": "年龄",
+    "volume": "交易量",
+    "age": "时间",
     "featured": "仅精选",
     "graduated": "仅毕业",
     "creator": "创建者",
     "minHolders": "最少持有者",
     "excludeNsfw": "排除NSFW",
-    "applyFilters": "应用筛选器",
-    "clearFilters": "清除筛选器"
+    "applyFilters": "应用筛选",
+    "clearFilters": "清除筛选"
   },
   "messages": {
     "success": {
@@ -174,14 +176,20 @@
       "networkError": "网络错误",
       "unknownError": "发生未知错误",
       "insufficientFunds": "资金不足",
-      "transactionRejected": "用户拒绝交易"
+      "transactionRejected": "用户拒绝交易",
+      "pageNotFound": "页面未找到",
+      "pageNotFoundDescription": "您要查找的页面不存在。它可能已被移动或删除。"
     },
     "info": {
       "loading": "加载中...",
       "processing": "处理中...",
       "waitingConfirmation": "等待确认...",
       "connectWalletFirst": "请先连接您的钱包",
-      "noDataAvailable": "暂无数据"
+      "noDataAvailable": "无可用数据",
+      "launchDescription": "使用公平启动绑定曲线启动您自己的代币。无预售，无团队分配 - 仅在Solana上的纯社区驱动代币。",
+      "trendingDescription": "发现具有最高交易量和社区参与度的最热门模因代币",
+      "browseDescription": "浏览生态系统中的所有可用代币",
+      "createFirstToken": "成为第一个创建模因代币的人！"
     }
   },
   "forms": {
@@ -193,10 +201,10 @@
     "invalidNumber": "无效数字",
     "mustBePositive": "必须为正数",
     "uploadImage": "上传图片",
-    "dragDropImage": "将图片拖放到此处",
+    "dragDropImage": "将图片拖拽到此处",
     "selectFile": "选择文件",
     "preview": "预览",
-    "remove": "删除"
+    "remove": "移除"
   },
   "time": {
     "now": "现在",
@@ -254,6 +262,11 @@
     "select": "选择",
     "all": "全部",
     "none": "无",
-    "any": "任何"
+    "any": "任何",
+    "browse": "浏览",
+    "loadMore": "加载更多",
+    "unknown": "未知",
+    "active": "活跃",
+    "back": "返回"
   }
 } 

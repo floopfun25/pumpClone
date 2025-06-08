@@ -8,12 +8,12 @@
       
       <div class="container mx-auto px-4 text-center relative z-10">
         <h1 class="text-5xl font-bold mb-6 text-shadow">
-          Create & Trade 
-          <span class="text-binance-gradient">Meme Tokens</span>
+          {{ $t('app.tagline') }}
+          <br>
+          <span class="text-binance-gradient">{{ $t('token.trending') }}</span>
         </h1>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-          Launch your own token with fair launch bonding curves. 
-          No presales, no team allocations - just pure community-driven tokens on Solana.
+          {{ $t('messages.info.launchDescription') }}
         </p>
         
         <!-- Action Buttons -->
@@ -22,13 +22,13 @@
             to="/create" 
             class="btn-success px-8 py-4 text-lg font-semibold glow-green"
           >
-            🚀 Create Token
+            🚀 {{ $t('token.create') }}
           </router-link>
           <button 
             @click="scrollToTokens"
             class="btn-secondary px-8 py-4 text-lg font-semibold bg-white/10 text-white border-white/20 hover:bg-white/20"
           >
-            📈 Browse Tokens
+            📈 {{ $t('common.browse') }} {{ $t('token.tokens') }}
           </button>
         </div>
       </div>
@@ -44,19 +44,19 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div class="text-center">
             <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.totalTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">Total Tokens</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalTokens') }}</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-trading-buy mb-2">{{ formatNumber(stats.totalVolume) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">Volume (SOL)</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalVolume') }} (SOL)</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-white mb-2">{{ formatNumber(stats.totalUsers) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">Total Users</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalUsers') }}</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.graduatedTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">Graduated</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('token.graduated') }}</div>
           </div>
         </div>
       </div>
@@ -66,9 +66,9 @@
     <section class="py-16 bg-binance-dark">
       <div class="container mx-auto px-4">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-white mb-4">🔥 Trending Tokens</h2>
+          <h2 class="text-3xl font-bold text-white mb-4">🔥 {{ $t('token.trending') }} {{ $t('token.tokens') }}</h2>
           <p class="text-binance-gray max-w-2xl mx-auto">
-            Discover the hottest meme tokens with the highest trading volume and community engagement
+            {{ $t('messages.info.trendingDescription') }}
           </p>
         </div>
         
@@ -82,8 +82,8 @@
         <!-- Section Header -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h2 class="text-3xl font-bold text-white mb-2">All Tokens</h2>
-            <p class="text-binance-gray">Browse all available tokens in the ecosystem</p>
+            <h2 class="text-3xl font-bold text-white mb-2">{{ $t('common.all') }} {{ $t('token.tokens') }}</h2>
+            <p class="text-binance-gray">{{ $t('messages.info.browseDescription') }}</p>
           </div>
           
           <!-- Controls -->
@@ -94,7 +94,7 @@
                 v-model="simpleQuery"
                 @keyup.enter="handleSimpleSearch"
                 type="text"
-                placeholder="Search tokens..."
+                :placeholder="$t('search.placeholder')"
                 class="input-field pl-10 w-full sm:w-64"
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -111,16 +111,16 @@
                 @change="() => loadTokens()"
                 class="input-field px-3 py-2 min-w-0"
               >
-                <option value="created_at">Latest</option>
-                <option value="market_cap">Market Cap</option>
-                <option value="volume_24h">Volume</option>
+                <option value="created_at">{{ $t('token.new') }}</option>
+                <option value="market_cap">{{ $t('token.marketCap') }}</option>
+                <option value="volume_24h">{{ $t('token.volume') }}</option>
               </select>
               
               <button
                 @click="showAdvancedSearch = !showAdvancedSearch"
                 class="btn-secondary px-4 py-2 whitespace-nowrap"
               >
-                {{ showAdvancedSearch ? 'Hide' : 'Advanced' }}
+                {{ showAdvancedSearch ? $t('common.hide') : $t('search.filters') }}
               </button>
             </div>
           </div>
@@ -151,13 +151,13 @@
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🎭</div>
           <h3 class="text-xl font-semibold text-white mb-2">
-            No tokens found
+            {{ $t('search.noResults') }}
           </h3>
           <p class="text-binance-gray mb-6">
-            Be the first to create a meme token!
+            {{ $t('messages.info.createFirstToken') }}
           </p>
           <router-link to="/create" class="btn-primary">
-            Create First Token
+            {{ $t('token.createNew') }}
           </router-link>
         </div>
         
@@ -170,9 +170,9 @@
           >
             <span v-if="loadingMore" class="flex items-center gap-2">
               <div class="spinner w-4 h-4"></div>
-              Loading...
+              {{ $t('common.loading') }}...
             </span>
-            <span v-else>Load More</span>
+            <span v-else>{{ $t('common.loadMore') }}</span>
           </button>
         </div>
       </div>

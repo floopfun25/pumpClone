@@ -34,7 +34,7 @@
           'bg-gray-500 text-white'
         ]"
       >
-        {{ (token?.status || 'active').charAt(0).toUpperCase() + (token?.status || 'active').slice(1) }}
+        {{ statusText }}
       </span>
     </div>
     
@@ -42,7 +42,7 @@
     <div class="space-y-3">
       <!-- Price -->
       <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">Price</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.price') }}</span>
         <span class="font-medium text-gray-900 dark:text-white">
           ${{ currentPrice }}
         </span>
@@ -50,7 +50,7 @@
       
       <!-- Market Cap -->
       <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">Market Cap</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.marketCap') }}</span>
         <span class="font-medium text-gray-900 dark:text-white">
           ${{ marketCap }}
         </span>
@@ -58,7 +58,7 @@
       
       <!-- Volume 24h -->
       <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">24h Volume</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.volume24h') }}</span>
         <span class="font-medium text-pump-green">
           ${{ volume24h }}
         </span>
@@ -67,7 +67,7 @@
       <!-- Progress Bar for Bonding Curve -->
       <div class="pt-2">
         <div class="flex justify-between items-center mb-1">
-          <span class="text-xs text-gray-600 dark:text-gray-400">Progress</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">{{ $t('token.progress') }}</span>
           <span class="text-xs text-gray-600 dark:text-gray-400">{{ progress }}%</span>
         </div>
         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -82,7 +82,7 @@
     <!-- Creator Info -->
     <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
       <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <span>Created by</span>
+        <span>{{ $t('token.createdBy') }}</span>
         <span class="font-medium text-primary-600 dark:text-primary-400">
           {{ creatorAddress }}
         </span>
@@ -93,6 +93,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // Component props for token data
 const props = defineProps<{
@@ -115,8 +118,20 @@ const props = defineProps<{
 }>()
 
 // Computed properties for display with proper fallbacks
-const tokenName = computed(() => props.token?.name || 'Unknown Token')
+const tokenName = computed(() => props.token?.name || t('common.unknown'))
 const tokenSymbol = computed(() => props.token?.symbol || 'N/A')
+
+const statusText = computed(() => {
+  const status = props.token?.status || 'active'
+  switch (status) {
+    case 'graduated':
+      return t('token.graduated')
+    case 'active':
+      return t('common.active')
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+})
 
 const creatorAddress = computed(() => {
   if (props.token?.creator?.username) {
@@ -128,7 +143,7 @@ const creatorAddress = computed(() => {
   if (props.token?.creator_address) {
     return `${props.token.creator_address.slice(0, 4)}...${props.token.creator_address.slice(-4)}`
   }
-  return 'Unknown'
+  return t('common.unknown')
 })
 
 const currentPrice = computed(() => {

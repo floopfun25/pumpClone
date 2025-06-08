@@ -67,7 +67,9 @@
     "new": "Nouveau",
     "topVolume": "Top Volume",
     "topGainers": "Top Gains",
-    "topLosers": "Top Pertes"
+    "topLosers": "Top Pertes",
+    "tokens": "Jetons",
+    "createdBy": "Créé par"
   },
   "dashboard": {
     "stats": {
@@ -174,14 +176,20 @@
       "networkError": "Erreur réseau survenue",
       "unknownError": "Une erreur inconnue s'est produite",
       "insufficientFunds": "Fonds insuffisants",
-      "transactionRejected": "Transaction rejetée par l'utilisateur"
+      "transactionRejected": "Transaction rejetée par l'utilisateur",
+      "pageNotFound": "Page Non Trouvée",
+      "pageNotFoundDescription": "La page que vous recherchez n'existe pas. Elle a peut-être été déplacée ou supprimée."
     },
     "info": {
       "loading": "Chargement...",
       "processing": "Traitement...",
       "waitingConfirmation": "En attente de confirmation...",
       "connectWalletFirst": "Veuillez d'abord connecter votre portefeuille",
-      "noDataAvailable": "Aucune donnée disponible"
+      "noDataAvailable": "Aucune donnée disponible",
+      "launchDescription": "Lancez votre propre jeton avec des courbes de liaison de lancement équitable. Pas de préventes, pas d'allocations d'équipe - juste des jetons purement communautaires sur Solana.",
+      "trendingDescription": "Découvrez les jetons mème les plus chauds avec le plus grand volume de trading et l'engagement communautaire",
+      "browseDescription": "Parcourez tous les jetons disponibles dans l'écosystème",
+      "createFirstToken": "Soyez le premier à créer un jeton mème !"
     }
   },
   "forms": {
@@ -254,6 +262,10 @@
     "select": "Sélectionner",
     "all": "Tous",
     "none": "Aucun",
-    "any": "N'importe"
+    "any": "N'importe",
+    "browse": "Parcourir",
+    "loadMore": "Charger Plus",
+    "unknown": "Inconnu",
+    "active": "Actif"
   }
 } 

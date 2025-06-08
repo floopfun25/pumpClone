@@ -67,7 +67,9 @@
     "new": "جديد",
     "topVolume": "أعلى حجم تداول",
     "topGainers": "أكبر المكاسب",
-    "topLosers": "أكبر الخسائر"
+    "topLosers": "أكبر الخسائر",
+    "tokens": "الرموز",
+    "createdBy": "أنشأه"
   },
   "dashboard": {
     "stats": {
@@ -116,9 +118,9 @@
   "leaderboard": {
     "title": "لوحة المتصدرين",
     "topTraders": "أفضل المتداولين",
-    "topCreators": "أفضل المنشئين",
+    "topCreators": "أفضل المبدعين",
     "topTokens": "أفضل الرموز",
-    "rank": "المرتبة",
+    "rank": "الترتيب",
     "user": "المستخدم",
     "volume": "حجم التداول",
     "profit": "الربح",
@@ -129,14 +131,14 @@
   "profile": {
     "title": "الملف الشخصي",
     "username": "اسم المستخدم",
-    "bio": "السيرة الذاتية",
+    "bio": "النبذة الشخصية",
     "avatar": "الصورة الرمزية",
     "joinedDate": "تاريخ الانضمام",
     "totalVolume": "إجمالي حجم التداول",
-    "tokensCreated": "الرموز المنشأة",
+    "tokensCreated": "الرموز المُنشأة",
     "reputation": "السمعة",
     "verified": "موثق",
-    "edit": "تحرير الملف الشخصي",
+    "edit": "تعديل الملف الشخصي",
     "save": "حفظ التغييرات",
     "cancel": "إلغاء",
     "updateSuccess": "تم تحديث الملف الشخصي بنجاح",
@@ -150,38 +152,44 @@
     "marketCap": "القيمة السوقية",
     "volume": "حجم التداول",
     "age": "العمر",
-    "featured": "المميز فقط",
-    "graduated": "المتخرج فقط",
+    "featured": "المميزة فقط",
+    "graduated": "المتخرجة فقط",
     "creator": "المنشئ",
-    "minHolders": "أقل عدد مالكين",
-    "excludeNsfw": "استثناء المحتوى الحساس",
+    "minHolders": "الحد الأدنى للحاملين",
+    "excludeNsfw": "استبعاد المحتوى غير اللائق",
     "applyFilters": "تطبيق المرشحات",
     "clearFilters": "مسح المرشحات"
   },
   "messages": {
     "success": {
-      "walletConnected": "تم ربط المحفظة بنجاح",
+      "walletConnected": "تم توصيل المحفظة بنجاح",
       "walletDisconnected": "تم قطع اتصال المحفظة",
       "tokenCreated": "تم إنشاء الرمز بنجاح",
-      "tradingSuccess": "تم إكمال التداول بنجاح",
+      "tradingSuccess": "تمت الصفقة بنجاح",
       "commentPosted": "تم نشر التعليق بنجاح",
       "profileUpdated": "تم تحديث الملف الشخصي بنجاح"
     },
     "error": {
-      "walletConnection": "فشل في ربط المحفظة",
+      "walletConnection": "فشل في توصيل المحفظة",
       "tokenCreation": "فشل في إنشاء الرمز",
-      "tradingError": "فشل في التداول",
+      "tradingError": "خطأ في التداول",
       "networkError": "حدث خطأ في الشبكة",
       "unknownError": "حدث خطأ غير معروف",
       "insufficientFunds": "أموال غير كافية",
-      "transactionRejected": "تم رفض المعاملة من قبل المستخدم"
+      "transactionRejected": "رفض المستخدم المعاملة",
+      "pageNotFound": "الصفحة غير موجودة",
+      "pageNotFoundDescription": "الصفحة التي تبحث عنها غير موجودة. ربما تم نقلها أو حذفها."
     },
     "info": {
       "loading": "جاري التحميل...",
       "processing": "جاري المعالجة...",
       "waitingConfirmation": "في انتظار التأكيد...",
-      "connectWalletFirst": "يرجى ربط محفظتك أولاً",
-      "noDataAvailable": "لا توجد بيانات متاحة"
+      "connectWalletFirst": "يرجى توصيل محفظتك أولاً",
+      "noDataAvailable": "لا توجد بيانات متاحة",
+      "launchDescription": "اطلق رمزك المميز باستخدام منحنيات الربط العادلة. لا مبيعات مسبقة، لا تخصيصات للفريق - رموز مدفوعة بالمجتمع فقط على سولانا.",
+      "trendingDescription": "اكتشف أشهر رموز الميم مع أعلى حجم تداول ومشاركة مجتمعية",
+      "browseDescription": "تصفح جميع الرموز المتاحة في النظام البيئي",
+      "createFirstToken": "كن أول من ينشئ رمز ميم!"
     }
   },
   "forms": {
@@ -193,7 +201,7 @@
     "invalidNumber": "رقم غير صالح",
     "mustBePositive": "يجب أن يكون موجباً",
     "uploadImage": "رفع صورة",
-    "dragDropImage": "اسحب وأفلت الصورة هنا",
+    "dragDropImage": "اسحب الصورة وأفلتها هنا",
     "selectFile": "اختر ملف",
     "preview": "معاينة",
     "remove": "إزالة"
@@ -214,7 +222,7 @@
     "months": "أشهر",
     "year": "سنة",
     "years": "سنوات",
-    "ago": "منذ"
+    "ago": "مضت"
   },
   "common": {
     "yes": "نعم",
@@ -230,7 +238,7 @@
     "finish": "إنهاء",
     "submit": "إرسال",
     "save": "حفظ",
-    "edit": "تحرير",
+    "edit": "تعديل",
     "delete": "حذف",
     "view": "عرض",
     "share": "مشاركة",
@@ -242,18 +250,23 @@
     "reload": "إعادة تحميل",
     "loading": "جاري التحميل",
     "error": "خطأ",
-    "success": "نجاح",
+    "success": "نجح",
     "warning": "تحذير",
     "info": "معلومات",
     "more": "المزيد",
     "less": "أقل",
-    "show": "إظهار",
+    "show": "عرض",
     "hide": "إخفاء",
     "expand": "توسيع",
     "collapse": "طي",
     "select": "اختيار",
     "all": "الكل",
     "none": "لا شيء",
-    "any": "أي"
+    "any": "أي",
+    "browse": "تصفح",
+    "loadMore": "تحميل المزيد",
+    "unknown": "غير معروف",
+    "active": "نشط",
+    "back": "العودة"
   }
 } 
