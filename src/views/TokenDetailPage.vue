@@ -449,8 +449,8 @@ const executeTrade = async () => {
       
       uiStore.showToast({
         type: 'success',
-        title: 'Buy Order Successful!',
-        message: `Successfully bought ${tokenSymbol.value} tokens`
+        title: 'Buy Order Successful! 🎉',
+        message: `Successfully bought ${tokenSymbol.value} tokens (Simulation Mode)`
       })
     } else {
       // Execute sell transaction
@@ -458,8 +458,8 @@ const executeTrade = async () => {
       
       uiStore.showToast({
         type: 'success',
-        title: 'Sell Order Successful!',
-        message: `Successfully sold ${tokenSymbol.value} tokens`
+        title: 'Sell Order Successful! 💰',
+        message: `Successfully sold ${tokenSymbol.value} tokens (Simulation Mode)`
       })
     }
 

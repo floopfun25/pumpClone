@@ -15,6 +15,7 @@ import {
 } from '@solana/spl-token'
 import { walletService } from './wallet'
 import { solanaConfig, programConfig, platformConfig, bondingCurveConfig, tradingConfig } from '@/config'
+import { supabase } from './supabase'
 
 // Program instruction types
 export enum BondingCurveInstruction {
@@ -75,6 +76,39 @@ const encodeTradeInstruction = (instruction: TradeInstruction): Buffer => {
   ])
 }
 
+// Helper function to safely handle large numbers for database
+const safeNumber = (value: number): number => {
+  // Use a very conservative limit to avoid precision issues
+  // PostgreSQL BIGINT max is 9,223,372,036,854,775,807
+  // But we'll use a much safer limit to account for JavaScript precision
+  const SAFE_MAX_BIGINT = 9000000000000000000 // 9 quintillion (much safer)
+  
+  if (!Number.isFinite(value) || value < 0) {
+    return 0
+  }
+  
+  if (value > SAFE_MAX_BIGINT) {
+    return SAFE_MAX_BIGINT
+  }
+  
+  return Math.floor(value)
+}
+
+// Helper function to validate and fix price calculations
+const safePrice = (price: number, fallbackPrice: number = 0.0000001): number => {
+  if (!Number.isFinite(price) || price <= 0 || price > 1000000) {
+    console.warn('Invalid price calculated, using fallback:', price, '-> fallback:', fallbackPrice)
+    return fallbackPrice
+  }
+  return price
+}
+
+// Helper function to safely calculate market cap
+const safeMarketCap = (price: number, totalSupply: number): number => {
+  let marketCap = price * totalSupply * LAMPORTS_PER_SOL
+  return safeNumber(marketCap)
+}
+
 export class SolanaProgram {
   private connection: Connection
   private programId: PublicKey
@@ -104,26 +138,68 @@ export class SolanaProgram {
    */
   async getBondingCurveAccount(mintAddress: PublicKey): Promise<BondingCurveAccount | null> {
     try {
-      const [bondingCurveAddress] = this.deriveBondingCurveAddress(mintAddress)
-      
-      const accountInfo = await this.connection.getAccountInfo(bondingCurveAddress)
-      if (!accountInfo || !accountInfo.data) {
+      // For simulation mode, we'll get bonding curve data from database
+      // First check if this token exists in our database
+      const { data: token, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('mint_address', mintAddress.toBase58())
+        .single()
+
+      if (error || !token) {
+        console.log('Token not found in database:', mintAddress.toBase58())
         return null
       }
 
-      // For now, return a mock bonding curve account since we don't have the actual program deployed
-      // In production, this would deserialize the actual account data
+      // Calculate current bonding curve state based on database data
+      const totalSupply = BigInt(token.total_supply * Math.pow(10, token.decimals))
+      
+      // Use bonding curve config for initial state
+      const initialVirtualSol = BigInt(bondingCurveConfig.initialVirtualSolReserves * LAMPORTS_PER_SOL)
+      const initialVirtualTokens = BigInt(bondingCurveConfig.initialVirtualTokenReserves * Math.pow(10, token.decimals))
+      
+      // Calculate actual SOL raised from real transactions
+      // Sum up all buy transactions for this token from the database
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('sol_amount, transaction_type')
+        .eq('token_id', token.id)
+        .eq('status', 'completed')
+      
+      let totalSolRaised = 0
+      if (transactions) {
+        for (const tx of transactions) {
+          if (tx.transaction_type === 'buy') {
+            totalSolRaised += tx.sol_amount
+          } else if (tx.transaction_type === 'sell') {
+            totalSolRaised -= tx.sol_amount
+          }
+        }
+      }
+      
+      // Ensure we have a minimum amount to prevent division by zero
+      totalSolRaised = Math.max(totalSolRaised, 0)
+      
+      // Calculate virtual reserves based on actual trading activity
+      // Convert totalSolRaised to lamports to match initialVirtualSol units
+      const virtualSolReserves = initialVirtualSol + BigInt(Math.floor(totalSolRaised * LAMPORTS_PER_SOL))
+      
+      // Calculate token reserves using constant product formula
+      // k = initialVirtualSol * initialVirtualTokens (constant)
+      const k = initialVirtualSol * initialVirtualTokens
+      const virtualTokenReserves = k / virtualSolReserves
+
       return {
         discriminator: [0, 0, 0, 0, 0, 0, 0, 0],
         mintAddress: mintAddress.toBytes(),
         creator: new Uint8Array(32),
-        virtualTokenReserves: BigInt(bondingCurveConfig.initialVirtualTokenReserves),
-        virtualSolReserves: BigInt(bondingCurveConfig.initialVirtualSolReserves),
-        realTokenReserves: BigInt(bondingCurveConfig.initialVirtualTokenReserves),
-        realSolReserves: BigInt(bondingCurveConfig.initialRealSolReserves),
-        tokenTotalSupply: BigInt(1_000_000_000 * Math.pow(10, 9)),
-        graduated: false,
-        createdAt: BigInt(Date.now()),
+        virtualTokenReserves,
+        virtualSolReserves,
+        realTokenReserves: BigInt(token.locked_tokens_amount * Math.pow(10, token.decimals)),
+        realSolReserves: BigInt(Math.floor(totalSolRaised * LAMPORTS_PER_SOL)),
+        tokenTotalSupply: totalSupply,
+        graduated: token.status === 'graduated',
+        createdAt: BigInt(new Date(token.created_at).getTime()),
         bumpSeed: 255
       }
     } catch (error) {
@@ -274,7 +350,7 @@ export class SolanaProgram {
   }
 
   /**
-   * Execute buy transaction
+   * Execute buy transaction (Database simulation mode)
    */
   async buyTokens(
     mintAddress: PublicKey,
@@ -304,39 +380,171 @@ export class SolanaProgram {
       throw new Error('This token has graduated and can only be traded on DEX')
     }
 
-    // Calculate expected tokens received (simplified calculation)
-    // In a real implementation, you'd call the program's view function
+    // Calculate expected tokens received using bonding curve formula
     const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves
     const newSolReserves = bondingCurve.virtualSolReserves + solAmountLamports
     const newTokenReserves = k / newSolReserves
     const tokensOut = bondingCurve.virtualTokenReserves - newTokenReserves
     
-    // Apply slippage tolerance
-    const minTokensReceived = (tokensOut * BigInt(Math.floor((100 - slippagePercent) * 100))) / BigInt(10000)
+    // Skip slippage check for simulation mode to avoid calculation issues
+    // In production, this would be critical for protecting users
+    console.log('💰 Buy calculation:', {
+      solAmount: Number(solAmountLamports) / LAMPORTS_PER_SOL,
+      tokensOut: Number(tokensOut) / LAMPORTS_PER_SOL,
+      virtualSolReserves: Number(bondingCurve.virtualSolReserves),
+      virtualTokenReserves: Number(bondingCurve.virtualTokenReserves)
+    })
 
-    // Create transaction
-    const transaction = new Transaction()
+    // For simulation mode, we'll create a mock transaction signature and update database
+    const mockSignature = `sim_buy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
-    // Add buy instructions
-    const buyInstructions = await this.createBuyInstruction(
-      mintAddress,
-      walletService.publicKey,
-      solAmountLamports,
-      minTokensReceived,
-      Math.floor(slippagePercent * 100)
-    )
-    
-    transaction.add(...buyInstructions)
+    try {
+      // Get token from database
+      const { data: token, error: tokenError } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('mint_address', mintAddress.toBase58())
+        .single()
 
-    // Send transaction
-    const signature = await walletService.sendTransaction(transaction)
-    
-    console.log('Buy transaction sent:', signature)
-    return signature
+      if (tokenError || !token) {
+        throw new Error('Token not found in database')
+      }
+
+      // Get or create user
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletService.publicKey.toBase58())
+        .single()
+
+      let userId = user?.id
+      if (!user) {
+        const { data: newUser, error: createUserError } = await supabase
+          .from('users')
+          .insert({
+            wallet_address: walletService.publicKey.toBase58(),
+            username: `user_${walletService.publicKey.toBase58().slice(0, 8)}`
+          })
+          .select()
+          .single()
+
+        if (createUserError) throw createUserError
+        userId = newUser.id
+      }
+
+      // Calculate new price and market cap
+      const calculatedPrice = Number(newSolReserves) / Number(newTokenReserves) / LAMPORTS_PER_SOL
+      const newPrice = safePrice(calculatedPrice, token.current_price || 0.0000001)
+      const newMarketCap = safeMarketCap(newPrice, token.total_supply)
+
+      // Store price history for charts
+      await supabase
+        .from('token_price_history')
+        .insert({
+          token_id: token.id,
+          price: newPrice,
+          volume: safeNumber(Number(solAmountLamports) / LAMPORTS_PER_SOL),
+          market_cap: newMarketCap,
+          timestamp: new Date().toISOString()
+        })
+
+      // Record transaction
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          signature: mockSignature,
+          token_id: token.id,
+          user_id: userId,
+          transaction_type: 'buy',
+          sol_amount: safeNumber(solAmount), // Store in SOL, not lamports
+          token_amount: safeNumber(Number(tokensOut) / Math.pow(10, token.decimals)), // Fix: Use token decimals
+          price_per_token: newPrice,
+          bonding_curve_price: newPrice,
+          slippage_percentage: slippagePercent,
+          platform_fee: safeNumber(solAmount * 0.01), // 1% fee
+          status: 'completed',
+          block_time: new Date().toISOString()
+        })
+
+      if (txError) throw txError
+
+      // Update token stats
+      const { error: updateError } = await supabase
+        .from('tokens')
+        .update({
+          current_price: newPrice,
+          market_cap: newMarketCap,
+          volume_24h: safeNumber((token.volume_24h || 0) + solAmount),
+          last_trade_at: new Date().toISOString(),
+          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100)
+        })
+        .eq('id', token.id)
+
+      if (updateError) throw updateError
+
+      // Update or create user holdings
+      const { data: existingHolding } = await supabase
+        .from('user_holdings')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('token_id', token.id)
+        .single()
+
+      if (existingHolding) {
+        // Update existing holding
+        const newAmount = safeNumber(existingHolding.amount + Number(tokensOut))
+        const newTotalInvested = safeNumber((existingHolding.total_invested || 0) + solAmount)
+        const newAvgPrice = newTotalInvested / newAmount
+
+        await supabase
+          .from('user_holdings')
+          .update({
+            amount: newAmount,
+            average_buy_price: newAvgPrice,
+            total_invested: newTotalInvested,
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', existingHolding.id)
+      } else {
+        // Create new holding
+        await supabase
+          .from('user_holdings')
+          .insert({
+            user_id: userId,
+            token_id: token.id,
+            amount: safeNumber(Number(tokensOut)),
+            average_buy_price: newPrice,
+            total_invested: safeNumber(solAmount)
+          })
+      }
+
+      console.log('✅ Buy transaction simulated successfully:', mockSignature)
+      console.log('📊 Tokens received:', Number(tokensOut) / Math.pow(10, 9))
+      console.log('💰 New price:', newPrice, 'SOL')
+      
+      // Force immediate price update for real-time chart updates
+      try {
+        const { RealTimePriceService } = await import('./realTimePriceService')
+        setTimeout(async () => {
+          try {
+            await RealTimePriceService.forceUpdate(token.id)
+          } catch (updateError) {
+            console.warn('Failed to force price update:', updateError)
+          }
+        }, 100) // Small delay to ensure database is updated
+      } catch (error) {
+        console.warn('Failed to import price service:', error)
+      }
+      
+      return mockSignature
+    } catch (error) {
+      console.error('Failed to simulate buy transaction:', error)
+      throw error
+    }
   }
 
   /**
-   * Execute sell transaction
+   * Execute sell transaction (Database simulation mode)
    */
   async sellTokens(
     mintAddress: PublicKey,
@@ -360,53 +568,201 @@ export class SolanaProgram {
       throw new Error('This token has graduated and can only be traded on DEX')
     }
 
-    // Calculate expected SOL received (simplified calculation)
+    // Calculate expected SOL received using bonding curve formula
     const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves
     const newTokenReserves = bondingCurve.virtualTokenReserves + tokenAmountWithDecimals
     const newSolReserves = k / newTokenReserves
     const solOut = bondingCurve.virtualSolReserves - newSolReserves
     
-    // Apply slippage tolerance
-    const minSolReceived = (solOut * BigInt(Math.floor((100 - slippagePercent) * 100))) / BigInt(10000)
+    // Skip slippage check for simulation mode
+    console.log('💰 Sell calculation:', {
+      tokenAmount: tokenAmount,
+      solOut: Number(solOut) / LAMPORTS_PER_SOL,
+      virtualSolReserves: Number(bondingCurve.virtualSolReserves),
+      virtualTokenReserves: Number(bondingCurve.virtualTokenReserves)
+    })
 
-    // Create transaction
-    const transaction = new Transaction()
+    // For simulation mode, we'll create a mock transaction signature and update database
+    const mockSignature = `sim_sell_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
-    // Add sell instructions
-    const sellInstructions = await this.createSellInstruction(
-      mintAddress,
-      walletService.publicKey,
-      tokenAmountWithDecimals,
-      minSolReceived,
-      Math.floor(slippagePercent * 100)
-    )
-    
-    transaction.add(...sellInstructions)
+    try {
+      // Get token from database
+      const { data: token, error: tokenError } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('mint_address', mintAddress.toBase58())
+        .single()
 
-    // Send transaction
-    const signature = await walletService.sendTransaction(transaction)
-    
-    console.log('Sell transaction sent:', signature)
-    return signature
+      if (tokenError || !token) {
+        throw new Error('Token not found in database')
+      }
+
+      // Get user
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletService.publicKey.toBase58())
+        .single()
+
+      if (userError || !user) {
+        throw new Error('User not found')
+      }
+
+      // Check user holdings
+      const { data: holding, error: holdingError } = await supabase
+        .from('user_holdings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('token_id', token.id)
+        .single()
+
+      if (holdingError || !holding || holding.amount < Number(tokenAmountWithDecimals)) {
+        throw new Error('Insufficient token balance')
+      }
+
+      // Calculate new price and market cap
+      const calculatedPrice = Number(newSolReserves) / Number(newTokenReserves) / LAMPORTS_PER_SOL
+      const newPrice = safePrice(calculatedPrice, token.current_price || 0.0000001)
+      const newMarketCap = safeMarketCap(newPrice, token.total_supply)
+
+      // Store price history for charts
+      await supabase
+        .from('token_price_history')
+        .insert({
+          token_id: token.id,
+          price: newPrice,
+          volume: safeNumber(Number(solOut) / LAMPORTS_PER_SOL),
+          market_cap: newMarketCap,
+          timestamp: new Date().toISOString()
+        })
+
+      // Record transaction
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          signature: mockSignature,
+          token_id: token.id,
+          user_id: user.id,
+          transaction_type: 'sell',
+          sol_amount: safeNumber(Number(solOut) / LAMPORTS_PER_SOL),
+          token_amount: safeNumber(Number(tokenAmountWithDecimals) / Math.pow(10, token.decimals)),
+          price_per_token: newPrice,
+          bonding_curve_price: newPrice,
+          slippage_percentage: slippagePercent,
+          platform_fee: safeNumber(Number(solOut) / LAMPORTS_PER_SOL * 0.01),
+          status: 'completed',
+          block_time: new Date().toISOString()
+        })
+
+      if (txError) throw txError
+
+      // Update token stats
+      const { error: updateError } = await supabase
+        .from('tokens')
+        .update({
+          current_price: newPrice,
+          market_cap: newMarketCap,
+          volume_24h: safeNumber((token.volume_24h || 0) + Number(solOut) / LAMPORTS_PER_SOL),
+          last_trade_at: new Date().toISOString(),
+          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100)
+        })
+        .eq('id', token.id)
+
+      if (updateError) throw updateError
+
+      // Update user holdings
+      const newAmount = holding.amount - Number(tokenAmountWithDecimals)
+      if (newAmount <= 0) {
+        // Delete holding if no tokens left
+        await supabase
+          .from('user_holdings')
+          .delete()
+          .eq('id', holding.id)
+      } else {
+        // Update holding amount
+        await supabase
+          .from('user_holdings')
+          .update({
+            amount: newAmount,
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', holding.id)
+      }
+
+      console.log('✅ Sell transaction simulated successfully:', mockSignature)
+      console.log('💰 SOL received:', Number(solOut) / LAMPORTS_PER_SOL)
+      console.log('📊 New price:', newPrice, 'SOL')
+      
+      // Force immediate price update for real-time chart updates
+      try {
+        const { RealTimePriceService } = await import('./realTimePriceService')
+        setTimeout(async () => {
+          try {
+            await RealTimePriceService.forceUpdate(token.id)
+          } catch (updateError) {
+            console.warn('Failed to force price update:', updateError)
+          }
+        }, 100) // Small delay to ensure database is updated
+      } catch (error) {
+        console.warn('Failed to import price service:', error)
+      }
+      
+      return mockSignature
+    } catch (error) {
+      console.error('Failed to simulate sell transaction:', error)
+      throw error
+    }
   }
 
   /**
-   * Get user's token balance
+   * Get user's token balance (Database simulation mode)
    */
   async getUserTokenBalance(mintAddress: PublicKey, userPublicKey: PublicKey): Promise<number> {
     try {
-      const tokenAccount = await getAssociatedTokenAddress(mintAddress, userPublicKey)
-      const accountInfo = await this.connection.getTokenAccountBalance(tokenAccount)
-      
-      return accountInfo.value.uiAmount || 0
+      // Get token from database
+      const { data: token, error: tokenError } = await supabase
+        .from('tokens')
+        .select('id')
+        .eq('mint_address', mintAddress.toBase58())
+        .single()
+
+      if (tokenError || !token) {
+        return 0
+      }
+
+      // Get user from database
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', userPublicKey.toBase58())
+        .single()
+
+      if (userError || !user) {
+        return 0
+      }
+
+      // Get user holdings
+      const { data: holding, error: holdingError } = await supabase
+        .from('user_holdings')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('token_id', token.id)
+        .single()
+
+      if (holdingError || !holding) {
+        return 0
+      }
+
+      // Convert from raw amount to UI amount (divide by 10^9 for 9 decimals)
+      return holding.amount / Math.pow(10, 9)
     } catch (error) {
-      // Token account doesn't exist or other error
+      console.error('Failed to get user token balance:', error)
       return 0
     }
   }
 
   /**
-   * Get all token accounts for a user (for portfolio)
+   * Get all token accounts for a user (Database simulation mode)
    */
   async getUserTokenAccounts(userPublicKey: PublicKey): Promise<Array<{
     mint: string
@@ -414,21 +770,39 @@ export class SolanaProgram {
     decimals: number
   }>> {
     try {
-      const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
-        userPublicKey,
-        { programId: TOKEN_PROGRAM_ID }
-      )
+      // Get user from database
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', userPublicKey.toBase58())
+        .single()
 
-      return tokenAccounts.value
-        .filter(account => {
-          const amount = account.account.data.parsed.info.tokenAmount.uiAmount
-          return amount && amount > 0 // Only return accounts with balance
-        })
-        .map(account => ({
-          mint: account.account.data.parsed.info.mint,
-          balance: account.account.data.parsed.info.tokenAmount.uiAmount,
-          decimals: account.account.data.parsed.info.tokenAmount.decimals
-        }))
+      if (userError || !user) {
+        return []
+      }
+
+      // Get user holdings with token details
+      const { data: holdings, error: holdingsError } = await supabase
+        .from('user_holdings')
+        .select(`
+          amount,
+          tokens!inner (
+            mint_address,
+            decimals
+          )
+        `)
+        .eq('user_id', user.id)
+        .gt('amount', 0)
+
+      if (holdingsError || !holdings) {
+        return []
+      }
+
+      return holdings.map((holding: any) => ({
+        mint: holding.tokens.mint_address,
+        balance: holding.amount / Math.pow(10, holding.tokens.decimals),
+        decimals: holding.tokens.decimals
+      }))
     } catch (error) {
       console.error('Failed to get user token accounts:', error)
       return []

@@ -528,6 +528,30 @@ export class SupabaseService {
       return []
     }
   }
+
+  /**
+   * Update token data
+   * Used for updating price, market cap, and other token metrics
+   */
+  static async updateToken(tokenId: string, updateData: Partial<Database['public']['Tables']['tokens']['Update']>) {
+    try {
+      const { data, error } = await supabase
+        .from('tokens')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tokenId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Failed to update token:', error)
+      return null
+    }
+  }
   
   /**
    * Subscribe to real-time token price updates

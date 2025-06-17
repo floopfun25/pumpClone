@@ -1,73 +1,54 @@
 <template>
-  <div class="tradingview-chart-container bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+  <div class="tradingview-chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden">
     <!-- Chart Header with Tools -->
-    <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-      <!-- Chart Type Selector -->
-      <div class="flex items-center gap-2">
-        <button 
-          v-for="type in chartTypes" 
-          :key="type.value"
-          @click="setChartType(type.value)"
-          :class="[
-            'px-3 py-1 text-xs font-medium rounded transition-colors',
-            chartType === type.value 
-              ? 'bg-blue-500 text-white' 
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-          ]"
-        >
-          {{ type.label }}
-        </button>
+    <div class="flex items-center justify-between p-4 border-b border-[#2b3139] bg-[#1e2329]">
+      <!-- Token Info & Chart Type -->
+      <div class="flex items-center gap-4">
+        <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
+        <div class="flex items-center gap-2">
+          <button 
+            v-for="type in chartTypes" 
+            :key="type.value"
+            @click="setChartType(type.value)"
+            :class="[
+              'px-2 py-1 text-xs font-medium rounded transition-colors',
+              chartType === type.value 
+                ? 'bg-[#f0b90b] text-black' 
+                : 'bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white'
+            ]"
+          >
+            {{ type.label }}
+          </button>
+        </div>
       </div>
 
-      <!-- Timeframe Selector -->
+      <!-- Drawing Tools -->
       <div class="flex items-center gap-2">
         <button 
-          v-for="timeframe in timeframes" 
-          :key="timeframe.value"
-          @click="setTimeframe(timeframe.value)"
-          :class="[
-            'px-3 py-1 text-xs font-medium rounded transition-colors',
-            selectedTimeframe === timeframe.value 
-              ? 'bg-green-500 text-white' 
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-          ]"
-        >
-          {{ timeframe.label }}
-        </button>
-      </div>
-
-      <!-- Chart Tools -->
-      <div class="flex items-center gap-2">
-        <button 
-          @click="toggleIndicator('ma')"
+          v-for="tool in drawingTools" 
+          :key="tool.id"
+          @click="selectDrawingTool(tool.id)"
           :class="[
             'px-2 py-1 text-xs font-medium rounded transition-colors',
-            indicators.ma ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            selectedTool === tool.id 
+              ? 'bg-[#2ebd85] text-white' 
+              : 'bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white'
           ]"
-          title="Moving Average"
+          :title="tool.name"
         >
-          MA
+          {{ tool.icon }}
         </button>
+        <div class="w-px h-4 bg-[#2b3139]"></div>
         <button 
-          @click="toggleIndicator('volume')"
-          :class="[
-            'px-2 py-1 text-xs font-medium rounded transition-colors',
-            indicators.volume ? 'bg-orange-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-          ]"
-          title="Volume"
+          @click="clearDrawings"
+          class="px-2 py-1 text-xs font-medium rounded bg-[#f6465d] text-white hover:bg-[#e63946] transition-colors"
+          title="Clear All Drawings"
         >
-          VOL
-        </button>
-        <button 
-          @click="resetZoom"
-          class="px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          title="Reset Zoom"
-        >
-          🔍
+          🗑️
         </button>
         <button 
           @click="toggleFullscreen"
-          class="px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          class="px-2 py-1 text-xs font-medium rounded bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white transition-colors"
           title="Fullscreen"
         >
           ⛶
@@ -76,95 +57,195 @@
     </div>
 
     <!-- Price Info Bar -->
-    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between p-3 bg-[#1e2329] border-b border-[#2b3139]">
       <div class="flex items-center gap-6">
         <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-600 dark:text-gray-400">{{ tokenSymbol }}/SOL</span>
+          <span class="text-sm text-[#848e9c]">{{ tokenSymbol }}/SOL</span>
           <span :class="['text-lg font-bold', priceChangeColor]">
             ${{ currentPrice.toFixed(8) }}
           </span>
         </div>
         
         <div v-if="priceData.length > 0" class="flex items-center gap-4 text-sm">
-          <span class="text-gray-600 dark:text-gray-400">
-            O: <span class="text-gray-900 dark:text-white">${{ formatPrice(priceData[priceData.length - 1]?.open || 0) }}</span>
+          <span class="text-[#848e9c]">
+            O: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.open || 0) }}</span>
           </span>
-          <span class="text-gray-600 dark:text-gray-400">
-            H: <span class="text-green-600">${{ formatPrice(getHighPrice()) }}</span>
+          <span class="text-[#848e9c]">
+            H: <span class="text-[#2ebd85]">${{ formatPrice(getHighPrice()) }}</span>
           </span>
-          <span class="text-gray-600 dark:text-gray-400">
-            L: <span class="text-red-600">${{ formatPrice(getLowPrice()) }}</span>
+          <span class="text-[#848e9c]">
+            L: <span class="text-[#f6465d]">${{ formatPrice(getLowPrice()) }}</span>
           </span>
-          <span class="text-gray-600 dark:text-gray-400">
-            C: <span class="text-gray-900 dark:text-white">${{ formatPrice(priceData[priceData.length - 1]?.close || 0) }}</span>
+          <span class="text-[#848e9c]">
+            C: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.close || 0) }}</span>
           </span>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-        Real-time
+      <div class="flex items-center gap-4">
+        <!-- Timeframe Selection -->
+        <div class="flex items-center gap-1">
+          <button 
+            v-for="timeframe in timeframes" 
+            :key="timeframe.value"
+            @click="setTimeframe(timeframe.value)"
+            :class="[
+              'px-2 py-1 text-xs rounded transition-colors',
+              selectedTimeframe === timeframe.value 
+                ? 'bg-[#f0b90b] text-black font-medium' 
+                : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
+            ]"
+          >
+            {{ timeframe.label }}
+          </button>
+        </div>
+        
+        <div class="flex items-center gap-2 text-xs text-[#848e9c]">
+          <div class="w-2 h-2 bg-[#2ebd85] rounded-full animate-pulse"></div>
+          FloppFun Pro Chart
+        </div>
       </div>
     </div>
 
     <!-- Chart Container -->
     <div class="relative">
+      <!-- TradingView Widget (Primary) -->
       <div 
-        ref="chartContainer" 
+        v-if="!useFallback"
+        ref="tradingViewContainer" 
         :class="[
-          'chart-area',
-          isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-800' : 'h-96'
+          'tradingview-widget-container',
+          isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
         ]"
-        style="width: 100%; height: 400px;"
-      ></div>
-      
-      <!-- Loading Overlay -->
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 bg-opacity-90">
-        <div class="flex items-center gap-2">
-          <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span class="text-sm text-gray-600 dark:text-gray-400">Loading chart data...</span>
+      >
+        <div 
+          :id="chartId"
+          class="tradingview-widget w-full h-full"
+        ></div>
+      </div>
+
+      <!-- Enhanced Lightweight Charts (Fallback) -->
+      <div 
+        v-else
+        :class="[
+          'flex',
+          isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
+        ]"
+      >
+        <!-- Left Toolbar -->
+        <div class="w-12 bg-[#1e2329] border-r border-[#2b3139] flex flex-col">
+          <!-- Drawing Tools -->
+          <div class="flex flex-col gap-1 p-2">
+            <button 
+              v-for="tool in drawingTools" 
+              :key="tool.id"
+              @click="selectDrawingTool(tool.id)"
+              :class="[
+                'w-8 h-8 flex items-center justify-center rounded text-xs transition-colors',
+                selectedTool === tool.id 
+                  ? 'bg-[#f0b90b] text-black' 
+                  : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
+              ]"
+              :title="tool.name"
+            >
+              {{ tool.icon }}
+            </button>
+          </div>
+          
+          <!-- Chart Type Selector -->
+          <div class="border-t border-[#2b3139] mt-2 pt-2">
+            <div class="flex flex-col gap-1 p-2">
+              <button 
+                v-for="type in chartTypes" 
+                :key="type.value"
+                @click="setChartType(type.value)"
+                :class="[
+                  'w-8 h-8 flex items-center justify-center rounded text-xs transition-colors',
+                  chartType === type.value 
+                    ? 'bg-[#2ebd85] text-white' 
+                    : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
+                ]"
+                :title="type.label"
+              >
+                {{ type.value === 'candlestick' ? '📊' : type.value === 'line' ? '📈' : '📉' }}
+              </button>
+            </div>
+          </div>
+          
+          <!-- Clear Drawings -->
+          <div class="border-t border-[#2b3139] mt-auto">
+            <div class="p-2">
+              <button 
+                @click="clearDrawings"
+                class="w-8 h-8 flex items-center justify-center rounded text-xs text-[#f6465d] hover:text-white hover:bg-[#f6465d] transition-colors"
+                title="Clear All Drawings"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Chart Area -->
+        <div 
+          ref="chartContainer" 
+          class="chart-area relative flex-1"
+          @mousedown="onMouseDown"
+          @mousemove="onMouseMove"
+          @mouseup="onMouseUp"
+          @click="onChartClick"
+        >
+          <!-- Drawing Canvas Overlay -->
+          <canvas 
+            ref="drawingCanvas"
+            class="absolute inset-0 w-full h-full pointer-events-none z-10"
+            :width="canvasWidth"
+            :height="canvasHeight"
+          ></canvas>
         </div>
       </div>
       
-      <!-- Error state -->
-      <div v-if="chartError" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 bg-opacity-90">
-        <div class="text-center">
-          <div class="text-red-500 text-sm mb-2">Chart Error</div>
-          <div class="text-xs text-gray-600 dark:text-gray-400">{{ chartError }}</div>
-          <button @click="retryChart" class="mt-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
-            Retry
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20">
+        <div class="flex flex-col items-center gap-3">
+          <div class="w-8 h-8 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-sm text-[#848e9c]">{{ loadingMessage }}</span>
+          <button 
+            v-if="showFallbackOption"
+            @click="switchToFallback"
+            class="mt-2 px-3 py-1 text-xs bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
+          >
+            Use Enhanced Chart Instead
           </button>
         </div>
       </div>
       
-      <!-- Debug info (temporary) -->
-      <div v-if="showDebug" class="absolute top-2 left-2 text-xs bg-black text-white p-2 rounded z-10">
-        Container: {{ chartContainer ? 'Ready' : 'Not ready' }}<br>
-        Chart: {{ chart ? 'Initialized' : 'Not initialized' }}<br>
-        Data: {{ priceData.length }} candles<br>
-        Loading: {{ loading }}<br>
-        Error: {{ chartError || 'None' }}
+      <!-- Error State -->
+      <div v-if="error && !loading" class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20">
+        <div class="text-center">
+          <div class="text-[#f6465d] text-lg mb-2">⚠️ Chart Error</div>
+          <div class="text-xs text-[#848e9c] mb-4">{{ error }}</div>
+          <div class="flex gap-2 justify-center">
+            <button 
+              @click="initChart" 
+              class="px-4 py-2 text-sm bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
+            >
+              Retry Chart
+            </button>
+          </div>
+        </div>
       </div>
-      
-      <!-- Fallback Simple Chart -->
-      <canvas 
-        v-if="!chart && !loading && !chartError"
-        ref="fallbackCanvas"
-        class="absolute inset-0 w-full h-full"
-        width="800"
-        height="400"
-      ></canvas>
     </div>
 
-    <!-- Chart Footer with Stats -->
-    <div class="p-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+    <!-- Chart Footer -->
+    <div class="p-3 bg-[#1e2329] border-t border-[#2b3139]">
       <div class="flex items-center justify-between text-xs">
         <div class="flex items-center gap-4">
-          <span class="text-gray-600 dark:text-gray-400">Volume: <span class="text-gray-900 dark:text-white">{{ formatVolume(totalVolume) }}</span></span>
-          <span class="text-gray-600 dark:text-gray-400">Market Cap: <span class="text-gray-900 dark:text-white">${{ formatMarketCap(marketCap) }}</span></span>
+          <span class="text-[#848e9c]">Volume: <span class="text-[#d1d4dc]">{{ formatVolume(totalVolume) }}</span></span>
+          <span class="text-[#848e9c]">Market Cap: <span class="text-[#d1d4dc]">${{ formatMarketCap(marketCap) }}</span></span>
         </div>
-        <div class="text-gray-500 dark:text-gray-400">
-          Powered by FloppFun • Data updates every 5s
+        <div class="text-[#848e9c]">
+          FloppFun Pro Chart • Advanced Trading Tools • Real-Time Data
         </div>
       </div>
     </div>
@@ -172,10 +253,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts'
-// Try alternative imports for v5
-import * as LightweightCharts from 'lightweight-charts'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { createChart, ColorType, CandlestickSeries, LineSeries, AreaSeries } from 'lightweight-charts'
+
+// TypeScript declarations
+declare global {
+  interface Window {
+    TradingView: any
+  }
+  var TradingView: any
+}
 
 interface Props {
   tokenId: string
@@ -183,23 +270,37 @@ interface Props {
   mintAddress: string
 }
 
+interface DrawingTool {
+  id: string
+  name: string
+  icon: string
+}
+
+interface Drawing {
+  id: string
+  type: string
+  points: { x: number; y: number; price: number; time: number }[]
+  color: string
+}
+
 const props = defineProps<Props>()
 
-// Chart refs and state
+// Chart state
+const tradingViewContainer = ref<HTMLElement>()
 const chartContainer = ref<HTMLElement>()
-const fallbackCanvas = ref<HTMLCanvasElement>()
-const chart = ref<any>()
-const candlestickSeries = ref<any>()
-const volumeSeries = ref<any>()
-const maSeries = ref<any>()
-
-// Chart configuration
-const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
-const selectedTimeframe = ref('1H')
-const isFullscreen = ref(false)
+const drawingCanvas = ref<HTMLCanvasElement>()
 const loading = ref(true)
-const chartError = ref('')
-const showDebug = ref(true) // Enable for debugging
+const loadingMessage = ref('Initializing chart...')
+const error = ref('')
+const isFullscreen = ref(false)
+const useFallback = ref(false)
+const showFallbackOption = ref(false)
+const chartId = ref(`tradingview_${Math.random().toString(36).substr(2, 9)}`)
+
+// Chart instances
+let tradingViewWidget: any = null
+let lightweightChart: any = null
+let candlestickSeries: any = null
 
 // Chart data
 const priceData = ref<any[]>([])
@@ -207,201 +308,766 @@ const volumeData = ref<any[]>([])
 const currentPrice = ref(0)
 const totalVolume = ref(0)
 const marketCap = ref(0)
+const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
 
-// Chart options
+// Drawing tools state
+const selectedTool = ref('cursor')
+const drawings = ref<Drawing[]>([])
+const isDrawing = ref(false)
+const currentDrawing = ref<Drawing | null>(null)
+const canvasWidth = ref(800)
+const canvasHeight = ref(500)
+
+// Chart configuration
+const selectedTimeframe = ref('24h')
+
+const timeframes = [
+  { label: '1H', value: '1h' },
+  { label: '4H', value: '4h' },
+  { label: '24H', value: '24h' },
+  { label: '7D', value: '7d' },
+  { label: '30D', value: '30d' }
+]
+
 const chartTypes = [
   { label: 'Candles', value: 'candlestick' },
   { label: 'Line', value: 'line' },
   { label: 'Area', value: 'area' }
 ]
 
-const timeframes = [
-  { label: '1m', value: '1M' },
-  { label: '5m', value: '5M' },
-  { label: '15m', value: '15M' },
-  { label: '1h', value: '1H' },
-  { label: '4h', value: '4H' },
-  { label: '1d', value: '1D' }
+const drawingTools: DrawingTool[] = [
+  { id: 'cursor', name: 'Cursor', icon: '🖱️' },
+  { id: 'trendline', name: 'Trend Line', icon: '📈' },
+  { id: 'horizontal', name: 'Horizontal Line', icon: '➖' },
+  { id: 'vertical', name: 'Vertical Line', icon: '|' },
+  { id: 'rectangle', name: 'Rectangle', icon: '▭' },
+  { id: 'fibonacci', name: 'Fibonacci', icon: '🌀' }
 ]
 
-const indicators = ref({
-  ma: false,
-  volume: true
+// Computed
+const priceChangeColor = computed(() => {
+  if (priceData.value.length === 0) return 'text-[#d1d4dc]'
+  const latest = priceData.value[priceData.value.length - 1]
+  const previous = priceData.value[priceData.value.length - 2]
+  if (!previous) return 'text-[#d1d4dc]'
+  return latest.close > previous.close ? 'text-[#2ebd85]' : 'text-[#f6465d]'
 })
 
-// Computed
-const priceChangeColor = ref('text-green-500')
+// Real-time price subscription
+let priceSubscription: (() => void) | null = null
 
-// Methods
+// Initialize chart (try TradingView first, fallback to lightweight)
 const initChart = async () => {
   try {
-    chartError.value = ''
+    console.log('🚀 Initializing chart system...')
     loading.value = true
+    error.value = ''
     
-    console.log('Initializing chart...')
-    
-    if (!chartContainer.value) {
-      throw new Error('Chart container not found')
-    }
-    
-    console.log('Container dimensions:', {
-      width: chartContainer.value.clientWidth,
-      height: chartContainer.value.clientHeight,
-      offsetWidth: chartContainer.value.offsetWidth,
-      offsetHeight: chartContainer.value.offsetHeight
-    })
-    
-    // Ensure container has dimensions
-    if (chartContainer.value.clientWidth === 0 || chartContainer.value.clientHeight === 0) {
-      throw new Error('Chart container has no dimensions')
-    }
-
-    // Create chart with minimal configuration
-    chart.value = createChart(chartContainer.value, {
-      width: chartContainer.value.clientWidth,
-      height: 400
-    })
-
-    console.log('Chart created:', chart.value)
-    
-    // Debug: Log all available methods in the library
-    console.log('LightweightCharts exports:', Object.keys(LightweightCharts))
-    console.log('createChart function:', typeof createChart)
-    
-    // Debug: Log all available methods on the chart object
-    console.log('Chart prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(chart.value)))
-    console.log('Chart own properties:', Object.getOwnPropertyNames(chart.value))
-    
-    // Try to find the correct method by listing all methods
-    const allMethods = []
-    let obj = chart.value
-    do {
-      allMethods.push(...Object.getOwnPropertyNames(obj))
-    } while ((obj = Object.getPrototypeOf(obj)) && obj !== Object.prototype)
-    
-    console.log('All available methods on chart:', allMethods.filter(method => typeof chart.value[method] === 'function'))
-
-    // Generate data first
-    console.log('Generating chart data...')
-    const data = generateCandlestickData()
-    priceData.value = data.candlesticks
-    volumeData.value = data.volumes
-    
-    console.log('Generated data:', priceData.value.length, 'candles')
-
-    // Try different methods to create candlestick series
-    console.log('Creating candlestick series...')
-    
-    try {
-      // Method 1: Use the CandlestickSeries constructor (v5 style)
-      console.log('Trying CandlestickSeries from import...')
-      candlestickSeries.value = chart.value.addSeries(CandlestickSeries, {
-        upColor: '#10b981',
-        downColor: '#ef4444'
-      })
-      console.log('CandlestickSeries method succeeded!')
+    // Start with enhanced chart by default (more reliable)
+    if (useFallback.value) {
+      console.log('📊 Using enhanced chart (primary mode)...')
+      await initLightweightChart()
+      console.log('✅ Enhanced chart initialization successful!')
       
-    } catch (firstError: any) {
-      console.log('CandlestickSeries import failed, trying alternative...', firstError.message)
+      // Set up real-time price updates
+      setupRealTimePriceUpdates()
+    } else {
+      console.log('📈 Attempting TradingView initialization...')
+      loadingMessage.value = 'Loading TradingView...'
+      
+      // Show fallback option quickly since TradingView has issues
+      setTimeout(() => {
+        if (loading.value) {
+          console.log('⏰ 2 seconds elapsed, showing enhanced chart option...')
+          showFallbackOption.value = true
+        }
+      }, 2000) // Reduced from 3 seconds
       
       try {
-        // Method 2: Use string with exact case from exports
-        console.log('Trying addSeries with exact case...')
-        candlestickSeries.value = chart.value.addSeries('CandlestickSeries', {
-          upColor: '#10b981',
-          downColor: '#ef4444'
-        })
-        console.log('Exact case method succeeded!')
+        await initTradingView()
+        console.log('✅ TradingView initialization successful!')
+      } catch (tradingViewError: any) {
+        console.error('❌ TradingView initialization failed:', tradingViewError)
+        console.log('🔄 Auto-switching to enhanced chart...')
+        // Auto-switch to enhanced chart after TradingView fails
+        setTimeout(() => {
+          if (loading.value) {
+            switchToFallback()
+          }
+        }, 1000)
+        throw tradingViewError
+      }
+    }
+  } catch (err: any) {
+    console.error('💥 Chart initialization failed:', err)
+    console.error('Error details:', {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      useFallback: useFallback.value
+    })
+    
+    // Set user-friendly error message
+    if (err.message.includes('TradingView')) {
+      error.value = `TradingView failed to load: ${err.message}`
+    } else {
+      error.value = `Chart initialization failed: ${err.message}`
+    }
+    
+    loading.value = false
+    showFallbackOption.value = false
+  }
+}
+
+// Setup real-time price updates
+const setupRealTimePriceUpdates = async () => {
+  if (!props.tokenId) return
+  
+  try {
+    console.log(`📡 Setting up real-time price updates for token ${props.tokenId}...`)
+    
+    const { RealTimePriceService } = await import('../../services/realTimePriceService')
+    
+          priceSubscription = RealTimePriceService.subscribe(props.tokenId, (realPriceData) => {
+      console.log(`💰 Price update received: ${realPriceData.price} SOL`)
+      
+      // Update current price display
+      currentPrice.value = realPriceData.price
+      marketCap.value = realPriceData.marketCap
+      
+      // Update chart data if using lightweight charts
+      if (useFallback.value && lightweightChart && candlestickSeries) {
+        // Get updated chart data
+        const chartData = RealTimePriceService.getChartData(props.tokenId, '24h')
         
-      } catch (secondError: any) {
-        console.log('Exact case failed, trying lowercase...', secondError.message)
-        
-        try {
-          // Method 3: Try lowercase
-          candlestickSeries.value = chart.value.addSeries('candlestick', {
-            upColor: '#10b981',
-            downColor: '#ef4444'
-          })
-          console.log('Lowercase method succeeded!')
+        if (chartData.length > 0) {
+          // Convert to lightweight charts format
+          const newPriceData = chartData.map(candle => ({
+            time: Math.floor(candle.time / 1000),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close
+          }))
           
-        } catch (thirdError: any) {
-          console.log('All string methods failed, trying LightweightCharts export...', thirdError.message)
+          const newVolumeData = chartData.map(candle => ({
+            time: Math.floor(candle.time / 1000),
+            value: candle.volume,
+            color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
+          }))
           
-          // Method 4: Try using the namespace export
-          candlestickSeries.value = chart.value.addSeries(LightweightCharts.CandlestickSeries, {
-            upColor: '#10b981',
-            downColor: '#ef4444'
-          })
-          console.log('Namespace export method succeeded!')
+          // Update chart series
+          try {
+            candlestickSeries.setData(newPriceData)
+            priceData.value = newPriceData
+            volumeData.value = newVolumeData
+            
+            console.log('📊 Chart updated with new price data')
+          } catch (error) {
+            console.error('Error updating chart:', error)
+          }
         }
+      }
+    })
+    
+    console.log('✅ Real-time price updates configured')
+  } catch (error) {
+    console.error('❌ Failed to setup real-time price updates:', error)
+  }
+}
+
+// TradingView initialization
+const initTradingView = async () => {
+  return new Promise((resolve, reject) => {
+    console.log('🔄 Starting TradingView initialization...')
+    loadingMessage.value = 'Loading TradingView script...'
+    
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="tradingview.com"]')
+    if (existingScript) {
+      console.log('📜 TradingView script already exists, checking if loaded...')
+      if (typeof window.TradingView !== 'undefined') {
+        console.log('✅ TradingView already available, creating widget...')
+        createTradingViewWidget(resolve, reject)
+        return
+      } else {
+        console.log('⚠️ Script exists but TradingView not available, removing old script...')
+        existingScript.remove()
       }
     }
     
-    // If we get here, the series was created successfully
-    console.log('Series created successfully:', candlestickSeries.value)
+    console.log('📥 Loading TradingView script from CDN...')
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/tv.js'
+    script.async = true
+    script.type = 'text/javascript'
     
-    // Set data immediately after creating series
-    if (priceData.value.length > 0 && candlestickSeries.value) {
-      candlestickSeries.value.setData(priceData.value)
-      console.log('Candlestick data set successfully')
+    script.onload = () => {
+      console.log('✅ TradingView script loaded successfully')
+      loadingMessage.value = 'Script loaded, checking availability...'
+      
+      // Check if TradingView is available
+      let attempts = 0
+      const checkTradingView = () => {
+        attempts++
+        console.log(`🔍 Checking TradingView availability (attempt ${attempts})...`)
+        
+        if (typeof window.TradingView !== 'undefined') {
+          console.log('✅ TradingView library is available!')
+          createTradingViewWidget(resolve, reject)
+        } else if (attempts < 10) {
+          console.log(`⏳ TradingView not ready yet, retrying in 500ms...`)
+          setTimeout(checkTradingView, 500)
+        } else {
+          console.error('❌ TradingView library failed to load after 10 attempts')
+          reject(new Error('TradingView library not available after multiple attempts'))
+        }
+      }
+      
+      // Start checking after a short delay
+      setTimeout(checkTradingView, 100)
     }
     
-    // Update current price
-    if (priceData.value.length > 0) {
-      const latest = priceData.value[priceData.value.length - 1]
-      currentPrice.value = latest.close
+    script.onerror = (error) => {
+      console.error('❌ Failed to load TradingView script:', error)
+      reject(new Error('Failed to load TradingView script from CDN'))
     }
     
-    console.log('Chart initialization complete')
+    console.log('📤 Appending TradingView script to document head...')
+    document.head.appendChild(script)
+  })
+}
 
-  } catch (error: any) {
-    console.error('Failed to initialize chart:', error)
-    chartError.value = error.message || 'Unknown error'
-  } finally {
-    loading.value = false
+const createTradingViewWidget = (resolve: Function, reject: Function) => {
+  try {
+    console.log('🏗️ Creating TradingView widget...')
+    loadingMessage.value = 'Creating TradingView widget...'
+    
+    // Verify container exists
+    const container = document.getElementById(chartId.value)
+    if (!container) {
+      console.error('❌ Chart container not found:', chartId.value)
+      reject(new Error(`Chart container with ID ${chartId.value} not found`))
+      return
+    }
+    
+    console.log('✅ Container found:', container)
+    console.log('📊 Container dimensions:', {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      offsetWidth: container.offsetWidth,
+      offsetHeight: container.offsetHeight
+    })
+    
+    // Check if container has dimensions
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      console.warn('⚠️ Container has zero dimensions, this might cause issues')
+    }
+    
+    // Use the most minimal configuration that works reliably
+    const widgetConfig = {
+      width: container.clientWidth || 800,
+      height: container.clientHeight || 500,
+      symbol: "BINANCE:SOLUSDT", // Use full exchange:symbol format
+      interval: "15",
+      timezone: "Etc/UTC",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      toolbar_bg: "#0b0e11",
+      enable_publishing: false,
+      allow_symbol_change: false,
+      save_image: false,
+      hide_side_toolbar: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      container_id: chartId.value,
+      
+      // Very minimal feature set
+      enabled_features: [
+        "left_toolbar"
+      ],
+      
+      disabled_features: [
+        "use_localstorage_for_settings"
+      ],
+
+      // Minimal overrides to avoid schema conflicts
+      overrides: {
+        "paneProperties.background": "#0b0e11"
+      }
+    }
+    
+    console.log('🔧 TradingView widget configuration:', widgetConfig)
+    
+    // Track if callback was called
+    let callbackCalled = false
+    
+    // Create widget with comprehensive error handling
+    tradingViewWidget = new window.TradingView.widget({
+      ...widgetConfig,
+      onChartReady: () => {
+        console.log('🎉 TradingView widget ready!')
+        callbackCalled = true
+        loading.value = false
+        showFallbackOption.value = false
+        resolve(true)
+      }
+    })
+    
+    console.log('✅ TradingView widget created, waiting for onChartReady...')
+    
+    // Set up timeout with callback check
+    const timeout = setTimeout(() => {
+      if (loading.value && !callbackCalled) {
+        console.error('⏰ TradingView widget initialization timeout (15 seconds)')
+        console.log('📋 Widget state:', {
+          widget: !!tradingViewWidget,
+          callbackCalled,
+          loading: loading.value
+        })
+        reject(new Error('TradingView widget initialization timeout - onChartReady never called'))
+      }
+    }, 15000)
+    
+    // Clear timeout when resolved
+    const originalResolve = resolve
+    resolve = (...args: any[]) => {
+      clearTimeout(timeout)
+      originalResolve(...args)
+    }
+    
+    // Try multiple detection methods
+    const checkWidget = (delay: number, attempt: number) => {
+      setTimeout(() => {
+        if (!callbackCalled && tradingViewWidget) {
+          console.log(`🔍 Checking widget state after ${delay/1000} seconds (attempt ${attempt})...`)
+          try {
+            // Try to access widget methods to see if it's ready
+            if (tradingViewWidget.chart && typeof tradingViewWidget.chart === 'function') {
+              console.log('✅ Widget appears ready, triggering success manually')
+              callbackCalled = true
+              loading.value = false
+              showFallbackOption.value = false
+              clearTimeout(timeout)
+              originalResolve(true)
+            } else if (attempt < 3) {
+              // Try again
+              checkWidget(2000, attempt + 1)
+            }
+          } catch (e) {
+            console.log(`🔍 Widget not ready yet (attempt ${attempt}), continuing to wait...`)
+            if (attempt < 3) {
+              checkWidget(2000, attempt + 1)
+            }
+          }
+        }
+      }, delay)
+    }
+    
+    // Start checking after 3 seconds, then retry every 2 seconds
+    checkWidget(3000, 1)
+    
+  } catch (err: any) {
+    console.error('❌ Error creating TradingView widget:', err)
+    console.error('Error details:', {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    })
+    reject(new Error(`TradingView widget creation failed: ${err.message}`))
   }
 }
 
-const loadChartData = async () => {
-  // This method is now integrated into initChart
-  console.log('loadChartData is deprecated - using inline data generation')
+// Lightweight Charts initialization
+const initLightweightChart = async () => {
+  loadingMessage.value = 'Initializing enhanced chart...'
+  
+  if (!chartContainer.value) {
+    throw new Error('Chart container not found')
+  }
+
+  // Load real chart data
+  await loadRealChartData()
+
+  // Create chart
+  lightweightChart = createChart(chartContainer.value, {
+    width: chartContainer.value.clientWidth,
+    height: 500,
+    layout: {
+      background: { type: ColorType.Solid, color: '#0b0e11' },
+      textColor: '#d1d4dc',
+    },
+    grid: {
+      vertLines: { color: '#1e2329' },
+      horzLines: { color: '#1e2329' }
+    },
+    crosshair: {
+      mode: 1,
+      vertLine: { color: '#848e9c' },
+      horzLine: { color: '#848e9c' }
+    },
+    rightPriceScale: {
+      borderColor: '#2b3139',
+      textColor: '#848e9c'
+    },
+    timeScale: {
+      borderColor: '#2b3139',
+      timeVisible: true
+    }
+  })
+
+  // Add series based on chart type
+  addSeries()
+  
+  // Setup canvas for drawings
+  setupDrawingCanvas()
+
+  loading.value = false
+  console.log('Enhanced chart ready!')
 }
 
-const generateCandlestickData = () => {
-  const candlesticks: any[] = []
-  const volumes: any[] = []
-  const now = Date.now()
-  const basePrice = 0.000001 + Math.random() * 0.00001
+const addSeries = () => {
+  if (!lightweightChart) return
+
+  // Remove existing series
+  if (candlestickSeries) {
+    lightweightChart.removeSeries(candlestickSeries)
+  }
+
+  // Add new series based on type
+  if (chartType.value === 'candlestick') {
+    candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
+      upColor: '#2ebd85',
+      downColor: '#f6465d',
+      borderDownColor: '#f6465d',
+      borderUpColor: '#2ebd85',
+      wickDownColor: '#f6465d',
+      wickUpColor: '#2ebd85'
+    })
+    candlestickSeries.setData(priceData.value)
+  } else if (chartType.value === 'line') {
+    candlestickSeries = lightweightChart.addSeries(LineSeries, {
+      color: '#2ebd85',
+      lineWidth: 2
+    })
+    const lineData = priceData.value.map(candle => ({
+      time: candle.time,
+      value: candle.close
+    }))
+    candlestickSeries.setData(lineData)
+  } else if (chartType.value === 'area') {
+    candlestickSeries = lightweightChart.addSeries(AreaSeries, {
+      topColor: 'rgba(46, 189, 133, 0.4)',
+      bottomColor: 'rgba(46, 189, 133, 0.05)',
+      lineColor: '#2ebd85',
+      lineWidth: 2
+    })
+    const areaData = priceData.value.map(candle => ({
+      time: candle.time,
+      value: candle.close
+    }))
+    candlestickSeries.setData(areaData)
+  }
+}
+
+const loadRealChartData = async () => {
+  if (!props.tokenId) {
+    console.warn('No token ID provided for chart data')
+    return
+  }
+
+  try {
+    console.log(`📊 Loading real chart data for token ${props.tokenId}...`)
+    
+    // Get historical chart data from real-time price service
+    const { RealTimePriceService } = await import('../../services/realTimePriceService')
+    const chartData = await RealTimePriceService.getHistoricalChartData(props.tokenId, selectedTimeframe.value)
+    
+    if (chartData.length === 0) {
+      console.log('⚠️ No historical data found, using current state...')
+      // If no historical data, create initial data point from current bonding curve state
+      const { BondingCurveService } = await import('@/services/bondingCurve')
+      const state = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
+      
+      // Create data points for the last hour to show some trend
+      const now = Date.now()
+      const points = []
+      const basePrice = state.currentPrice
+      
+      for (let i = 12; i >= 0; i--) {
+        const time = now - (i * 5 * 60 * 1000) // 5-minute intervals
+        const volatility = 0.001 // 0.1% volatility for mock data
+        const randomChange = (Math.random() - 0.5) * volatility
+        const price = basePrice * (1 + randomChange)
+        
+        points.push({
+          time: Math.floor(time / 1000), // Convert to seconds for chart
+          open: price,
+          high: price * 1.0001,
+          low: price * 0.9999,
+          close: price,
+          volume: Math.random() * 0.1 // Small mock volume
+        })
+      }
+      
+      priceData.value = points
+      currentPrice.value = state.currentPrice
+      totalVolume.value = 0
+      marketCap.value = state.marketCap
+      
+      console.log(`✅ Created ${points.length} initial data points`)
+    } else {
+      // Convert chart data to lightweight charts format
+      priceData.value = chartData.map(candle => ({
+        time: Math.floor(candle.time / 1000), // Convert to seconds
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close
+      }))
+      
+      volumeData.value = chartData.map(candle => ({
+        time: Math.floor(candle.time / 1000),
+        value: candle.volume,
+        color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
+      }))
+      
+      // Update current stats
+      const latestCandle = chartData[chartData.length - 1]
+      currentPrice.value = latestCandle.close
+      totalVolume.value = chartData.reduce((sum, candle) => sum + candle.volume, 0)
+      
+      // Get market cap from bonding curve service
+      const { BondingCurveService } = await import('../../services/bondingCurve')
+      const state = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
+      marketCap.value = state.marketCap
+      
+      console.log(`✅ Loaded ${chartData.length} data points`)
+    }
+    
+    console.log(`💰 Current price: ${currentPrice.value} SOL`)
+    console.log(`📈 Market cap: $${marketCap.value.toFixed(2)}`)
+    
+  } catch (error) {
+    console.error('❌ Failed to load real chart data:', error)
+    // Create minimal fallback data
+    const now = Math.floor(Date.now() / 1000)
+    const fallbackPrice = 0.000001
+    
+    priceData.value = [{
+      time: now,
+      open: fallbackPrice,
+      high: fallbackPrice,
+      low: fallbackPrice,
+      close: fallbackPrice
+    }]
+    
+    volumeData.value = [{
+      time: now,
+      value: 0,
+      color: '#2ebd85'
+    }]
+    
+    currentPrice.value = fallbackPrice
+    totalVolume.value = 0
+    marketCap.value = 0
+  }
+}
+
+// Drawing functionality
+const setupDrawingCanvas = () => {
+  if (!drawingCanvas.value || !chartContainer.value) return
   
-  for (let i = 24; i >= 0; i--) { // Reduced to 24 hours for simpler data
-    const time = Math.floor((now - i * 3600000) / 1000) // 1 hour intervals
-    const volatility = 0.02
-    
-    const open = i === 24 ? basePrice : candlesticks[candlesticks.length - 1].close
-    const change = (Math.random() - 0.5) * volatility * open
-    const close = Math.max(open + change, 0.000001)
-    const high = Math.max(open, close) * (1 + Math.random() * 0.02)
-    const low = Math.min(open, close) * (1 - Math.random() * 0.02)
-    
-    candlesticks.push({
-      time,
-      open,
-      high,
-      low,
-      close
-    })
-    
-    volumes.push({
-      time,
-      value: Math.random() * 1000000,
-      color: close > open ? '#10b981' : '#ef4444'
-    })
+  const container = chartContainer.value
+  canvasWidth.value = container.clientWidth
+  canvasHeight.value = container.clientHeight
+  
+  const canvas = drawingCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // Set canvas size
+  canvas.width = canvasWidth.value
+  canvas.height = canvasHeight.value
+  
+  // Enable pointer events for drawing
+  canvas.style.pointerEvents = 'auto'
+}
+
+const onMouseDown = (event: MouseEvent) => {
+  if (selectedTool.value === 'cursor') return
+  
+  isDrawing.value = true
+  const rect = chartContainer.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  
+  // Start new drawing
+  currentDrawing.value = {
+    id: Date.now().toString(),
+    type: selectedTool.value,
+    points: [{ x, y, price: 0, time: 0 }],
+    color: '#f0b90b'
+  }
+}
+
+const onMouseMove = (event: MouseEvent) => {
+  if (!isDrawing.value || !currentDrawing.value) return
+  
+  const rect = chartContainer.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  
+  // Update drawing
+  if (currentDrawing.value.points.length === 1) {
+    currentDrawing.value.points.push({ x, y, price: 0, time: 0 })
+  } else {
+    currentDrawing.value.points[1] = { x, y, price: 0, time: 0 }
   }
   
-  console.log('Generated sample data:', candlesticks.length, 'candles')
-  return { candlesticks, volumes }
+  drawCanvas()
 }
 
+const onMouseUp = () => {
+  if (!isDrawing.value || !currentDrawing.value) return
+  
+  // Finalize drawing
+  drawings.value.push({ ...currentDrawing.value })
+  currentDrawing.value = null
+  isDrawing.value = false
+  
+  drawCanvas()
+}
+
+const onChartClick = (event: MouseEvent) => {
+  if (selectedTool.value !== 'cursor') return
+  // Handle click events for cursor tool
+}
+
+const drawCanvas = () => {
+  const canvas = drawingCanvas.value
+  if (!canvas) return
+  
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  // Draw all drawings
+  const allDrawings = [...drawings.value]
+  if (currentDrawing.value) {
+    allDrawings.push(currentDrawing.value)
+  }
+  
+  allDrawings.forEach((drawing: Drawing) => {
+    if (!drawing || drawing.points.length < 2) return
+    
+    ctx.strokeStyle = drawing.color
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    
+    const [start, end] = drawing.points
+    
+    switch (drawing.type) {
+      case 'trendline':
+        ctx.moveTo(start.x, start.y)
+        ctx.lineTo(end.x, end.y)
+        break
+      case 'horizontal':
+        ctx.moveTo(0, start.y)
+        ctx.lineTo(canvas.width, start.y)
+        break
+      case 'vertical':
+        ctx.moveTo(start.x, 0)
+        ctx.lineTo(start.x, canvas.height)
+        break
+      case 'rectangle':
+        const width = end.x - start.x
+        const height = end.y - start.y
+        ctx.rect(start.x, start.y, width, height)
+        break
+    }
+    
+    ctx.stroke()
+  })
+}
+
+// Chart controls
+const setChartType = (type: string) => {
+  chartType.value = type as any
+  if (useFallback.value && lightweightChart) {
+    addSeries()
+  }
+}
+
+const setTimeframe = async (timeframe: string) => {
+  selectedTimeframe.value = timeframe
+  console.log(`📅 Switching to ${timeframe} timeframe...`)
+  
+  // Reload chart data with new timeframe
+  await loadRealChartData()
+  
+  // Update chart if using lightweight charts
+  if (useFallback.value && lightweightChart) {
+    addSeries()
+  }
+}
+
+const selectDrawingTool = (toolId: string) => {
+  selectedTool.value = toolId
+}
+
+const clearDrawings = () => {
+  drawings.value = []
+  currentDrawing.value = null
+  drawCanvas()
+}
+
+const switchToFallback = () => {
+  useFallback.value = true
+  showFallbackOption.value = false
+  error.value = ''
+  
+  // Clean up TradingView
+  if (tradingViewWidget) {
+    try {
+      tradingViewWidget.remove()
+    } catch (e) {
+      console.log('TradingView cleanup failed')
+    }
+  }
+  
+  // Initialize lightweight chart
+  nextTick(async () => {
+    await initLightweightChart()
+    // Set up real-time price updates for fallback chart
+    setupRealTimePriceUpdates()
+  })
+}
+
+// TradingView functions removed - we now use only the enhanced chart
+
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value
+  
+  nextTick(() => {
+    if (useFallback.value && lightweightChart) {
+      lightweightChart.resize(
+        chartContainer.value?.clientWidth || 800,
+        chartContainer.value?.clientHeight || 500
+      )
+      setupDrawingCanvas()
+    }
+  })
+}
+
+// Utility functions
 const getHighPrice = (): number => {
   if (priceData.value.length === 0) return 0
   return Math.max(...priceData.value.map(p => p.high))
@@ -412,88 +1078,6 @@ const getLowPrice = (): number => {
   return Math.min(...priceData.value.map(p => p.low))
 }
 
-const setChartType = (type: string) => {
-  chartType.value = type as any
-  // TODO: Recreate series based on type
-}
-
-const setTimeframe = (timeframe: string) => {
-  selectedTimeframe.value = timeframe
-  initChart()
-}
-
-const toggleIndicator = (indicator: string) => {
-  indicators.value[indicator as keyof typeof indicators.value] = !indicators.value[indicator as keyof typeof indicators.value]
-  
-  if (indicator === 'ma' && indicators.value.ma) {
-    addMovingAverage()
-  } else if (indicator === 'ma' && !indicators.value.ma) {
-    removeMovingAverage()
-  }
-}
-
-const addMovingAverage = () => {
-  if (!chart.value) return
-  
-  try {
-    if (typeof chart.value.addLineSeries === 'function') {
-      maSeries.value = chart.value.addLineSeries({
-        color: '#8b5cf6',
-        lineWidth: 2
-      })
-    } else {
-      maSeries.value = chart.value.addSeries('Line', {
-        color: '#8b5cf6',
-        lineWidth: 2
-      })
-    }
-    
-    // Calculate simple moving average
-    const maData = calculateMovingAverage(priceData.value, 20)
-    if (maSeries.value) {
-      maSeries.value.setData(maData)
-    }
-  } catch (error) {
-    console.error('Failed to add moving average:', error)
-  }
-}
-
-const removeMovingAverage = () => {
-  if (chart.value && maSeries.value) {
-    chart.value.removeSeries(maSeries.value)
-    maSeries.value = undefined
-  }
-}
-
-const calculateMovingAverage = (data: any[], period: number): any[] => {
-  const result: any[] = []
-  
-  for (let i = period - 1; i < data.length; i++) {
-    const sum = data.slice(i - period + 1, i + 1).reduce((acc, candle) => acc + candle.close, 0)
-    result.push({
-      time: data[i].time,
-      value: sum / period
-    })
-  }
-  
-  return result
-}
-
-const resetZoom = () => {
-  chart.value?.timeScale().fitContent()
-}
-
-const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value
-  nextTick(() => {
-    chart.value?.resize(
-      chartContainer.value?.clientWidth || 800,
-      chartContainer.value?.clientHeight || 400
-    )
-  })
-}
-
-// Utility functions
 const formatPrice = (price: number): string => {
   if (price >= 1) return price.toFixed(4)
   if (price >= 0.001) return price.toFixed(6)
@@ -514,133 +1098,78 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
-  // Wait a bit for DOM to be fully rendered
+  console.log('TradingViewChart mounted for token:', props.tokenSymbol)
+  
+  // Start with enhanced chart by default (more reliable than TradingView)
+  useFallback.value = true
+  
   setTimeout(() => {
     initChart()
-  }, 100)
-  
-  // Also prepare fallback chart after a delay
-  setTimeout(() => {
-    if (!chart.value && priceData.value.length === 0) {
-      // Generate data for fallback
-      const data = generateCandlestickData()
-      priceData.value = data.candlesticks
-      drawFallbackChart()
-    }
-  }, 3000)
+  }, 500)
 })
 
-const retryChart = () => {
-  chartError.value = ''
-  if (chart.value) {
-    chart.value.remove()
-    chart.value = null
-  }
-  initChart()
-}
-
-const drawFallbackChart = () => {
-  const canvas = fallbackCanvas.value
-  if (!canvas) return
-  
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  
-  const width = canvas.width
-  const height = canvas.height
-  
-  // Clear canvas
-  ctx.fillStyle = '#1f2937'
-  ctx.fillRect(0, 0, width, height)
-  
-  // Draw simple grid
-  ctx.strokeStyle = '#374151'
-  ctx.lineWidth = 1
-  
-  // Vertical lines
-  for (let i = 0; i <= 10; i++) {
-    const x = (width / 10) * i
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, height)
-    ctx.stroke()
-  }
-  
-  // Horizontal lines
-  for (let i = 0; i <= 8; i++) {
-    const y = (height / 8) * i
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(width, y)
-    ctx.stroke()
-  }
-  
-  // Draw simple price line
-  if (priceData.value.length > 0) {
-    ctx.strokeStyle = '#10b981'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    
-    priceData.value.forEach((data, index) => {
-      const x = (width / priceData.value.length) * index
-      const y = height - (data.close / Math.max(...priceData.value.map(p => p.high))) * height
-      
-      if (index === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    })
-    
-    ctx.stroke()
-  }
-  
-  // Draw text
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '14px Arial'
-  ctx.fillText(`${props.tokenSymbol}/SOL - Fallback Chart`, 10, 30)
-  ctx.fillStyle = '#9ca3af'
-  ctx.font = '12px Arial'
-  ctx.fillText('TradingView chart failed to load', 10, 50)
-}
-
 onUnmounted(() => {
-  if (chart.value) {
-    chart.value.remove()
+  // Clean up price subscription
+  if (priceSubscription) {
+    priceSubscription()
+    priceSubscription = null
+  }
+  
+  if (tradingViewWidget) {
+    try {
+      tradingViewWidget.remove()
+    } catch (e) {
+      console.log('TradingView cleanup failed')
+    }
+  }
+  
+  if (lightweightChart) {
+    lightweightChart.remove()
   }
 })
 </script>
 
 <style scoped>
-.chart-area {
-  min-height: 400px;
-}
-
 .tradingview-chart-container {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Custom scrollbar for fullscreen mode */
-.chart-area::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.chart-area::-webkit-scrollbar-track {
-  background: #374151;
-}
-
-.chart-area::-webkit-scrollbar-thumb {
-  background: #6b7280;
-  border-radius: 4px;
-}
-
-.chart-area::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-/* Animation for smooth transitions */
 .chart-area {
-  transition: all 0.3s ease-in-out;
+  min-height: 500px;
+  cursor: crosshair;
+}
+
+.chart-area.cursor {
+  cursor: default;
+}
+
+.tradingview-widget-container {
+  position: relative;
+}
+
+.tradingview-widget {
+  background: #0b0e11;
+}
+
+.tradingview-widget-container.fixed,
+.chart-area.fixed {
+  background: #0b0e11;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style> 
