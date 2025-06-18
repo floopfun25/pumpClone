@@ -97,95 +97,85 @@ class RealTimePriceService {
    */
   private static async fetchAndUpdatePrice(tokenId: string) {
     try {
-      // Get current bonding curve state (real price calculation)
+      // Get current state and calculate period
       const state = await BondingCurveService.getTokenBondingCurveState(tokenId)
-      
-      // Get 24h price change from price history
-      const priceHistory = await SupabaseService.getTokenPriceHistory(tokenId, '24h')
-      let priceChange24h = 0
-      
-      if (priceHistory.length > 0) {
-        const oldestPrice = priceHistory[0].price
-        priceChange24h = ((state.currentPrice - oldestPrice) / oldestPrice) * 100
-      }
-
-      // Create OHLC data for current period (5-minute candles)
       const currentTime = Date.now()
-      const periodStart = Math.floor(currentTime / (5 * 60 * 1000)) * (5 * 60 * 1000)
       
-      // Get recent transactions for volume calculation
-      const recentTransactions = await SupabaseService.getTokenTransactions(tokenId, 100)
-      const recentVolume = recentTransactions
-        .filter(tx => new Date(tx.created_at).getTime() > currentTime - (5 * 60 * 1000))
-        .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) / 1e9
-
-      // Get or create chart data for this token
+      // Get existing chart data or initialize
       let chartData = this.chartDataCache.get(tokenId) || []
       
-      // Update or create current candle
-      const currentCandle = chartData.find(candle => candle.time === periodStart)
+      // Calculate recent volume from transactions
+      const recentVolume = await this.calculateRecentVolume(tokenId)
       
-      if (currentCandle) {
-        // Update existing candle
-        currentCandle.close = state.currentPrice
-        currentCandle.high = Math.max(currentCandle.high, state.currentPrice)
-        currentCandle.low = Math.min(currentCandle.low, state.currentPrice)
-        currentCandle.volume += recentVolume
+      // Calculate price change
+      const priceChange24h = await this.calculatePriceChange24h(tokenId, state.currentPrice)
+      
+      // Update candles for all timeframes
+      const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '24h']
+      
+      for (const timeframe of timeframes) {
+        const periodMs = this.getIntervalMs(timeframe)
+        const periodStart = Math.floor(currentTime / periodMs) * periodMs
         
-        // Force update cache to trigger chart refresh
-        this.chartDataCache.set(tokenId, [...chartData])
-      } else {
-        // Create new candle
-        const newCandle: ChartDataPoint = {
-          time: periodStart,
-          open: chartData.length > 0 ? chartData[chartData.length - 1].close : state.currentPrice,
-          high: state.currentPrice,
-          low: state.currentPrice,
-          close: state.currentPrice,
-          volume: recentVolume
+        // Get or create candle data for this timeframe
+        let timeframeData = this.chartDataCache.get(`${tokenId}_${timeframe}`) || []
+        let currentCandle = timeframeData.find(c => c.time === periodStart)
+        
+        if (currentCandle) {
+          // Update existing candle
+          currentCandle.close = state.currentPrice
+          currentCandle.high = Math.max(currentCandle.high, state.currentPrice)
+          currentCandle.low = Math.min(currentCandle.low, state.currentPrice)
+          currentCandle.volume += recentVolume
+          
+          // Force update cache to trigger chart refresh
+          this.chartDataCache.set(`${tokenId}_${timeframe}`, [...timeframeData])
+        } else {
+          // Create new candle
+          const newCandle: ChartDataPoint = {
+            time: periodStart,
+            open: timeframeData.length > 0 ? timeframeData[timeframeData.length - 1].close : state.currentPrice,
+            high: state.currentPrice,
+            low: state.currentPrice,
+            close: state.currentPrice,
+            volume: recentVolume
+          }
+          timeframeData.push(newCandle)
+          
+          // Keep only required number of candles
+          const maxPeriods = this.getPeriodsForTimeframe(timeframe)
+          if (timeframeData.length > maxPeriods) {
+            timeframeData = timeframeData.slice(-maxPeriods)
+          }
+          
+          // Update cache with new candle
+          this.chartDataCache.set(`${tokenId}_${timeframe}`, timeframeData)
         }
-        chartData.push(newCandle)
-        
-        // Keep only last 100 candles
-        if (chartData.length > 100) {
-          chartData = chartData.slice(-100)
-        }
-        
-        // Update cache with new candle
-        this.chartDataCache.set(tokenId, chartData)
       }
 
-      // Update cache
-      this.priceCache.set(tokenId, {
+      // Create price update data
+      const priceData: RealPriceData = {
         tokenId,
         price: state.currentPrice,
         volume: recentVolume,
         marketCap: state.marketCap,
         priceChange24h,
         timestamp: currentTime,
-        open: currentCandle?.open || state.currentPrice,
-        high: currentCandle?.high || state.currentPrice,
-        low: currentCandle?.low || state.currentPrice,
+        open: chartData[chartData.length - 1]?.open || state.currentPrice,
+        high: chartData[chartData.length - 1]?.high || state.currentPrice,
+        low: chartData[chartData.length - 1]?.low || state.currentPrice,
         close: state.currentPrice
-      })
+      }
+
+      // Update price cache
+      this.priceCache.set(tokenId, priceData)
 
       // Notify subscribers
       const subscribers = this.subscribers.get(tokenId)
       if (subscribers) {
         subscribers.forEach(callback => {
           try {
-            callback({
-              tokenId,
-              price: state.currentPrice,
-              volume: recentVolume,
-              marketCap: state.marketCap,
-              priceChange24h,
-              timestamp: currentTime,
-              open: currentCandle?.open || state.currentPrice,
-              high: currentCandle?.high || state.currentPrice,
-              low: currentCandle?.low || state.currentPrice,
-              close: state.currentPrice
-            })
+            callback(priceData)
           } catch (error) {
             console.error('Error in price update callback:', error)
           }
@@ -246,30 +236,9 @@ class RealTimePriceService {
    * Get chart data for a token
    */
   static getChartData(tokenId: string, timeframe: string = '24h'): ChartDataPoint[] {
-    const cached = this.chartDataCache.get(tokenId) || []
-    
-    // Filter based on timeframe
-    const now = Date.now()
-    let cutoffTime: number
-    
-    switch (timeframe) {
-      case '1h':
-        cutoffTime = now - (60 * 60 * 1000)
-        break
-      case '4h':
-        cutoffTime = now - (4 * 60 * 60 * 1000)
-        break
-      case '24h':
-        cutoffTime = now - (24 * 60 * 60 * 1000)
-        break
-      case '7d':
-        cutoffTime = now - (7 * 24 * 60 * 60 * 1000)
-        break
-      default:
-        cutoffTime = now - (24 * 60 * 60 * 1000)
-    }
-    
-    return cached.filter(candle => candle.time >= cutoffTime)
+    // Get cached data for specific timeframe
+    const cached = this.chartDataCache.get(`${tokenId}_${timeframe}`) || []
+    return cached
   }
 
   /**
@@ -288,8 +257,8 @@ class RealTimePriceService {
         const points: ChartDataPoint[] = []
         
         // Create data points for the last period to show some trend
-        const periods = 24 // Show 24 periods
-        const periodMs = this.getIntervalMs(timeframe) // Get interval based on timeframe
+        const periods = this.getPeriodsForTimeframe(timeframe)
+        const periodMs = this.getIntervalMs(timeframe)
         
         for (let i = periods - 1; i >= 0; i--) {
           const time = now - (i * periodMs)
@@ -364,16 +333,51 @@ class RealTimePriceService {
    */
   private static getIntervalMs(timeframe: string): number {
     switch (timeframe) {
+      case '1m':
+        return 60 * 1000 // 1 minute
+      case '5m':
+        return 5 * 60 * 1000 // 5 minutes
+      case '15m':
+        return 15 * 60 * 1000 // 15 minutes
+      case '30m':
+        return 30 * 60 * 1000 // 30 minutes
       case '1h':
-        return 5 * 60 * 1000 // 5 minute candles
+        return 60 * 60 * 1000 // 1 hour
       case '4h':
-        return 15 * 60 * 1000 // 15 minute candles
+        return 4 * 60 * 60 * 1000 // 4 hours
       case '24h':
-        return 60 * 60 * 1000 // 1 hour candles
+        return 24 * 60 * 60 * 1000 // 24 hours
       case '7d':
-        return 4 * 60 * 60 * 1000 // 4 hour candles
+        return 7 * 24 * 60 * 60 * 1000 // 7 days
+      case '30d':
+        return 30 * 24 * 60 * 60 * 1000 // 30 days
       default:
-        return 60 * 60 * 1000 // 1 hour candles
+        return 5 * 60 * 1000 // Default to 5 minutes
+    }
+  }
+
+  private static getPeriodsForTimeframe(timeframe: string): number {
+    switch (timeframe) {
+      case '1m':
+        return 60 // Show last 60 minutes for 1m
+      case '5m':
+        return 72 // Show last 6 hours for 5m
+      case '15m':
+        return 96 // Show last 24 hours for 15m
+      case '30m':
+        return 96 // Show last 48 hours for 30m
+      case '1h':
+        return 72 // Show last 72 hours for 1h
+      case '4h':
+        return 90 // Show last 15 days for 4h
+      case '24h':
+        return 30 // Show last 30 days for 24h
+      case '7d':
+        return 30 // Show last 30 weeks for 7d
+      case '30d':
+        return 24 // Show last 24 months for 30d
+      default:
+        return 72
     }
   }
 
@@ -427,6 +431,33 @@ class RealTimePriceService {
   static clearCache(): void {
     this.priceCache.clear()
     this.chartDataCache.clear()
+  }
+
+  private static async calculateRecentVolume(tokenId: string): Promise<number> {
+    try {
+      const currentTime = Date.now()
+      const recentTransactions = await SupabaseService.getTokenTransactions(tokenId, 100)
+      return recentTransactions
+        .filter(tx => new Date(tx.created_at).getTime() > currentTime - (5 * 60 * 1000))
+        .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) / 1e9
+    } catch (error) {
+      console.error('Error calculating recent volume:', error)
+      return 0
+    }
+  }
+
+  private static async calculatePriceChange24h(tokenId: string, currentPrice: number): Promise<number> {
+    try {
+      const priceHistory = await SupabaseService.getTokenPriceHistory(tokenId, '24h')
+      if (priceHistory.length > 0) {
+        const oldestPrice = priceHistory[0].price
+        return ((currentPrice - oldestPrice) / oldestPrice) * 100
+      }
+      return 0
+    } catch (error) {
+      console.error('Error calculating 24h price change:', error)
+      return 0
+    }
   }
 }
 

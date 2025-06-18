@@ -254,7 +254,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { createChart, ColorType, CandlestickSeries, LineSeries, AreaSeries } from 'lightweight-charts'
+import { createChart, ColorType, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 
 // TypeScript declarations
 declare global {
@@ -293,14 +294,14 @@ const loading = ref(true)
 const loadingMessage = ref('Initializing chart...')
 const error = ref('')
 const isFullscreen = ref(false)
-const useFallback = ref(false)
+const useFallback = ref(true) // Always use enhanced chart
 const showFallbackOption = ref(false)
-const chartId = ref(`tradingview_${Math.random().toString(36).substr(2, 9)}`)
+const chartId = ref(`chart_${Math.random().toString(36).substr(2, 9)}`)
 
 // Chart instances
-let tradingViewWidget: any = null
 let lightweightChart: any = null
 let candlestickSeries: any = null
+let volumeSeries: any = null
 
 // Chart data
 const priceData = ref<any[]>([])
@@ -322,6 +323,10 @@ const canvasHeight = ref(500)
 const selectedTimeframe = ref('24h')
 
 const timeframes = [
+  { label: '1M', value: '1m' },
+  { label: '5M', value: '5m' },
+  { label: '15M', value: '15m' },
+  { label: '30M', value: '30m' },
   { label: '1H', value: '1h' },
   { label: '4H', value: '4h' },
   { label: '24H', value: '24h' },
@@ -356,48 +361,20 @@ const priceChangeColor = computed(() => {
 // Real-time price subscription
 let priceSubscription: (() => void) | null = null
 
-// Initialize chart (try TradingView first, fallback to lightweight)
+// Initialize chart
 const initChart = async () => {
   try {
     console.log('🚀 Initializing chart system...')
     loading.value = true
     error.value = ''
     
-    // Start with enhanced chart by default (more reliable)
-    if (useFallback.value) {
-      console.log('📊 Using enhanced chart (primary mode)...')
-      await initLightweightChart()
-      console.log('✅ Enhanced chart initialization successful!')
-      
-      // Set up real-time price updates
-      setupRealTimePriceUpdates()
-    } else {
-      console.log('📈 Attempting TradingView initialization...')
-      loadingMessage.value = 'Loading TradingView...'
-      
-      // Show fallback option quickly since TradingView has issues
-      setTimeout(() => {
-        if (loading.value) {
-          console.log('⏰ 2 seconds elapsed, showing enhanced chart option...')
-          showFallbackOption.value = true
-        }
-      }, 2000) // Reduced from 3 seconds
-      
-      try {
-        await initTradingView()
-        console.log('✅ TradingView initialization successful!')
-      } catch (tradingViewError: any) {
-        console.error('❌ TradingView initialization failed:', tradingViewError)
-        console.log('🔄 Auto-switching to enhanced chart...')
-        // Auto-switch to enhanced chart after TradingView fails
-        setTimeout(() => {
-          if (loading.value) {
-            switchToFallback()
-          }
-        }, 1000)
-        throw tradingViewError
-      }
-    }
+    console.log('📊 Using enhanced chart (primary mode)...')
+    await initLightweightChart()
+    console.log('✅ Enhanced chart initialization successful!')
+    
+    // Set up real-time price updates
+    setupRealTimePriceUpdates()
+    
   } catch (err: any) {
     console.error('💥 Chart initialization failed:', err)
     console.error('Error details:', {
@@ -407,13 +384,7 @@ const initChart = async () => {
       useFallback: useFallback.value
     })
     
-    // Set user-friendly error message
-    if (err.message.includes('TradingView')) {
-      error.value = `TradingView failed to load: ${err.message}`
-    } else {
-      error.value = `Chart initialization failed: ${err.message}`
-    }
-    
+    error.value = `Chart initialization failed: ${err.message}`
     loading.value = false
     showFallbackOption.value = false
   }
@@ -428,44 +399,55 @@ const setupRealTimePriceUpdates = async () => {
     
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     
-          priceSubscription = RealTimePriceService.subscribe(props.tokenId, (realPriceData) => {
+    priceSubscription = RealTimePriceService.subscribe(props.tokenId, async (realPriceData) => {
       console.log(`💰 Price update received: ${realPriceData.price} SOL`)
       
       // Update current price display
       currentPrice.value = realPriceData.price
       marketCap.value = realPriceData.marketCap
       
-      // Update chart data if using lightweight charts
-      if (useFallback.value && lightweightChart && candlestickSeries) {
-        // Get updated chart data
-        const chartData = RealTimePriceService.getChartData(props.tokenId, '24h')
-        
-        if (chartData.length > 0) {
-          // Convert to lightweight charts format
-          const newPriceData = chartData.map(candle => ({
-            time: Math.floor(candle.time / 1000),
-            open: candle.open,
-            high: candle.high,
-            low: candle.low,
-            close: candle.close
-          }))
-          
-          const newVolumeData = chartData.map(candle => ({
-            time: Math.floor(candle.time / 1000),
-            value: candle.volume,
-            color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
-          }))
-          
-          // Update chart series
-          try {
-            candlestickSeries.setData(newPriceData)
-            priceData.value = newPriceData
-            volumeData.value = newVolumeData
-            
-            console.log('📊 Chart updated with new price data')
-          } catch (error) {
-            console.error('Error updating chart:', error)
+      // Get updated chart data for current timeframe
+      const chartData = RealTimePriceService.getChartData(props.tokenId, selectedTimeframe.value)
+      
+      if (chartData.length > 0) {
+        // Convert to lightweight charts format with validation
+        priceData.value = chartData.map((candle, index) => {
+          const candleData = {
+            time: Math.floor(candle.time / 1000), // Convert to seconds
+            open: Number(candle.open) || realPriceData.price,
+            high: Number(candle.high) || realPriceData.price,
+            low: Number(candle.low) || realPriceData.price,
+            close: Number(candle.close) || realPriceData.price
           }
+          
+          // Validate OHLC data
+          if (candleData.high < candleData.low) {
+            candleData.high = candleData.low
+          }
+          if (candleData.open < candleData.low || candleData.open > candleData.high) {
+            candleData.open = candleData.close
+          }
+          if (candleData.close < candleData.low || candleData.close > candleData.high) {
+            candleData.close = (candleData.high + candleData.low) / 2
+          }
+          
+          if (index === 0) {
+            console.log('📊 Sample candle data:', candleData)
+          }
+          
+          return candleData
+        })
+        
+        volumeData.value = chartData.map(candle => ({
+          time: Math.floor(candle.time / 1000),
+          value: Number(candle.volume) || 0,
+          color: (candle.close > candle.open) ? '#2ebd85' : '#f6465d'
+        }))
+        
+        // Update chart if using lightweight charts
+        if (useFallback.value && lightweightChart && candlestickSeries) {
+          candlestickSeries.setData(priceData.value)
+          console.log(`📊 Chart updated with ${priceData.value.length} candles`)
         }
       }
     })
@@ -473,209 +455,6 @@ const setupRealTimePriceUpdates = async () => {
     console.log('✅ Real-time price updates configured')
   } catch (error) {
     console.error('❌ Failed to setup real-time price updates:', error)
-  }
-}
-
-// TradingView initialization
-const initTradingView = async () => {
-  return new Promise((resolve, reject) => {
-    console.log('🔄 Starting TradingView initialization...')
-    loadingMessage.value = 'Loading TradingView script...'
-    
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src*="tradingview.com"]')
-    if (existingScript) {
-      console.log('📜 TradingView script already exists, checking if loaded...')
-      if (typeof window.TradingView !== 'undefined') {
-        console.log('✅ TradingView already available, creating widget...')
-        createTradingViewWidget(resolve, reject)
-        return
-      } else {
-        console.log('⚠️ Script exists but TradingView not available, removing old script...')
-        existingScript.remove()
-      }
-    }
-    
-    console.log('📥 Loading TradingView script from CDN...')
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/tv.js'
-    script.async = true
-    script.type = 'text/javascript'
-    
-    script.onload = () => {
-      console.log('✅ TradingView script loaded successfully')
-      loadingMessage.value = 'Script loaded, checking availability...'
-      
-      // Check if TradingView is available
-      let attempts = 0
-      const checkTradingView = () => {
-        attempts++
-        console.log(`🔍 Checking TradingView availability (attempt ${attempts})...`)
-        
-        if (typeof window.TradingView !== 'undefined') {
-          console.log('✅ TradingView library is available!')
-          createTradingViewWidget(resolve, reject)
-        } else if (attempts < 10) {
-          console.log(`⏳ TradingView not ready yet, retrying in 500ms...`)
-          setTimeout(checkTradingView, 500)
-        } else {
-          console.error('❌ TradingView library failed to load after 10 attempts')
-          reject(new Error('TradingView library not available after multiple attempts'))
-        }
-      }
-      
-      // Start checking after a short delay
-      setTimeout(checkTradingView, 100)
-    }
-    
-    script.onerror = (error) => {
-      console.error('❌ Failed to load TradingView script:', error)
-      reject(new Error('Failed to load TradingView script from CDN'))
-    }
-    
-    console.log('📤 Appending TradingView script to document head...')
-    document.head.appendChild(script)
-  })
-}
-
-const createTradingViewWidget = (resolve: Function, reject: Function) => {
-  try {
-    console.log('🏗️ Creating TradingView widget...')
-    loadingMessage.value = 'Creating TradingView widget...'
-    
-    // Verify container exists
-    const container = document.getElementById(chartId.value)
-    if (!container) {
-      console.error('❌ Chart container not found:', chartId.value)
-      reject(new Error(`Chart container with ID ${chartId.value} not found`))
-      return
-    }
-    
-    console.log('✅ Container found:', container)
-    console.log('📊 Container dimensions:', {
-      width: container.clientWidth,
-      height: container.clientHeight,
-      offsetWidth: container.offsetWidth,
-      offsetHeight: container.offsetHeight
-    })
-    
-    // Check if container has dimensions
-    if (container.clientWidth === 0 || container.clientHeight === 0) {
-      console.warn('⚠️ Container has zero dimensions, this might cause issues')
-    }
-    
-    // Use the most minimal configuration that works reliably
-    const widgetConfig = {
-      width: container.clientWidth || 800,
-      height: container.clientHeight || 500,
-      symbol: "BINANCE:SOLUSDT", // Use full exchange:symbol format
-      interval: "15",
-      timezone: "Etc/UTC",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      toolbar_bg: "#0b0e11",
-      enable_publishing: false,
-      allow_symbol_change: false,
-      save_image: false,
-      hide_side_toolbar: false,
-      hide_top_toolbar: false,
-      hide_legend: false,
-      container_id: chartId.value,
-      
-      // Very minimal feature set
-      enabled_features: [
-        "left_toolbar"
-      ],
-      
-      disabled_features: [
-        "use_localstorage_for_settings"
-      ],
-
-      // Minimal overrides to avoid schema conflicts
-      overrides: {
-        "paneProperties.background": "#0b0e11"
-      }
-    }
-    
-    console.log('🔧 TradingView widget configuration:', widgetConfig)
-    
-    // Track if callback was called
-    let callbackCalled = false
-    
-    // Create widget with comprehensive error handling
-    tradingViewWidget = new window.TradingView.widget({
-      ...widgetConfig,
-      onChartReady: () => {
-        console.log('🎉 TradingView widget ready!')
-        callbackCalled = true
-        loading.value = false
-        showFallbackOption.value = false
-        resolve(true)
-      }
-    })
-    
-    console.log('✅ TradingView widget created, waiting for onChartReady...')
-    
-    // Set up timeout with callback check
-    const timeout = setTimeout(() => {
-      if (loading.value && !callbackCalled) {
-        console.error('⏰ TradingView widget initialization timeout (15 seconds)')
-        console.log('📋 Widget state:', {
-          widget: !!tradingViewWidget,
-          callbackCalled,
-          loading: loading.value
-        })
-        reject(new Error('TradingView widget initialization timeout - onChartReady never called'))
-      }
-    }, 15000)
-    
-    // Clear timeout when resolved
-    const originalResolve = resolve
-    resolve = (...args: any[]) => {
-      clearTimeout(timeout)
-      originalResolve(...args)
-    }
-    
-    // Try multiple detection methods
-    const checkWidget = (delay: number, attempt: number) => {
-      setTimeout(() => {
-        if (!callbackCalled && tradingViewWidget) {
-          console.log(`🔍 Checking widget state after ${delay/1000} seconds (attempt ${attempt})...`)
-          try {
-            // Try to access widget methods to see if it's ready
-            if (tradingViewWidget.chart && typeof tradingViewWidget.chart === 'function') {
-              console.log('✅ Widget appears ready, triggering success manually')
-              callbackCalled = true
-              loading.value = false
-              showFallbackOption.value = false
-              clearTimeout(timeout)
-              originalResolve(true)
-            } else if (attempt < 3) {
-              // Try again
-              checkWidget(2000, attempt + 1)
-            }
-          } catch (e) {
-            console.log(`🔍 Widget not ready yet (attempt ${attempt}), continuing to wait...`)
-            if (attempt < 3) {
-              checkWidget(2000, attempt + 1)
-            }
-          }
-        }
-      }, delay)
-    }
-    
-    // Start checking after 3 seconds, then retry every 2 seconds
-    checkWidget(3000, 1)
-    
-  } catch (err: any) {
-    console.error('❌ Error creating TradingView widget:', err)
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      stack: err.stack
-    })
-    reject(new Error(`TradingView widget creation failed: ${err.message}`))
   }
 }
 
@@ -687,10 +466,10 @@ const initLightweightChart = async () => {
     throw new Error('Chart container not found')
   }
 
-  // Load real chart data
+  // Load real chart data first
   await loadRealChartData()
 
-  // Create chart
+  // Create chart with proper configuration
   lightweightChart = createChart(chartContainer.value, {
     width: chartContainer.value.clientWidth,
     height: 500,
@@ -709,22 +488,33 @@ const initLightweightChart = async () => {
     },
     rightPriceScale: {
       borderColor: '#2b3139',
-      textColor: '#848e9c'
+      textColor: '#848e9c',
+      scaleMargins: {
+        top: 0.1,
+        bottom: 0.2,
+      },
     },
     timeScale: {
       borderColor: '#2b3139',
-      timeVisible: true
+      timeVisible: true,
+      secondsVisible: false
     }
   })
 
-  // Add series based on chart type
-  addSeries()
+  // Add series with the loaded data
+  try {
+    addSeries()
+    console.log('✅ Chart series added successfully')
+  } catch (error) {
+    console.error('❌ Failed to add chart series:', error)
+    throw error
+  }
   
   // Setup canvas for drawings
   setupDrawingCanvas()
 
   loading.value = false
-  console.log('Enhanced chart ready!')
+  console.log('✅ Enhanced chart ready!')
 }
 
 const addSeries = () => {
@@ -732,42 +522,96 @@ const addSeries = () => {
 
   // Remove existing series
   if (candlestickSeries) {
-    lightweightChart.removeSeries(candlestickSeries)
+    try {
+      lightweightChart.removeSeries(candlestickSeries)
+    } catch (error) {
+      console.warn('Error removing candlestick series:', error)
+    }
+    candlestickSeries = null
+  }
+  
+  if (volumeSeries) {
+    try {
+      lightweightChart.removeSeries(volumeSeries)
+    } catch (error) {
+      console.warn('Error removing volume series:', error)
+    }
+    volumeSeries = null
   }
 
-  // Add new series based on type
-  if (chartType.value === 'candlestick') {
-    candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
-      upColor: '#2ebd85',
-      downColor: '#f6465d',
-      borderDownColor: '#f6465d',
-      borderUpColor: '#2ebd85',
-      wickDownColor: '#f6465d',
-      wickUpColor: '#2ebd85'
-    })
-    candlestickSeries.setData(priceData.value)
-  } else if (chartType.value === 'line') {
-    candlestickSeries = lightweightChart.addSeries(LineSeries, {
-      color: '#2ebd85',
-      lineWidth: 2
-    })
-    const lineData = priceData.value.map(candle => ({
-      time: candle.time,
-      value: candle.close
-    }))
-    candlestickSeries.setData(lineData)
-  } else if (chartType.value === 'area') {
-    candlestickSeries = lightweightChart.addSeries(AreaSeries, {
-      topColor: 'rgba(46, 189, 133, 0.4)',
-      bottomColor: 'rgba(46, 189, 133, 0.05)',
-      lineColor: '#2ebd85',
-      lineWidth: 2
-    })
-    const areaData = priceData.value.map(candle => ({
-      time: candle.time,
-      value: candle.close
-    }))
-    candlestickSeries.setData(areaData)
+  console.log(`Adding ${chartType.value} series with ${priceData.value.length} data points`)
+
+  try {
+    // Add new series based on type using correct v5 API
+    if (chartType.value === 'candlestick') {
+      // Add candlestick series using correct API
+      candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
+        upColor: '#2ebd85',
+        downColor: '#f6465d',
+        borderUpColor: '#2ebd85',
+        borderDownColor: '#f6465d',
+        wickUpColor: '#2ebd85',
+        wickDownColor: '#f6465d'
+      })
+      
+      if (priceData.value.length > 0) {
+        candlestickSeries.setData(priceData.value)
+      }
+      
+      // Add volume histogram series using correct API
+      volumeSeries = lightweightChart.addSeries(HistogramSeries, {
+        color: '#26a69a',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: '', // Set as an overlay
+        scaleMargins: {
+          top: 0.8,
+          bottom: 0.0,
+        },
+      })
+      
+      if (volumeData.value.length > 0) {
+        volumeSeries.setData(volumeData.value)
+      }
+    } else if (chartType.value === 'line') {
+      // Add line series using correct API
+      candlestickSeries = lightweightChart.addSeries(LineSeries, {
+        color: '#2ebd85',
+        lineWidth: 2
+      })
+      
+      const lineData = priceData.value.map(candle => ({
+        time: candle.time,
+        value: candle.close
+      }))
+      
+      if (lineData.length > 0) {
+        candlestickSeries.setData(lineData)
+      }
+    } else if (chartType.value === 'area') {
+      // Add area series using correct API
+      candlestickSeries = lightweightChart.addSeries(AreaSeries, {
+        topColor: 'rgba(46, 189, 133, 0.4)',
+        bottomColor: 'rgba(46, 189, 133, 0.05)',
+        lineColor: '#2ebd85',
+        lineWidth: 2
+      })
+      
+      const areaData = priceData.value.map(candle => ({
+        time: candle.time,
+        value: candle.close
+      }))
+      
+      if (areaData.length > 0) {
+        candlestickSeries.setData(areaData)
+      }
+    }
+    
+    console.log(`✅ Successfully added ${chartType.value} series`)
+  } catch (error) {
+    console.error('Error creating chart series:', error)
+    throw error
   }
 }
 
@@ -780,94 +624,138 @@ const loadRealChartData = async () => {
   try {
     console.log(`📊 Loading real chart data for token ${props.tokenId}...`)
     
+    // Get bonding curve state first to ensure we have a valid price
+    const { BondingCurveService } = await import('../../services/bondingCurve')
+    const bondingCurveState = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
+    
+    console.log('💰 Bonding curve state:', {
+      currentPrice: bondingCurveState.currentPrice,
+      marketCap: bondingCurveState.marketCap,
+      virtualSolReserves: bondingCurveState.virtualSolReserves,
+      virtualTokenReserves: bondingCurveState.virtualTokenReserves
+    })
+    
+    // If price is 0, there's an issue with the bonding curve
+    if (bondingCurveState.currentPrice === 0) {
+      console.warn('⚠️ Bonding curve returned price of 0, using fallback price')
+      bondingCurveState.currentPrice = 0.000001 // Fallback price
+    }
+    
     // Get historical chart data from real-time price service
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     const chartData = await RealTimePriceService.getHistoricalChartData(props.tokenId, selectedTimeframe.value)
     
+    console.log('📊 Raw chart data:', chartData)
+    
+    // Ensure we have valid data
     if (chartData.length === 0) {
-      console.log('⚠️ No historical data found, using current state...')
-      // If no historical data, create initial data point from current bonding curve state
-      const { BondingCurveService } = await import('@/services/bondingCurve')
-      const state = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
+      console.log('⚠️ No chart data available, creating minimal data set')
       
-      // Create data points for the last hour to show some trend
+      // Create a minimal dataset with current price
       const now = Date.now()
-      const points = []
-      const basePrice = state.currentPrice
+      const currentPrice = bondingCurveState.currentPrice
       
-      for (let i = 12; i >= 0; i--) {
-        const time = now - (i * 5 * 60 * 1000) // 5-minute intervals
-        const volatility = 0.001 // 0.1% volatility for mock data
-        const randomChange = (Math.random() - 0.5) * volatility
-        const price = basePrice * (1 + randomChange)
-        
-        points.push({
-          time: Math.floor(time / 1000), // Convert to seconds for chart
-          open: price,
-          high: price * 1.0001,
-          low: price * 0.9999,
-          close: price,
-          volume: Math.random() * 0.1 // Small mock volume
-        })
+      chartData.push({
+        time: now - 5 * 60 * 1000, // 5 minutes ago
+        open: currentPrice,
+        high: currentPrice * 1.001,
+        low: currentPrice * 0.999,
+        close: currentPrice,
+        volume: 0
+      })
+      
+      chartData.push({
+        time: now,
+        open: currentPrice,
+        high: currentPrice * 1.001,
+        low: currentPrice * 0.999,
+        close: currentPrice,
+        volume: 0
+      })
+    }
+    
+    // Convert chart data to lightweight charts format with validation
+    priceData.value = chartData.map((candle, index) => {
+      const candleData = {
+        time: Math.floor(candle.time / 1000), // Convert to seconds
+        open: Number(candle.open) || bondingCurveState.currentPrice,
+        high: Number(candle.high) || bondingCurveState.currentPrice,
+        low: Number(candle.low) || bondingCurveState.currentPrice,
+        close: Number(candle.close) || bondingCurveState.currentPrice
       }
       
-      priceData.value = points
-      currentPrice.value = state.currentPrice
-      totalVolume.value = 0
-      marketCap.value = state.marketCap
+      // Validate OHLC data
+      if (candleData.high < candleData.low) {
+        candleData.high = candleData.low
+      }
+      if (candleData.open < candleData.low || candleData.open > candleData.high) {
+        candleData.open = candleData.close
+      }
+      if (candleData.close < candleData.low || candleData.close > candleData.high) {
+        candleData.close = (candleData.high + candleData.low) / 2
+      }
       
-      console.log(`✅ Created ${points.length} initial data points`)
-    } else {
-      // Convert chart data to lightweight charts format
-      priceData.value = chartData.map(candle => ({
-        time: Math.floor(candle.time / 1000), // Convert to seconds
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close
-      }))
+      if (index === 0) {
+        console.log('📊 Sample candle data:', candleData)
+      }
       
-      volumeData.value = chartData.map(candle => ({
-        time: Math.floor(candle.time / 1000),
-        value: candle.volume,
-        color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
-      }))
-      
-      // Update current stats
-      const latestCandle = chartData[chartData.length - 1]
-      currentPrice.value = latestCandle.close
-      totalVolume.value = chartData.reduce((sum, candle) => sum + candle.volume, 0)
-      
-      // Get market cap from bonding curve service
-      const { BondingCurveService } = await import('../../services/bondingCurve')
-      const state = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
-      marketCap.value = state.marketCap
-      
-      console.log(`✅ Loaded ${chartData.length} data points`)
-    }
+      return candleData
+    })
+    
+    volumeData.value = chartData.map(candle => ({
+      time: Math.floor(candle.time / 1000),
+      value: Number(candle.volume) || 0,
+      color: (candle.close > candle.open) ? '#2ebd85' : '#f6465d'
+    }))
+    
+    // Update current stats
+    const latestCandle = chartData[chartData.length - 1]
+    currentPrice.value = latestCandle.close || bondingCurveState.currentPrice
+    totalVolume.value = chartData.reduce((sum, candle) => sum + (candle.volume || 0), 0)
+    marketCap.value = bondingCurveState.marketCap
     
     console.log(`💰 Current price: ${currentPrice.value} SOL`)
     console.log(`📈 Market cap: $${marketCap.value.toFixed(2)}`)
+    console.log(`📊 Loaded ${chartData.length} candles for timeframe ${selectedTimeframe.value}`)
+    console.log('📊 Price data for chart:', priceData.value)
     
-  } catch (error) {
-    console.error('❌ Failed to load real chart data:', error)
-    // Create minimal fallback data
-    const now = Math.floor(Date.now() / 1000)
+  } catch (err: any) {
+    console.error('❌ Failed to load real chart data:', err)
+    error.value = `Failed to load chart data: ${err.message}`
+    
+    // Create emergency fallback data
+    const now = Date.now()
     const fallbackPrice = 0.000001
     
-    priceData.value = [{
-      time: now,
-      open: fallbackPrice,
-      high: fallbackPrice,
-      low: fallbackPrice,
-      close: fallbackPrice
-    }]
+    priceData.value = [
+      {
+        time: Math.floor((now - 5 * 60 * 1000) / 1000),
+        open: fallbackPrice,
+        high: fallbackPrice * 1.001,
+        low: fallbackPrice * 0.999,
+        close: fallbackPrice
+      },
+      {
+        time: Math.floor(now / 1000),
+        open: fallbackPrice,
+        high: fallbackPrice * 1.001,
+        low: fallbackPrice * 0.999,
+        close: fallbackPrice
+      }
+    ]
     
-    volumeData.value = [{
-      time: now,
-      value: 0,
-      color: '#2ebd85'
-    }]
+    volumeData.value = [
+      {
+        time: Math.floor((now - 5 * 60 * 1000) / 1000),
+        value: 0,
+        color: '#2ebd85'
+      },
+      {
+        time: Math.floor(now / 1000),
+        value: 0,
+        color: '#2ebd85'
+      }
+    ]
     
     currentPrice.value = fallbackPrice
     totalVolume.value = 0
@@ -1010,12 +898,18 @@ const setTimeframe = async (timeframe: string) => {
   selectedTimeframe.value = timeframe
   console.log(`📅 Switching to ${timeframe} timeframe...`)
   
+  // Clear existing data
+  priceData.value = []
+  volumeData.value = []
+  
   // Reload chart data with new timeframe
   await loadRealChartData()
   
-  // Update chart if using lightweight charts
+  // Force chart update
   if (useFallback.value && lightweightChart) {
-    addSeries()
+    nextTick(() => {
+      addSeries()
+    })
   }
 }
 
@@ -1033,15 +927,6 @@ const switchToFallback = () => {
   useFallback.value = true
   showFallbackOption.value = false
   error.value = ''
-  
-  // Clean up TradingView
-  if (tradingViewWidget) {
-    try {
-      tradingViewWidget.remove()
-    } catch (e) {
-      console.log('TradingView cleanup failed')
-    }
-  }
   
   // Initialize lightweight chart
   nextTick(async () => {
@@ -1100,9 +985,6 @@ const formatMarketCap = (cap: number): string => {
 onMounted(() => {
   console.log('TradingViewChart mounted for token:', props.tokenSymbol)
   
-  // Start with enhanced chart by default (more reliable than TradingView)
-  useFallback.value = true
-  
   setTimeout(() => {
     initChart()
   }, 500)
@@ -1113,14 +995,6 @@ onUnmounted(() => {
   if (priceSubscription) {
     priceSubscription()
     priceSubscription = null
-  }
-  
-  if (tradingViewWidget) {
-    try {
-      tradingViewWidget.remove()
-    } catch (e) {
-      console.log('TradingView cleanup failed')
-    }
   }
   
   if (lightweightChart) {
