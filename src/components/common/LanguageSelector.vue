@@ -49,98 +49,81 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
+<script>
 import { supportedLanguages, saveLanguage, getLanguageInfo } from '@/i18n'
 
-// Safe destructuring with fallback
-let locale
-try {
-  const i18nComposable = useI18n()
-  if (i18nComposable && i18nComposable.locale) {
-    locale = i18nComposable.locale
-  } else {
-    console.warn('i18n composable not available, using fallback')
-    locale = ref('en')
-  }
-} catch (error) {
-  console.error('Failed to initialize i18n composable:', error)
-  locale = ref('en')
-}
-
-const showLanguageMenu = ref(false)
-
-// Computed properties with safe access
-const currentLanguage = computed(() => {
-  try {
-    return getLanguageInfo(locale.value || 'en')
-  } catch (error) {
-    console.warn('Failed to get language info:', error)
-    return { code: 'en', name: 'English', flag: '🇺🇸', rtl: false }
-  }
-})
-
-// Methods
-const toggleLanguageMenu = () => {
-  showLanguageMenu.value = !showLanguageMenu.value
-}
-
-const changeLanguage = (langCode) => {
-  try {
-    if (locale && locale.value !== undefined) {
-      locale.value = langCode
+export default {
+  name: 'LanguageSelector',
+  data() {
+    return {
+      showLanguageMenu: false
     }
-    saveLanguage(langCode)
-    showLanguageMenu.value = false
-    
-    // Apply RTL for Arabic
-    const html = document.documentElement
-    const langInfo = getLanguageInfo(langCode)
-    
-    if (langInfo.rtl) {
-      html.setAttribute('dir', 'rtl')
-      html.classList.add('rtl')
-    } else {
-      html.setAttribute('dir', 'ltr')
-      html.classList.remove('rtl')
+  },
+  computed: {
+    currentLanguage() {
+      try {
+        return getLanguageInfo(this.$i18n.locale || 'en')
+      } catch (error) {
+        console.warn('Failed to get language info:', error)
+        return { code: 'en', name: 'English', flag: '🇺🇸', rtl: false }
+      }
     }
-  } catch (error) {
-    console.error('Failed to change language:', error)
-    showLanguageMenu.value = false
+  },
+  methods: {
+    toggleLanguageMenu() {
+      this.showLanguageMenu = !this.showLanguageMenu
+    },
+    changeLanguage(langCode) {
+      try {
+        this.$i18n.locale = langCode
+        saveLanguage(langCode)
+        this.showLanguageMenu = false
+        
+        // Apply RTL for Arabic
+        const html = document.documentElement
+        const langInfo = getLanguageInfo(langCode)
+        
+        if (langInfo.rtl) {
+          html.setAttribute('dir', 'rtl')
+          html.classList.add('rtl')
+        } else {
+          html.setAttribute('dir', 'ltr')
+          html.classList.remove('rtl')
+        }
+      } catch (error) {
+        console.error('Failed to change language:', error)
+        this.showLanguageMenu = false
+      }
+    },
+    handleClickOutside(event) {
+      if (!event.target.closest('.relative')) {
+        this.showLanguageMenu = false
+      }
+    }
+  },
+  mounted() {
+    document.addEventListener('click', this.handleClickOutside)
+    
+    // Set initial RTL state
+    try {
+      const currentLangInfo = getLanguageInfo(this.$i18n.locale || 'en')
+      const html = document.documentElement
+      
+      if (currentLangInfo.rtl) {
+        html.setAttribute('dir', 'rtl')
+        html.classList.add('rtl')
+      } else {
+        html.setAttribute('dir', 'ltr')
+        html.classList.remove('rtl')
+      }
+    } catch (error) {
+      console.warn('Failed to set initial RTL state:', error)
+    }
+  },
+  beforeDestroy() {
+    document.removeEventListener('click', this.handleClickOutside)
   }
 }
-
-// Close menu when clicking outside
-const handleClickOutside = (event) => {
-  if (!event.target.closest('.relative')) {
-    showLanguageMenu.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  
-  // Set initial RTL state
-  try {
-    const currentLangInfo = getLanguageInfo(locale.value || 'en')
-    const html = document.documentElement
-    
-    if (currentLangInfo.rtl) {
-      html.setAttribute('dir', 'rtl')
-      html.classList.add('rtl')
-    } else {
-      html.setAttribute('dir', 'ltr')
-      html.classList.remove('rtl')
-    }
-  } catch (error) {
-    console.warn('Failed to set initial RTL state:', error)
-  }
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 </script>
 
 <style scoped>

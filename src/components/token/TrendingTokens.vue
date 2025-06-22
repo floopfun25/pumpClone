@@ -46,7 +46,7 @@
     </div>
 
     <!-- Trending Tokens List -->
-    <div v-else-if="trendingTokens.length > 0" class="space-y-3">
+    <div v-else-if="trendingTokens && trendingTokens.length > 0" class="space-y-3">
       <div
         v-for="(token, index) in trendingTokens"
         :key="token.id"
@@ -153,7 +153,7 @@
     </div>
 
     <!-- View All Button -->
-    <div v-if="trendingTokens.length > 0" class="mt-6 text-center">
+    <div v-if="trendingTokens && trendingTokens.length > 0" class="mt-6 text-center">
       <router-link 
         to="/?sort=trending" 
         class="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium"
@@ -164,106 +164,90 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
+<script>
 import { SupabaseService } from '@/services/supabase'
 import { useUIStore } from '@/stores/ui'
 
-const { t } = useI18n()
-
-interface TrendingToken {
-  id: string
-  mint_address: string
-  name: string
-  symbol: string
-  image_url?: string
-  current_price: number
-  market_cap: number
-  volume_24h: number
-  volume_24h_change: number
-  price_change_24h: number
-  bonding_curve_progress: number
-  holders_count: number
-  is_featured: boolean
-  created_at: string
-}
-
-// Props
-interface Props {
-  limit?: number
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  limit: 10
-})
-
-// Stores
-const router = useRouter()
-const uiStore = useUIStore()
-
-// State
-const trendingTokens = ref<TrendingToken[]>([])
-const loading = ref(false)
-const error = ref('')
-const selectedFilter = ref('volume')
-
-// Filter options with translations
-const filters = computed(() => [
-  { label: '🔥 ' + t('token.volume'), value: 'volume' },
-  { label: '📈 ' + t('token.price'), value: 'price' },
-  { label: '👥 ' + t('token.holders'), value: 'holders' },
-  { label: '🆕 ' + t('token.new'), value: 'new' },
-  { label: '🎯 ' + t('token.featured'), value: 'featured' }
-])
-
-// Methods
-const loadTrendingTokens = async () => {
-  loading.value = true
-  error.value = ''
-
-  try {
-    const data = await SupabaseService.getTrendingTokens(selectedFilter.value, props.limit)
-    trendingTokens.value = data
-  } catch (err) {
-    console.error('Failed to load trending tokens:', err)
-    error.value = 'Failed to load trending tokens'
-  } finally {
-    loading.value = false
+export default {
+  name: 'TrendingTokens',
+  props: {
+    limit: {
+      type: Number,
+      default: 10
+    }
+  },
+  data() {
+    return {
+      loading: true,
+      error: null,
+      trendingTokens: null,
+      selectedFilter: 'all',
+      filters: [
+        { label: this.$t('common.all'), value: 'all' },
+        { label: this.$t('token.graduated'), value: 'graduated' },
+        { label: this.$t('token.active'), value: 'active' }
+      ]
+    }
+  },
+  methods: {
+    formatNumber(value) {
+      const num = Number(value)
+      if (isNaN(num)) return '0'
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+      return num.toString()
+    },
+    formatPrice(value) {
+      const num = Number(value)
+      if (isNaN(num)) return '0.00'
+      if (num >= 1) return num.toFixed(2)
+      return num.toFixed(6)
+    },
+    async refreshTrending() {
+      this.loading = true
+      this.error = null
+      this.trendingTokens = null
+      
+      try {
+        const { data, error } = await SupabaseService.getTrendingTokens(this.limit)
+        if (error) throw error
+        
+        this.trendingTokens = data || []
+      } catch (error) {
+        console.error('Failed to fetch trending tokens:', error)
+        this.error = this.$t('error.failedToFetchTrending')
+      } finally {
+        this.loading = false
+      }
+    },
+    navigateToToken(mintAddress) {
+      if (!mintAddress) return
+      this.$router.push(`/token/${mintAddress}`)
+    }
+  },
+  async created() {
+    await this.refreshTrending()
+  },
+  watch: {
+    selectedFilter: {
+      handler(newValue) {
+        this.refreshTrending()
+      }
+    }
   }
 }
+</script>
 
-const refreshTrending = () => {
-  loadTrendingTokens()
+<style scoped>
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top: 3px solid #3498db;
+  animation: spin 1s linear infinite;
 }
 
-const navigateToToken = (mintAddress: string) => {
-  router.push(`/token/${mintAddress}`)
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
-
-const formatNumber = (num: number): string => {
-  if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B'
-  if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
-  if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
-  return num.toString()
-}
-
-const formatPrice = (price: number): string => {
-  if (price === 0) return '0.000000'
-  if (price < 0.000001) return price.toExponential(2)
-  if (price < 0.01) return price.toFixed(6)
-  if (price < 1) return price.toFixed(4)
-  return price.toFixed(2)
-}
-
-// Watchers
-watch(selectedFilter, () => {
-  loadTrendingTokens()
-})
-
-// Lifecycle
-onMounted(() => {
-  loadTrendingTokens()
-})
-</script> 
+</style> 

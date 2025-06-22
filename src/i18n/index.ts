@@ -142,7 +142,7 @@ for (const key of requiredKeys) {
 
 // Create i18n instance with robust configuration
 const i18n = createI18n({
-  legacy: false, // Use Composition API
+  legacy: true, // Use Options API
   locale: getInitialLanguage(),
   fallbackLocale: 'en',
   globalInjection: true,

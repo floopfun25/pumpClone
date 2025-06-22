@@ -91,82 +91,68 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-
-// Component props for token data
-const props = defineProps<{
-  token: {
-    id: string
-    name: string
-    symbol: string
-    image_url?: string
-    creator_address?: string
-    current_price: number
-    market_cap: number
-    volume_24h: number
-    bonding_curve_progress: number
-    status: string
-    creator?: {
-      username?: string
-      wallet_address: string
+<script>
+export default {
+  name: 'TokenCard',
+  props: {
+    token: {
+      type: Object,
+      required: true,
+      validator: (value) => {
+        return value && typeof value === 'object' && 'id' in value
+      }
+    }
+  },
+  computed: {
+    tokenName() {
+      return this.token?.name || this.$t('common.unknown')
+    },
+    tokenSymbol() {
+      return this.token?.symbol || 'N/A'
+    },
+    statusText() {
+      const status = this.token?.status || 'active'
+      switch (status) {
+        case 'graduated':
+          return this.$t('token.graduated')
+        case 'active':
+          return this.$t('common.active')
+        default:
+          return status.charAt(0).toUpperCase() + status.slice(1)
+      }
+    },
+    creatorAddress() {
+      if (this.token?.creator?.username) {
+        return this.token.creator.username
+      }
+      if (this.token?.creator?.wallet_address) {
+        return `${this.token.creator.wallet_address.slice(0, 4)}...${this.token.creator.wallet_address.slice(-4)}`
+      }
+      if (this.token?.creator_address) {
+        return `${this.token.creator_address.slice(0, 4)}...${this.token.creator_address.slice(-4)}`
+      }
+      return this.$t('common.unknown')
+    },
+    currentPrice() {
+      return this.token?.current_price?.toFixed(6) || '0.000000'
+    },
+    marketCap() {
+      const cap = this.token?.market_cap || 0
+      if (cap >= 1000000) return `${(cap / 1000000).toFixed(1)}M`
+      if (cap >= 1000) return `${(cap / 1000).toFixed(1)}K`
+      return cap.toString()
+    },
+    volume24h() {
+      const volume = this.token?.volume_24h || 0
+      if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`
+      if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
+      return volume.toString()
+    },
+    progress() {
+      return Math.round(this.token?.bonding_curve_progress || 0)
     }
   }
-}>()
-
-// Computed properties for display with proper fallbacks
-const tokenName = computed(() => props.token?.name || t('common.unknown'))
-const tokenSymbol = computed(() => props.token?.symbol || 'N/A')
-
-const statusText = computed(() => {
-  const status = props.token?.status || 'active'
-  switch (status) {
-    case 'graduated':
-      return t('token.graduated')
-    case 'active':
-      return t('common.active')
-    default:
-      return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-})
-
-const creatorAddress = computed(() => {
-  if (props.token?.creator?.username) {
-    return props.token.creator.username
-  }
-  if (props.token?.creator?.wallet_address) {
-    return `${props.token.creator.wallet_address.slice(0, 4)}...${props.token.creator.wallet_address.slice(-4)}`
-  }
-  if (props.token?.creator_address) {
-    return `${props.token.creator_address.slice(0, 4)}...${props.token.creator_address.slice(-4)}`
-  }
-  return t('common.unknown')
-})
-
-const currentPrice = computed(() => {
-  return props.token?.current_price?.toFixed(6) || '0.000000'
-})
-
-const marketCap = computed(() => {
-  const cap = props.token?.market_cap || 0
-  if (cap >= 1000000) return `${(cap / 1000000).toFixed(1)}M`
-  if (cap >= 1000) return `${(cap / 1000).toFixed(1)}K`
-  return cap.toString()
-})
-
-const volume24h = computed(() => {
-  const volume = props.token?.volume_24h || 0
-  if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`
-  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
-  return volume.toString()
-})
-
-const progress = computed(() => {
-  return Math.round(props.token?.bonding_curve_progress || 0)
-})
+}
 </script>
 
 <style scoped>
