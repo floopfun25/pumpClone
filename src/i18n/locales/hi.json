@@ -122,7 +122,8 @@
     "transactionConfirmed": "लेन-देन की पुष्टि हुई",
     "transactionFailed": "लेन-देन असफल",
     "viewOnExplorer": "एक्सप्लोरर पर देखें",
-    "retry": "पुनः प्रयास करें"
+    "retry": "पुनः प्रयास करें",
+    "trade": "ट्रेड"
   },
   "portfolio": {
     "title": "पोर्टफोलियो",

@@ -149,7 +149,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { useTypedI18n } from '@/i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { isMobile } from '@/utils/mobile'
@@ -165,7 +165,7 @@ const emit = defineEmits<{
 }>()
 
 // Composables
-const { t } = useI18n()
+const { t } = useTypedI18n()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
 

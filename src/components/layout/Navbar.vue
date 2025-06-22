@@ -206,14 +206,15 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { useTypedI18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import WalletModal from '@/components/common/WalletModal.vue'
 import LanguageSelector from '@/components/common/LanguageSelector.vue'
 
-const { t } = useI18n()
+// Get i18n composable
+const { t } = useTypedI18n()
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()

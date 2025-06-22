@@ -14,6 +14,9 @@ import ru from './locales/ru.json'
 import fr from './locales/fr.json'
 import tr from './locales/tr.json'
 
+// Define type for language codes
+export type LanguageCode = 'en' | 'es' | 'zh' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'tr'
+
 // Define supported languages with their metadata
 export const supportedLanguages = [
   { code: 'en', name: 'English', flag: '🇺🇸', rtl: false },
@@ -28,8 +31,10 @@ export const supportedLanguages = [
   { code: 'tr', name: 'Türkçe', flag: '🇹🇷', rtl: false }
 ] as const
 
-// Type for language codes
-type LanguageCode = (typeof supportedLanguages)[number]['code']
+// Helper function to validate language codes
+function isValidLanguageCode(code: string): code is LanguageCode {
+  return supportedLanguages.map(lang => lang.code).includes(code as LanguageCode)
+}
 
 // Get initial language from localStorage or browser
 export function getInitialLanguage(): LanguageCode {
@@ -37,31 +42,26 @@ export function getInitialLanguage(): LanguageCode {
     // Try to get language from environment variable first
     const envLocale = import.meta.env.VITE_I18N_LOCALE
     if (envLocale && isValidLanguageCode(envLocale)) {
-      return envLocale as LanguageCode
+      return envLocale
     }
     
     // Try to get language from localStorage
     const savedLang = localStorage.getItem('language')
     if (savedLang && isValidLanguageCode(savedLang)) {
-      return savedLang as LanguageCode
+      return savedLang
     }
     
     // Try to get language from browser
     const browserLang = navigator.language.split('-')[0]
     if (isValidLanguageCode(browserLang)) {
-      return browserLang as LanguageCode
+      return browserLang
     }
   } catch (error) {
     console.warn('Failed to get initial language:', error)
   }
   
-  // Default to environment fallback or English
-  return (import.meta.env.VITE_I18N_FALLBACK_LOCALE as LanguageCode) || 'en'
-}
-
-// Type guard for language codes
-function isValidLanguageCode(code: string): code is LanguageCode {
-  return supportedLanguages.some(lang => lang.code === code)
+  // Default to English
+  return 'en'
 }
 
 // Save language preference
@@ -74,7 +74,7 @@ export function saveLanguage(lang: LanguageCode): void {
 }
 
 // Get language info by code
-export function getLanguageInfo(code: string) {
+export function getLanguageInfo(code: LanguageCode | string) {
   const lang = supportedLanguages.find(l => l.code === code)
   return lang || supportedLanguages[0] // Default to English if not found
 }
@@ -93,26 +93,27 @@ const messages = {
   tr
 }
 
+// Type for messages
+type MessageSchema = typeof en
+
 // Create i18n instance with strict type checking
-export const i18n = createI18n({
-  legacy: false, // Use Composition API
+export const i18n = createI18n<[MessageSchema], LanguageCode>({
+  legacy: false,
   locale: getInitialLanguage(),
   fallbackLocale: import.meta.env.VITE_I18N_FALLBACK_LOCALE || 'en',
   messages,
   globalInjection: true,
   allowComposition: true,
   runtimeOnly: false,
-  missingWarn: false, // Disable warnings in production
-  fallbackWarn: false, // Disable warnings in production
-  warnHtmlMessage: false, // Disable HTML warnings
-  silentTranslationWarn: true, // Silent in production
-  silentFallbackWarn: true, // Silent in production
-  sync: true, // Keep composition API in sync
-  useScope: 'global', // Use global scope by default
+  missingWarn: false,
+  fallbackWarn: false,
+  warnHtmlMessage: false,
+  silentTranslationWarn: true,
+  silentFallbackWarn: true,
+  sync: true,
+  useScope: 'global',
   pluralizationRules: {
-    // Add custom pluralization rules for languages that need them
     ar: (choice: number) => {
-      // Arabic has 6 plural forms
       if (choice === 0) return 0
       if (choice === 1) return 1
       if (choice === 2) return 2
@@ -123,10 +124,12 @@ export const i18n = createI18n({
   }
 })
 
-// Export type-safe composer
-export type MessageSchema = typeof en
-export type TypedI18n = typeof i18n
-export type TypedComposer = ReturnType<typeof useI18n>
+// Export the i18n composable with proper typing
+export function useTypedI18n() {
+  return useI18n<{ message: MessageSchema }, LanguageCode>({
+    useScope: 'global',
+    inheritLocale: true
+  })
+}
 
-// Export for use in app
 export default i18n 

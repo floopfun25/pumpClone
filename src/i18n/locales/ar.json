@@ -122,7 +122,8 @@
     "transactionConfirmed": "تم تأكيد المعاملة",
     "transactionFailed": "فشلت المعاملة",
     "viewOnExplorer": "عرض في المستكشف",
-    "retry": "إعادة المحاولة"
+    "retry": "إعادة المحاولة",
+    "trade": "تداول"
   },
   "portfolio": {
     "title": "المحفظة",

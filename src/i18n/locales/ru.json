@@ -122,7 +122,8 @@
     "transactionConfirmed": "Транзакция Подтверждена",
     "transactionFailed": "Транзакция Не Удалась",
     "viewOnExplorer": "Посмотреть в Обозревателе",
-    "retry": "Повторить"
+    "retry": "Повторить",
+    "trade": "Торговать"
   },
   "portfolio": {
     "title": "Портфель",

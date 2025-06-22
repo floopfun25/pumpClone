@@ -122,7 +122,8 @@
     "transactionConfirmed": "লেনদেন নিশ্চিত করা হয়েছে",
     "transactionFailed": "লেনদেন ব্যর্থ হয়েছে",
     "viewOnExplorer": "এক্সপ্লোরারে দেখুন",
-    "retry": "পুনরায় চেষ্টা করুন"
+    "retry": "পুনরায় চেষ্টা করুন",
+    "trade": "ট্রেড"
   },
   "portfolio": {
     "title": "পোর্টফোলিও",

@@ -8,12 +8,12 @@
       
       <div class="container mx-auto px-4 text-center relative z-10">
         <h1 class="text-5xl font-bold mb-6 text-shadow">
-          {{ $t('app.tagline') }}
+          {{ t('app.tagline') }}
           <br>
-          <span class="text-binance-gradient">{{ $t('token.trending') }}</span>
+          <span class="text-binance-gradient">{{ t('token.trending') }}</span>
         </h1>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-          {{ $t('messages.info.launchDescription') }}
+          {{ t('messages.info.launchDescription') }}
         </p>
         
         <!-- Action Buttons -->
@@ -22,13 +22,13 @@
             to="/create" 
             class="btn-success px-8 py-4 text-lg font-semibold glow-green"
           >
-            🚀 {{ $t('token.create') }}
+            🚀 {{ t('token.create') }}
           </router-link>
           <button 
             @click="scrollToTokens"
             class="btn-secondary px-8 py-4 text-lg font-semibold bg-white/10 text-white border-white/20 hover:bg-white/20"
           >
-            📈 {{ $t('common.browse') }} {{ $t('token.tokens') }}
+            📈 {{ t('common.browse') }} {{ t('token.tokens') }}
           </button>
         </div>
       </div>
@@ -44,19 +44,19 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div class="text-center">
             <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.totalTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalTokens') }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalTokens') }}</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-trading-buy mb-2">{{ formatNumber(stats.totalVolume) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalVolume') }} (SOL)</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalVolume') }} (SOL)</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-white mb-2">{{ formatNumber(stats.totalUsers) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('dashboard.stats.totalUsers') }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalUsers') }}</div>
           </div>
           <div class="text-center">
             <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.graduatedTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ $t('token.graduated') }}</div>
+            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('token.graduated') }}</div>
           </div>
         </div>
       </div>
@@ -73,9 +73,9 @@
     <section class="py-16 bg-binance-dark">
       <div class="container mx-auto px-4">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-white mb-4">🔥 {{ $t('token.trending') }} {{ $t('token.tokens') }}</h2>
+          <h2 class="text-3xl font-bold text-white mb-4">🔥 {{ t('token.trending') }} {{ t('token.tokens') }}</h2>
           <p class="text-binance-gray max-w-2xl mx-auto">
-            {{ $t('messages.info.trendingDescription') }}
+            {{ t('messages.info.trendingDescription') }}
           </p>
         </div>
         
@@ -89,8 +89,8 @@
         <!-- Section Header -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h2 class="text-3xl font-bold text-white mb-2">{{ $t('common.all') }} {{ $t('token.tokens') }}</h2>
-            <p class="text-binance-gray">{{ $t('messages.info.browseDescription') }}</p>
+            <h2 class="text-3xl font-bold text-white mb-2">{{ t('common.all') }} {{ t('token.tokens') }}</h2>
+            <p class="text-binance-gray">{{ t('messages.info.browseDescription') }}</p>
           </div>
           
           <!-- Controls -->
@@ -101,7 +101,7 @@
                 v-model="simpleQuery"
                 @keyup.enter="handleSimpleSearch"
                 type="text"
-                :placeholder="$t('search.placeholder')"
+                :placeholder="t('search.placeholder')"
                 class="input-field pl-10 w-full sm:w-64"
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -118,16 +118,16 @@
                 @change="() => loadTokens()"
                 class="input-field px-3 py-2 min-w-0"
               >
-                <option value="created_at">{{ $t('token.new') }}</option>
-                <option value="market_cap">{{ $t('token.marketCap') }}</option>
-                <option value="volume_24h">{{ $t('token.volume') }}</option>
+                <option value="created_at">{{ t('token.new') }}</option>
+                <option value="market_cap">{{ t('token.marketCap') }}</option>
+                <option value="volume_24h">{{ t('token.volume') }}</option>
               </select>
               
               <button
                 @click="showAdvancedSearch = !showAdvancedSearch"
                 class="btn-secondary px-4 py-2 whitespace-nowrap"
               >
-                {{ showAdvancedSearch ? $t('common.hide') : $t('search.filters') }}
+                {{ showAdvancedSearch ? t('common.hide') : t('search.filters') }}
               </button>
             </div>
           </div>
@@ -158,13 +158,13 @@
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🎭</div>
           <h3 class="text-xl font-semibold text-white mb-2">
-            {{ $t('search.noResults') }}
+            {{ t('search.noResults') }}
           </h3>
           <p class="text-binance-gray mb-6">
-            {{ $t('messages.info.createFirstToken') }}
+            {{ t('messages.info.createFirstToken') }}
           </p>
           <router-link to="/create" class="btn-primary">
-            {{ $t('token.createNew') }}
+            {{ t('token.createNew') }}
           </router-link>
         </div>
         
@@ -177,9 +177,9 @@
           >
             <span v-if="loadingMore" class="flex items-center gap-2">
               <div class="spinner w-4 h-4"></div>
-              {{ $t('common.loading') }}...
+              {{ t('common.loading') }}...
             </span>
-            <span v-else>{{ $t('common.loadMore') }}</span>
+            <span v-else>{{ t('common.loadMore') }}</span>
           </button>
         </div>
       </div>
@@ -195,6 +195,10 @@ import { SupabaseService } from '@/services/supabase'
 import TrendingTokens from '@/components/token/TrendingTokens.vue'
 import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
 import KingOfTheHill from '@/components/token/KingOfTheHill.vue'
+import { useTypedI18n } from '@/i18n'
+
+// Get i18n composable
+const { t } = useTypedI18n()
 
 // Define Token interface
 interface Token {

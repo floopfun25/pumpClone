@@ -206,7 +206,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
+import { useTypedI18n } from '@/i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { tokenService } from '@/services/tokenService'
@@ -217,7 +217,7 @@ interface TokenForm extends TokenCreationData {
   imageFile?: File
 }
 
-const { t } = useI18n()
+const { t } = useTypedI18n()
 const router = useRouter()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()

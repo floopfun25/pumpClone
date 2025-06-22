@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { useTypedI18n } from '@/i18n'
 
 // Define token interface
 interface Token {
@@ -88,7 +88,7 @@ const emit = defineEmits<{
 }>()
 
 // Setup i18n
-const { t } = useI18n()
+const { t } = useTypedI18n()
 
 // Setup fallback image and loading state
 const fallbackImage = ref('/images/token-fallback.svg')

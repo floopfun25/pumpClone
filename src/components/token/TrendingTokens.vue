@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { useTypedI18n } from '@/i18n'
 import TokenCard from './TokenCard.vue'
 
 // Define token interface
@@ -74,7 +74,7 @@ const emit = defineEmits<{
 }>()
 
 // Setup i18n
-const { t } = useI18n()
+const { t } = useTypedI18n()
 
 // State
 const loading = ref(true)

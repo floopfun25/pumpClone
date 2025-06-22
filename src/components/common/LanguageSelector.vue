@@ -51,17 +51,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { supportedLanguages, saveLanguage, getLanguageInfo } from '@/i18n'
+import { useTypedI18n } from '@/i18n'
+import { supportedLanguages, saveLanguage, getLanguageInfo, type LanguageCode } from '@/i18n'
 
-type LanguageCode = (typeof supportedLanguages)[number]['code']
-
-const { t, locale } = useI18n()
+const { t, locale } = useTypedI18n()
 const showLanguageMenu = ref(false)
 
 const currentLanguage = computed(() => {
   try {
-    return getLanguageInfo(locale.value)
+    return getLanguageInfo(locale.value as LanguageCode)
   } catch (error) {
     console.warn('Failed to get language info:', error)
     return { code: 'en' as LanguageCode, name: 'English', flag: '🇺🇸', rtl: false }

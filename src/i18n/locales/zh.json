@@ -122,7 +122,8 @@
     "transactionConfirmed": "交易已确认",
     "transactionFailed": "交易失败",
     "viewOnExplorer": "在浏览器中查看",
-    "retry": "重试"
+    "retry": "重试",
+    "trade": "交易"
   },
   "portfolio": {
     "title": "投资组合",

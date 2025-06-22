@@ -122,7 +122,8 @@
     "transactionConfirmed": "Transacción Confirmada",
     "transactionFailed": "Transacción Fallida",
     "viewOnExplorer": "Ver en el Explorador",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "trade": "Comerciar"
   },
   "portfolio": {
     "title": "Portafolio",
