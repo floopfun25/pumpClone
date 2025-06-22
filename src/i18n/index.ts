@@ -96,11 +96,11 @@ export const i18n = createI18n({
   globalInjection: true,
   allowComposition: true,
   runtimeOnly: false,
-  missingWarn: process.env.NODE_ENV === 'development',
-  fallbackWarn: process.env.NODE_ENV === 'development',
-  warnHtmlMessage: process.env.NODE_ENV === 'development',
-  silentTranslationWarn: process.env.NODE_ENV === 'production',
-  silentFallbackWarn: process.env.NODE_ENV === 'production',
+  missingWarn: false, // Disable warnings in production
+  fallbackWarn: false, // Disable warnings in production
+  warnHtmlMessage: false, // Disable HTML warnings
+  silentTranslationWarn: true, // Silent in production
+  silentFallbackWarn: true, // Silent in production
   pluralizationRules: {
     // Add custom pluralization rules for languages that need them
     ar: (choice: number) => {

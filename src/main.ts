@@ -29,6 +29,7 @@ async function initializeApp() {
       console.error('🚨 Vue error:', err)
       console.error('Component:', instance)
       console.error('Error Info:', info)
+      console.error('Error Info URL:', 'https://vuejs.org/error-reference/#' + info)
     }
     
     // Initialize i18n first
@@ -40,21 +41,6 @@ async function initializeApp() {
     
     // Initialize router last
     app.use(router)
-    
-    // Validate i18n is working
-    try {
-      const testKey = 'app.name'
-      const translation = i18n.global.t(testKey)
-      if (translation && translation !== testKey) {
-        console.log('✅ i18n initialized successfully')
-        console.log('🔍 i18n test translation successful')
-      } else {
-        throw new Error('i18n test translation failed')
-      }
-    } catch (error) {
-      console.error('❌ i18n initialization failed:', error)
-      // Continue app initialization even if i18n test fails
-    }
     
     // Mount the application
     app.mount('#app')
@@ -76,6 +62,4 @@ async function initializeApp() {
 }
 
 // Initialize the application
-initializeApp().catch(error => {
-  console.error('Fatal application error:', error)
-}) 
+initializeApp() 

@@ -26,12 +26,12 @@ export default defineConfig({
     'process.env': {},
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
     // Vue i18n feature flags for production build
-    __VUE_I18N_FULL_INSTALL__: JSON.stringify(true),
-    __VUE_I18N_LEGACY_API__: JSON.stringify(false),
-    __INTLIFY_PROD_DEVTOOLS__: JSON.stringify(false),
-    __VUE_I18N_RUNTIME_ONLY__: JSON.stringify(false),
-    __VUE_I18N_BUNDLED_LOCALE_MESSAGES__: JSON.stringify(true),
-    __VUE_I18N_PROD_MESSAGES__: JSON.stringify(true)
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+    __VUE_I18N_RUNTIME_ONLY__: false,
+    __VUE_I18N_BUNDLED_LOCALE_MESSAGES__: true,
+    __VUE_I18N_PROD_MESSAGES__: true
   },
   // Optimize dependencies for faster development
   optimizeDeps: {
