@@ -28,20 +28,27 @@ export const supportedLanguages = [
 
 // Get browser language or fallback to English
 function getBrowserLanguage(): string {
-  const navigatorLang = navigator.language || (navigator as any).userLanguage
-  const langCode = navigatorLang.split('-')[0].toLowerCase()
-  
-  // Check if we support this language
-  const supportedLangCodes = supportedLanguages.map(lang => lang.code)
-  return supportedLangCodes.includes(langCode) ? langCode : 'en'
+  try {
+    const navigatorLang = (typeof navigator !== 'undefined' && navigator.language) || 'en'
+    const langCode = navigatorLang.split('-')[0].toLowerCase()
+    
+    // Check if we support this language
+    const supportedLangCodes = supportedLanguages.map(lang => lang.code)
+    return supportedLangCodes.includes(langCode) ? langCode : 'en'
+  } catch (error) {
+    console.warn('Failed to detect browser language:', error)
+    return 'en'
+  }
 }
 
 // Get saved language from localStorage or detect browser language
 function getInitialLanguage(): string {
   try {
-    const savedLang = localStorage.getItem('floppfun-language')
-    if (savedLang && supportedLanguages.some(lang => lang.code === savedLang)) {
-      return savedLang
+    if (typeof localStorage !== 'undefined') {
+      const savedLang = localStorage.getItem('floppfun-language')
+      if (savedLang && supportedLanguages.some(lang => lang.code === savedLang)) {
+        return savedLang
+      }
     }
   } catch (error) {
     console.warn('Failed to read language from localStorage:', error)
@@ -53,7 +60,9 @@ function getInitialLanguage(): string {
 // Save language to localStorage
 export function saveLanguage(langCode: string): void {
   try {
-    localStorage.setItem('floppfun-language', langCode)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('floppfun-language', langCode)
+    }
   } catch (error) {
     console.warn('Failed to save language to localStorage:', error)
   }
@@ -64,24 +73,39 @@ export function getLanguageInfo(langCode: string) {
   return supportedLanguages.find(lang => lang.code === langCode) || supportedLanguages[0]
 }
 
-// Create i18n instance
+// Prepare messages object with validation
+const messages: Record<string, any> = {
+  en: en || {},
+  es: es || {},
+  zh: zh || {},
+  hi: hi || {},
+  ar: ar || {},
+  pt: pt || {},
+  bn: bn || {},
+  ru: ru || {},
+  fr: fr || {},
+  tr: tr || {}
+}
+
+// Validate that at least English messages exist
+if (!messages.en || Object.keys(messages.en).length === 0) {
+  console.error('English locale messages are missing or empty!')
+  // Provide minimal fallback
+  messages.en = { common: { loading: 'Loading...' } } as any
+}
+
+// Create i18n instance with robust configuration
 const i18n = createI18n({
   legacy: false, // Use Composition API
   locale: getInitialLanguage(),
   fallbackLocale: 'en',
   globalInjection: true,
-  messages: {
-    en,
-    es,
-    zh,
-    hi,
-    ar,
-    pt,
-    bn,
-    ru,
-    fr,
-    tr
-  }
+  silentTranslationWarn: true, // Reduce console noise in production
+  silentFallbackWarn: true,
+  messages,
+  // Ensure proper handling of missing keys
+  missingWarn: false,
+  fallbackWarn: false
 })
 
 export default i18n 
