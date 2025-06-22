@@ -6,7 +6,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
           <img 
-            :src="token.imageUrl || fallbackImage" 
+            :src="getImageUrl(token.imageUrl)"
             :alt="token.name"
             class="w-10 h-10 rounded-full"
             @error="handleImageError"
@@ -90,26 +90,67 @@ const emit = defineEmits<{
 // Setup i18n
 const { t } = useI18n()
 
-// Setup fallback image
+// Setup fallback image and loading state
 const fallbackImage = ref('/images/token-fallback.svg')
+const imageError = ref(false)
+
+// Set default values for token properties
+const token = computed(() => {
+  // Handle case where entire token prop is undefined
+  if (!props.token) {
+    return {
+      id: '',
+      name: '',
+      symbol: '',
+      imageUrl: fallbackImage.value,
+      price: 0,
+      priceChange24h: 0,
+      marketCap: 0,
+      volume24h: 0,
+      holders: 0
+    }
+  }
+
+  return {
+    id: props.token?.id || '',
+    name: props.token?.name || '',
+    symbol: props.token?.symbol || '',
+    imageUrl: props.token?.imageUrl || fallbackImage.value,
+    price: props.token?.price || 0,
+    priceChange24h: props.token?.priceChange24h || 0,
+    marketCap: props.token?.marketCap || 0,
+    volume24h: props.token?.volume24h || 0,
+    holders: props.token?.holders || 0
+  }
+})
 
 // Computed properties
 const priceChangeClass = computed(() => {
   return {
     'text-sm font-medium': true,
-    'text-green-500': props.token.priceChange24h > 0,
-    'text-red-500': props.token.priceChange24h < 0,
-    'text-binance-gray': props.token.priceChange24h === 0
+    'text-green-500': token.value.priceChange24h > 0,
+    'text-red-500': token.value.priceChange24h < 0,
+    'text-binance-gray': token.value.priceChange24h === 0
   }
 })
 
 // Methods
 function handleImageError(event: Event) {
+  imageError.value = true
   const img = event.target as HTMLImageElement
   img.src = fallbackImage.value
 }
 
-function formatPrice(price: number): string {
+function getImageUrl(url: string | undefined): string {
+  if (!url) return fallbackImage.value
+  if (url.startsWith('http')) return url
+  return `/images/tokens/${url}`
+}
+
+function formatPrice(price: number | undefined | null): string {
+  if (price === undefined || price === null) {
+    return '0.00'
+  }
   if (price < 0.01) {
     return price.toFixed(8)
   }
@@ -119,11 +160,17 @@ function formatPrice(price: number): string {
   return price.toFixed(2)
 }
 
-function formatPriceChange(change: number): string {
+function formatPriceChange(change: number | undefined | null): string {
+  if (change === undefined || change === null) {
+    return '0.00'
+  }
   return change > 0 ? `+${change.toFixed(2)}` : change.toFixed(2)
 }
 
-function formatNumber(num: number): string {
+function formatNumber(num: number | undefined | null): string {
+  if (num === undefined || num === null) {
+    return '0'
+  }
   if (num >= 1_000_000_000) {
     return `${(num / 1_000_000_000).toFixed(2)}B`
   }

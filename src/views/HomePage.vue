@@ -196,10 +196,23 @@ import TrendingTokens from '@/components/token/TrendingTokens.vue'
 import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
 import KingOfTheHill from '@/components/token/KingOfTheHill.vue'
 
+// Define Token interface
+interface Token {
+  id: string
+  name: string
+  symbol: string
+  imageUrl?: string
+  price: number
+  priceChange24h: number
+  marketCap: number
+  volume24h: number
+  holders: number
+}
+
 const router = useRouter()
 
 // Reactive state
-const tokens = ref<any[]>([])
+const tokens = ref<Token[]>([])
 const loading = ref(true)
 const loadingMore = ref(false)
 const sortBy = ref<'created_at' | 'market_cap' | 'volume_24h'>('created_at')
@@ -265,10 +278,23 @@ const loadTokens = async (reset = true) => {
       status: 'active'
     })
     
+    // Transform and validate data
+    const transformedData = data.map((token: any) => ({
+      id: token.id || '',
+      name: token.name || '',
+      symbol: token.symbol || '',
+      imageUrl: token.image_url || null,
+      price: Number(token.price) || 0,
+      priceChange24h: Number(token.price_change_24h) || 0,
+      marketCap: Number(token.market_cap) || 0,
+      volume24h: Number(token.volume_24h) || 0,
+      holders: Number(token.holders) || 0
+    }))
+    
     if (reset) {
-      tokens.value = data
+      tokens.value = transformedData
     } else {
-      tokens.value.push(...data)
+      tokens.value.push(...transformedData)
     }
     
     hasMore.value = data.length === 20
