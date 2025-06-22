@@ -47,11 +47,9 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('pinia')) {
+            // Include i18n in the vendor chunk to prevent loading issues
+            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-i18n')) {
               return 'vendor'
-            }
-            if (id.includes('i18n')) {
-              return 'i18n'
             }
             if (id.includes('@solana')) {
               return 'solana'

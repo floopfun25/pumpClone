@@ -35,11 +35,11 @@ async function initializeApp() {
     const pinia = createPinia()
     app.use(pinia)
     
-    // Initialize router
-    app.use(router)
-    
-    // Initialize i18n
+    // Initialize i18n before router
     app.use(i18n)
+    
+    // Initialize router after i18n
+    app.use(router)
     
     // Validate i18n is working
     try {

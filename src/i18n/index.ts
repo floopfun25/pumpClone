@@ -93,6 +93,8 @@ export const i18n = createI18n({
   fallbackLocale: 'en',
   messages,
   globalInjection: true,
+  allowComposition: true, // Enable Composition API
+  useScope: 'global', // Set the scope to global
   missingWarn: process.env.NODE_ENV === 'development',
   fallbackWarn: process.env.NODE_ENV === 'development',
   warnHtmlMessage: process.env.NODE_ENV === 'development',
