@@ -203,150 +203,138 @@
   />
 </template>
 
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+<script lang="ts">
+import { defineComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { tokenService } from '@/services/tokenService'
 import type { TokenCreationData } from '@/services/tokenService'
 import WalletModal from '@/components/common/WalletModal.vue'
 
-const { t } = useI18n()
-const router = useRouter()
-const walletStore = useWalletStore()
-const uiStore = useUIStore()
-
-// Form state
-const tokenForm = ref<TokenCreationData>({
-  name: '',
-  symbol: '',
-  description: '',
-  website: '',
-  twitter: '',
-  telegram: '',
-  discord: ''
-})
-
-const fileInput = ref<HTMLInputElement>()
-const isCreating = ref(false)
-const validationErrors = ref<string[]>([])
-const creationCost = ref<any>(null)
-
-// Wallet modal state
-const showWalletModal = ref(false)
-
-// Computed properties
-const isConnected = computed(() => walletStore.isConnected)
-const canCreate = computed(() => 
-  tokenForm.value.name && 
-  tokenForm.value.symbol && 
-  validationErrors.value.length === 0
-)
-
-// Methods
-const connectWallet = () => {
-  showWalletModal.value = true
+interface TokenForm extends TokenCreationData {
+  imageFile?: File
 }
 
-/**
- * Handle wallet connection success
- */
-const handleWalletConnected = (walletName: string) => {
-  showWalletModal.value = false
-  uiStore.showToast({
-    type: 'success',
-    title: '🔗 Wallet Connected Successfully',
-    message: `Connected to ${walletName} wallet`
-  })
-}
+export default defineComponent({
+  name: 'CreateTokenPage',
+  
+  components: {
+    WalletModal
+  },
 
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
-
-const handleFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    tokenForm.value.imageFile = file
-    validateForm()
-  }
-}
-
-const handleFileDrop = (event: DragEvent) => {
-  const file = event.dataTransfer?.files[0]
-  if (file) {
-    tokenForm.value.imageFile = file
-    validateForm()
-  }
-}
-
-const removeImage = () => {
-  tokenForm.value.imageFile = undefined
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-  validateForm()
-}
-
-const validateForm = () => {
-  validationErrors.value = tokenService.validateTokenData(tokenForm.value)
-}
-
-const loadCreationCost = async () => {
-  try {
-    creationCost.value = await tokenService.estimateCreationCost()
-  } catch (error) {
-    console.error('Failed to load creation cost:', error)
-  }
-}
-
-const createToken = async () => {
-  try {
-    isCreating.value = true
-    validationErrors.value = []
-
-    // Validate form
-    const errors = tokenService.validateTokenData(tokenForm.value)
-    if (errors.length > 0) {
-      validationErrors.value = errors
-      return
+  data() {
+    return {
+      tokenForm: {
+        name: '',
+        symbol: '',
+        description: '',
+        website: '',
+        twitter: '',
+        telegram: '',
+        discord: '',
+        imageFile: undefined
+      } as TokenForm,
+      fileInput: null as HTMLInputElement | null,
+      isCreating: false,
+      validationErrors: [] as string[],
+      creationCost: null,
+      showWalletModal: false
     }
+  },
 
-    // Create the token
-    const result = await tokenService.createToken(tokenForm.value)
+  computed: {
+    isConnected(): boolean {
+      return useWalletStore().isConnected
+    },
     
-    uiStore.showToast({
-      type: 'success',
-      title: 'Token Created Successfully!',
-      message: `${tokenForm.value.name} (${tokenForm.value.symbol}) has been created`
-    })
+    canCreate(): boolean {
+      return Boolean(
+        this.tokenForm.name && 
+        this.tokenForm.symbol && 
+        this.validationErrors.length === 0
+      )
+    }
+  },
 
-    // Redirect to token detail page
-    router.push(`/token/${result.mintAddress}`)
-    
-  } catch (error) {
-    console.error('Failed to create token:', error)
-    uiStore.showToast({
-      type: 'error',
-      title: 'Token Creation Failed',
-      message: error instanceof Error ? error.message : 'An unexpected error occurred'
-    })
-  } finally {
-    isCreating.value = false
+  methods: {
+    connectWallet(): void {
+      this.showWalletModal = true
+    },
+
+    handleWalletConnected(): void {
+      this.showWalletModal = false
+    },
+
+    triggerFileUpload(): void {
+      if (this.fileInput) {
+        this.fileInput.click()
+      }
+    },
+
+    handleFileSelect(event: Event): void {
+      const target = event.target as HTMLInputElement
+      if (target.files && target.files.length > 0) {
+        this.tokenForm.imageFile = target.files[0]
+      }
+    },
+
+    handleFileDrop(event: DragEvent): void {
+      const files = event.dataTransfer?.files
+      if (files && files.length > 0) {
+        this.tokenForm.imageFile = files[0]
+      }
+    },
+
+    removeImage(): void {
+      this.tokenForm.imageFile = undefined
+      if (this.fileInput) {
+        this.fileInput.value = ''
+      }
+    },
+
+    async createToken(): Promise<void> {
+      try {
+        this.isCreating = true
+        this.validationErrors = []
+
+        // Validate form
+        if (!this.tokenForm.name || !this.tokenForm.symbol) {
+          this.validationErrors.push(this.$t('forms.errors.requiredFields'))
+          return
+        }
+
+        // Create token
+        const result = await tokenService.createToken(this.tokenForm)
+        
+        // Show success notification
+        useUIStore().showToast({
+          type: 'success',
+          message: this.$t('token.creationSuccess'),
+          title: this.$t('token.success')
+        })
+
+        // Redirect to token page
+        const router = useRouter()
+        await router.push(`/token/${result.mintAddress}`)
+      } catch (error: any) {
+        console.error('Token creation error:', error)
+        this.validationErrors.push(error.message || this.$t('forms.errors.unknown'))
+        
+        useUIStore().showToast({
+          type: 'error',
+          message: error.message || this.$t('forms.errors.unknown'),
+          title: this.$t('token.error')
+        })
+      } finally {
+        this.isCreating = false
+      }
+    }
+  },
+
+  mounted() {
+    this.fileInput = this.$refs.fileInput as HTMLInputElement
   }
-}
-
-// Watch for form changes to validate
-const unwatchForm = () => {
-  // You can add watchers here for real-time validation
-}
-
-// Lifecycle
-onMounted(() => {
-  loadCreationCost()
 })
 </script>
 

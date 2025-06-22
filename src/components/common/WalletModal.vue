@@ -219,7 +219,7 @@ export default defineComponent({
     },
     handleImageError(event: Event) {
       const target = event.target as HTMLImageElement
-      target.src = '/images/wallet-fallback.png'
+      target.src = '/images/wallet-fallback.svg'
     }
   }
 })
