@@ -42,10 +42,14 @@ async function initializeApp() {
     // Initialize router last
     app.use(router)
     
+    // Wait for i18n to be ready
+    await Promise.resolve()
+    
     // Mount the application
     await router.isReady() // Wait for router to be ready
     app.mount('#app')
     console.log('✅ Application mounted successfully')
+    console.log('App initialized successfully')
   } catch (error) {
     console.error('❌ Application initialization failed:', error)
     // Show user-friendly error message

@@ -100,18 +100,16 @@ type MessageSchema = typeof en
 export const i18n = createI18n<[MessageSchema], LanguageCode>({
   legacy: false,
   locale: getInitialLanguage(),
-  fallbackLocale: import.meta.env.VITE_I18N_FALLBACK_LOCALE || 'en',
+  fallbackLocale: 'en',
   messages,
   globalInjection: true,
   allowComposition: true,
-  runtimeOnly: false,
   missingWarn: false,
   fallbackWarn: false,
   warnHtmlMessage: false,
   silentTranslationWarn: true,
   silentFallbackWarn: true,
   sync: true,
-  useScope: 'global',
   pluralizationRules: {
     ar: (choice: number) => {
       if (choice === 0) return 0

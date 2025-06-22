@@ -5,7 +5,14 @@ import { resolve } from 'path'
 
 // Vite configuration for FloppFun Vue.js application
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue({
+      script: {
+        defineModel: true,
+        propsDestructure: true
+      }
+    })
+  ],
   base: '/pumpClone/',
   resolve: {
     alias: {
@@ -22,16 +29,12 @@ export default defineConfig({
   },
   // Define global constants and polyfills for the application
   define: {
-    global: 'globalThis',
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
     'process.env': {},
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-    // Vue i18n feature flags for production build
-    __VUE_I18N_FULL_INSTALL__: JSON.stringify(true),
-    __VUE_I18N_LEGACY_API__: JSON.stringify(false),
-    __INTLIFY_PROD_DEVTOOLS__: JSON.stringify(false),
-    __VUE_I18N_RUNTIME_ONLY__: JSON.stringify(false),
-    __VUE_I18N_BUNDLED_LOCALE_MESSAGES__: JSON.stringify(true),
-    __VUE_I18N_PROD_MESSAGES__: JSON.stringify(true)
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
   },
   // Optimize dependencies for faster development
   optimizeDeps: {
@@ -48,9 +51,8 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks: (id: string) => {
+        manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            // Bundle all Vue-related packages together
             if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia') || id.includes('vue-i18n')) {
               return 'vendor'
             }
