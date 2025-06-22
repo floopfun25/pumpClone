@@ -140,9 +140,12 @@ for (const key of requiredKeys) {
   }
 }
 
+// Type for i18n instance
+type MessageSchema = typeof messages.en
+
 // Create i18n instance with robust configuration
-const i18n = createI18n({
-  legacy: true, // Use Options API
+const i18n = createI18n<[MessageSchema], 'en' | 'es' | 'zh' | 'hi' | 'ar' | 'pt' | 'bn' | 'ru' | 'fr' | 'tr'>({
+  legacy: false, // Enable Composition API mode
   locale: getInitialLanguage(),
   fallbackLocale: 'en',
   globalInjection: true,

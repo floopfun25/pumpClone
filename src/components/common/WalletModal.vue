@@ -17,7 +17,7 @@
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-            {{ $t('wallet.selectWallet') }}
+            {{ t('wallet.selectWallet') }}
           </h2>
           <button
             @click="closeModal"
@@ -33,7 +33,7 @@
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-8 h-8 mx-auto mb-4"></div>
           <p class="text-gray-600 dark:text-gray-400">
-            {{ isMobileDevice ? $t('messages.info.processing') : $t('wallet.connecting') }}
+            {{ isMobileDevice ? t('messages.info.processing') : t('wallet.connecting') }}
           </p>
         </div>
         
@@ -42,7 +42,7 @@
           <!-- Regular Wallet List -->
           <div v-if="displayWallets.length > 0">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ $t('wallet.selectWallet') }}
+              {{ t('wallet.selectWallet') }}
             </h3>
             <div class="space-y-2">
               <button
@@ -72,7 +72,7 @@
           <!-- Not Installed Wallets (Desktop only) -->
           <div v-if="notInstalledWallets.length > 0 && !isMobileDevice" class="mt-6">
             <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {{ $t('walletModal.notInstalled') }}
+              {{ t('walletModal.notInstalled') }}
             </h3>
             <div class="space-y-2">
               <a
@@ -94,7 +94,7 @@
                     {{ wallet.name }}
                   </p>
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ $t('walletModal.notInstalled') }}
+                    {{ t('walletModal.notInstalled') }}
                   </p>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,10 +112,10 @@
               </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 mb-4">
-              {{ $t('wallet.noWallet') }}
+              {{ t('wallet.noWallet') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">
-              {{ $t('walletModal.installInstructions') }}
+              {{ t('walletModal.installInstructions') }}
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div class="flex-1">
-              <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">{{ $t('messages.error.walletConnection') }}</h4>
+              <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-1">{{ t('messages.error.walletConnection') }}</h4>
               <p class="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">
                 {{ error }}
               </p>
@@ -138,8 +138,8 @@
         <!-- Footer -->
         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
           <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
-            {{ $t('walletModal.termsAgreement', { appName: $t('app.name') }) }}
-            <a href="/terms" class="text-primary-600 dark:text-primary-400 hover:underline">{{ $t('walletModal.termsOfService') }}</a>
+            {{ t('walletModal.termsAgreement', { appName: t('app.name') }) }}
+            <a href="/terms" class="text-primary-600 dark:text-primary-400 hover:underline">{{ t('walletModal.termsOfService') }}</a>
           </p>
         </div>
       </div>
@@ -147,82 +147,85 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { isMobile } from '@/utils/mobile'
 
-export default defineComponent({
-  name: 'WalletModal',
-  props: {
-    isOpen: {
-      type: Boolean,
-      required: true
-    }
-  },
-  emits: ['close', 'connected'],
-  data() {
-    return {
-      connecting: false,
-      error: null as string | null,
-      walletStore: useWalletStore(),
-      uiStore: useUIStore()
-    }
-  },
-  computed: {
-    isMobileDevice(): boolean {
-      return isMobile()
-    },
-    availableWallets() {
-      const wallets = this.walletStore.getAvailableWallets()
-      console.log('Available wallets:', wallets.map(w => w.name))
-      return wallets
-    },
-    allWallets() {
-      const wallets = this.walletStore.getAllWallets()
-      console.log('All wallets:', wallets.map(w => w.name))
-      return wallets
-    },
-    displayWallets() {
-      return this.availableWallets
-    },
-    notInstalledWallets() {
-      if (this.isMobileDevice) return []
-      return this.allWallets.filter(wallet => !this.availableWallets.find(w => w.name === wallet.name))
-    }
-  },
-  methods: {
-    closeModal() {
-      this.$emit('close')
-    },
-    async connectWallet(walletName: string) {
-      this.connecting = true
-      this.error = null
-      
-      try {
-        await this.walletStore.connectWallet(walletName)
-        this.$emit('connected', walletName)
-        this.closeModal()
-      } catch (error) {
-        console.error('Failed to connect wallet:', error)
-        this.error = error instanceof Error ? error.message : 'Unknown error'
-        
-        this.uiStore.showToast({
-          type: 'error',
-          title: '❌ Wallet Connection Failed',
-          message: this.error
-        })
-      } finally {
-        this.connecting = false
-      }
-    },
-    handleImageError(event: Event) {
-      const target = event.target as HTMLImageElement
-      target.src = '/images/wallet-fallback.svg'
-    }
-  }
+// Props and emits
+defineProps<{
+  isOpen: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'connected', walletName: string): void
+}>()
+
+// Composables
+const { t } = useI18n()
+const walletStore = useWalletStore()
+const uiStore = useUIStore()
+
+// State
+const connecting = ref(false)
+const error = ref<string | null>(null)
+
+// Computed
+const isMobileDevice = computed(() => isMobile())
+
+const availableWallets = computed(() => {
+  const wallets = walletStore.getAvailableWallets()
+  console.log('Available wallets:', wallets.map(w => w.name))
+  return wallets
 })
+
+const allWallets = computed(() => {
+  const wallets = walletStore.getAllWallets()
+  console.log('All wallets:', wallets.map(w => w.name))
+  return wallets
+})
+
+const displayWallets = computed(() => availableWallets.value)
+
+const notInstalledWallets = computed(() => {
+  if (isMobileDevice.value) return []
+  return allWallets.value.filter(wallet => !availableWallets.value.find(w => w.name === wallet.name))
+})
+
+// Methods
+const closeModal = () => {
+  emit('close')
+}
+
+const connectWallet = async (walletName: string) => {
+  connecting.value = true
+  error.value = null
+  
+  try {
+    await walletStore.connectWallet(walletName)
+    emit('connected', walletName)
+    closeModal()
+  } catch (err) {
+    console.error('Failed to connect wallet:', err)
+    error.value = err instanceof Error ? err.message : 'Unknown error'
+    
+    uiStore.showToast({
+      type: 'error',
+      title: '❌ Wallet Connection Failed',
+      message: error.value
+    })
+  } finally {
+    connecting.value = false
+  }
+}
+
+const handleImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement
+  target.src = '/images/wallet-fallback.svg'
+}
 </script>
 
 <style scoped>

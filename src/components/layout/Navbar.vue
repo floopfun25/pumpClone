@@ -9,7 +9,7 @@
             <span class="text-binance-dark font-bold text-sm">F</span>
           </div>
           <span class="text-xl font-bold text-white text-shadow">
-            {{ $t('app.name') }}
+            {{ t('app.name') }}
           </span>
         </router-link>
         
@@ -19,25 +19,25 @@
             to="/" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            {{ $t('navigation.home') }}
+            {{ t('navigation.home') }}
           </router-link>
           <router-link 
             to="/create" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            {{ $t('navigation.create') }}
+            {{ t('navigation.create') }}
           </router-link>
           <router-link 
             to="/leaderboard" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            {{ $t('navigation.leaderboard') }}
+            {{ t('navigation.leaderboard') }}
           </router-link>
           <router-link 
             to="/about" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
           >
-            {{ $t('navigation.about') }}
+            {{ t('navigation.about') }}
           </router-link>
         </div>
         
@@ -49,7 +49,7 @@
               <input
                 v-model="searchQuery"
                 type="text"
-                :placeholder="$t('search.placeholder')"
+                :placeholder="t('search.placeholder')"
                 class="pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-surface text-white focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow placeholder-binance-gray"
               />
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -80,7 +80,7 @@
             @click="connectWallet"
             class="btn-primary px-6 py-2 font-semibold"
           >
-            {{ $t('wallet.connect') }}
+            {{ t('wallet.connect') }}
           </button>
           
           <!-- User Menu (when wallet connected) -->
@@ -115,21 +115,21 @@
                 class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
-                {{ $t('navigation.profile') }}
+                {{ t('navigation.profile') }}
               </router-link>
               <router-link 
                 to="/portfolio" 
                 class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
-                {{ $t('navigation.portfolio') }}
+                {{ t('navigation.portfolio') }}
               </router-link>
               <hr class="my-1 border-binance-border">
               <button 
                 @click="disconnectWallet"
                 class="block w-full text-left px-4 py-2 text-sm text-trading-sell hover:bg-trading-elevated transition-colors"
               >
-                {{ $t('wallet.disconnect') }}
+                {{ t('wallet.disconnect') }}
               </button>
             </div>
           </div>
@@ -158,7 +158,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            :placeholder="$t('search.placeholder')"
+            :placeholder="t('search.placeholder')"
             class="w-full pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-elevated text-white placeholder-binance-gray"
           />
         </div>
@@ -169,28 +169,28 @@
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          {{ $t('navigation.home') }}
+          {{ t('navigation.home') }}
         </router-link>
         <router-link 
           to="/create" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          {{ $t('navigation.create') }}
+          {{ t('navigation.create') }}
         </router-link>
         <router-link 
           to="/leaderboard" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          {{ $t('navigation.leaderboard') }}
+          {{ t('navigation.leaderboard') }}
         </router-link>
         <router-link 
           to="/about" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
           @click="closeMobileMenu"
         >
-          {{ $t('navigation.about') }}
+          {{ t('navigation.about') }}
         </router-link>
       </div>
     </div>
@@ -204,134 +204,86 @@
   />
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import WalletModal from '@/components/common/WalletModal.vue'
 import LanguageSelector from '@/components/common/LanguageSelector.vue'
 
-export default defineComponent({
-  name: 'Navbar',
-  components: {
-    WalletModal,
-    LanguageSelector
-  },
-  data() {
-    return {
-      searchQuery: '',
-      showMobileMenu: false,
-      showWalletModal: false,
-      showUserMenu: false,
-      authStore: useAuthStore(),
-      walletStore: useWalletStore(),
-      uiStore: useUIStore()
-    }
-  },
-  computed: {
-    isConnected(): boolean {
-      return this.walletStore.isConnected
-    },
-    walletAddress(): string | null {
-      return this.walletStore.walletAddress
-    },
-    balance(): string {
-      return this.walletStore.formattedBalance
-    },
-    isDarkMode(): boolean {
-      return this.uiStore.isDarkMode
-    },
-    walletInitials(): string {
-      if (!this.walletAddress) return 'W'
-      return this.walletAddress.slice(0, 2).toUpperCase()
-    },
-    shortWalletAddress(): string {
-      if (!this.walletAddress) return ''
-      return `${this.walletAddress.slice(0, 4)}...${this.walletAddress.slice(-4)}`
-    }
-  },
-  methods: {
-    toggleTheme(): void {
-      this.uiStore.toggleDarkMode()
-    },
-    connectWallet(): void {
-      this.showWalletModal = true
-    },
-    async disconnectWallet(): Promise<void> {
-      try {
-        await this.walletStore.disconnectWallet()
-        await this.authStore.signOut()
-        
-        this.uiStore.showToast({
-          type: 'success',
-          title: '🔌 Wallet Disconnected Successfully',
-          message: 'Your wallet has been safely disconnected'
-        })
-      } catch (error) {
-        console.error('Failed to disconnect wallet:', error)
-        this.uiStore.showToast({
-          type: 'error',
-          title: '❌ Disconnection Failed',
-          message: 'Failed to disconnect wallet properly'
-        })
-      }
-    },
-    async handleWalletConnected(walletName: string): Promise<void> {
-      this.showWalletModal = false
-      
-      try {
-        const currentWalletAddress = this.walletStore.walletAddress
-        
-        if (!currentWalletAddress) {
-          throw new Error('Wallet connected but no address available')
-        }
-        
-        await this.authStore.signInWithWallet(currentWalletAddress)
-      } catch (error) {
-        console.error('Failed to sign in with wallet:', error)
-      }
-    },
-    toggleUserMenu(): void {
-      this.showUserMenu = !this.showUserMenu
-    },
-    closeUserMenu(): void {
-      this.showUserMenu = false
-    },
-    toggleMobileMenu(): void {
-      this.showMobileMenu = !this.showMobileMenu
-    },
-    closeMobileMenu(): void {
-      this.showMobileMenu = false
-    }
-  }
+const { t } = useI18n()
+const authStore = useAuthStore()
+const walletStore = useWalletStore()
+const uiStore = useUIStore()
+
+// State
+const searchQuery = ref('')
+const showMobileMenu = ref(false)
+const showWalletModal = ref(false)
+const showUserMenu = ref(false)
+
+// Computed properties
+const isConnected = computed(() => walletStore.isConnected)
+const walletAddress = computed(() => walletStore.walletAddress)
+const balance = computed(() => walletStore.formattedBalance)
+const isDarkMode = computed(() => uiStore.isDarkMode)
+const walletInitials = computed(() => {
+  if (!walletAddress.value) return 'W'
+  return walletAddress.value.slice(0, 2).toUpperCase()
 })
+const shortWalletAddress = computed(() => {
+  if (!walletAddress.value) return ''
+  return `${walletAddress.value.slice(0, 6)}...${walletAddress.value.slice(-4)}`
+})
+
+// Methods
+const connectWallet = () => {
+  showWalletModal.value = true
+}
+
+const handleWalletConnected = () => {
+  showWalletModal.value = false
+}
+
+const disconnectWallet = async () => {
+  await walletStore.disconnectWallet()
+  showUserMenu.value = false
+}
+
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+}
+
+const closeUserMenu = () => {
+  showUserMenu.value = false
+}
+
+const toggleMobileMenu = () => {
+  showMobileMenu.value = !showMobileMenu.value
+}
+
+const closeMobileMenu = () => {
+  showMobileMenu.value = false
+}
+
+const toggleTheme = () => {
+  uiStore.toggleDarkMode()
+}
 </script>
 
 <style scoped>
-/* Active route styling for Binance theme */
-.router-link-active {
-  @apply text-binance-yellow font-semibold;
-}
-
-/* Navigation link hover effects */
-.nav-link {
-  @apply relative;
-}
-
-.nav-link:hover::after {
-  content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-binance-yellow transform scale-x-100;
-}
-
-.nav-link::after {
-  content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-binance-yellow transform scale-x-0 transition-transform duration-200;
-}
-
-/* Additional Binance styling */
 .nav-binance {
-  backdrop-filter: blur(20px);
-  background: rgba(11, 14, 17, 0.95);
+  @apply bg-trading-surface border-b border-binance-border;
+  backdrop-filter: blur(8px);
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px rgba(241, 185, 11, 0.3);
+}
+
+.text-shadow {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 </style> 
