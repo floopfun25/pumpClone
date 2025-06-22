@@ -4,7 +4,7 @@
     <button 
       @click="toggleLanguageMenu"
       class="p-2 text-binance-gray hover:text-binance-yellow transition-colors rounded-lg hover:bg-binance-border/30 flex items-center space-x-1"
-      :title="$t('navigation.settings')"
+      :title="t('navigation.settings')"
     >
       <span class="text-lg">{{ currentLanguage.flag }}</span>
       <span class="text-sm font-medium hidden sm:block">{{ currentLanguage.code.toUpperCase() }}</span>
@@ -49,90 +49,82 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { supportedLanguages, saveLanguage, getLanguageInfo } from '@/i18n'
 
-export default {
-  name: 'LanguageSelector',
-  data() {
-    return {
-      showLanguageMenu: false,
-      supportedLanguages: supportedLanguages
-    }
-  },
-  computed: {
-    currentLanguage() {
-      try {
-        const currentLang = getLanguageInfo(this.$i18n.locale || 'en')
-        console.log('Current language:', currentLang) // Debug log
-        return currentLang
-      } catch (error) {
-        console.warn('Failed to get language info:', error)
-        return { code: 'en', name: 'English', flag: '🇺🇸', rtl: false }
-      }
-    }
-  },
-  methods: {
-    toggleLanguageMenu() {
-      this.showLanguageMenu = !this.showLanguageMenu
-    },
-    changeLanguage(langCode) {
-      try {
-        this.$i18n.locale = langCode
-        saveLanguage(langCode)
-        this.showLanguageMenu = false
-        
-        // Apply RTL for Arabic
-        const html = document.documentElement
-        const langInfo = getLanguageInfo(langCode)
-        
-        if (langInfo.rtl) {
-          html.setAttribute('dir', 'rtl')
-          html.classList.add('rtl')
-        } else {
-          html.setAttribute('dir', 'ltr')
-          html.classList.remove('rtl')
-        }
-      } catch (error) {
-        console.error('Failed to change language:', error)
-        this.showLanguageMenu = false
-      }
-    },
-    handleClickOutside(event) {
-      if (!event.target.closest('.relative')) {
-        this.showLanguageMenu = false
-      }
-    }
-  },
-  mounted() {
-    document.addEventListener('click', this.handleClickOutside)
+type LanguageCode = (typeof supportedLanguages)[number]['code']
+
+const { t, locale } = useI18n()
+const showLanguageMenu = ref(false)
+
+const currentLanguage = computed(() => {
+  try {
+    return getLanguageInfo(locale.value)
+  } catch (error) {
+    console.warn('Failed to get language info:', error)
+    return { code: 'en' as LanguageCode, name: 'English', flag: '🇺🇸', rtl: false }
+  }
+})
+
+function toggleLanguageMenu() {
+  showLanguageMenu.value = !showLanguageMenu.value
+}
+
+function changeLanguage(langCode: LanguageCode) {
+  try {
+    locale.value = langCode
+    saveLanguage(langCode)
+    showLanguageMenu.value = false
     
-    // Debug logging
-    console.log('LanguageSelector mounted')
-    console.log('Current locale:', this.$i18n.locale)
-    console.log('Supported languages:', this.supportedLanguages)
-    console.log('Current language info:', this.currentLanguage)
+    // Apply RTL for Arabic
+    const html = document.documentElement
+    const langInfo = getLanguageInfo(langCode)
     
-    // Set initial RTL state
-    try {
-      const currentLangInfo = getLanguageInfo(this.$i18n.locale || 'en')
-      const html = document.documentElement
-      
-      if (currentLangInfo.rtl) {
-        html.setAttribute('dir', 'rtl')
-        html.classList.add('rtl')
-      } else {
-        html.setAttribute('dir', 'ltr')
-        html.classList.remove('rtl')
-      }
-    } catch (error) {
-      console.warn('Failed to set initial RTL state:', error)
+    if (langInfo.rtl) {
+      html.setAttribute('dir', 'rtl')
+      html.classList.add('rtl')
+    } else {
+      html.setAttribute('dir', 'ltr')
+      html.classList.remove('rtl')
     }
-  },
-  beforeDestroy() {
-    document.removeEventListener('click', this.handleClickOutside)
+  } catch (error) {
+    console.error('Failed to change language:', error)
+    showLanguageMenu.value = false
   }
 }
+
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (!target.closest('.relative')) {
+    showLanguageMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  
+  // Set initial RTL state
+  try {
+    const currentLangInfo = getLanguageInfo(locale.value)
+    const html = document.documentElement
+    
+    if (currentLangInfo.rtl) {
+      html.setAttribute('dir', 'rtl')
+      html.classList.add('rtl')
+    } else {
+      html.setAttribute('dir', 'ltr')
+      html.classList.remove('rtl')
+    }
+  } catch (error) {
+    console.warn('Failed to set initial RTL state:', error)
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>

@@ -1,160 +1,145 @@
 <template>
   <!-- Token card component for displaying token information in a grid -->
-  <div class="token-card bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-lg">
-    <!-- Token Image and Header -->
-    <div class="flex items-start gap-4 mb-4">
-      <!-- Token Image -->
-      <div class="w-12 h-12 rounded-full overflow-hidden">
-        <img 
-          v-if="token?.image_url" 
-          :src="token.image_url" 
-          :alt="tokenName"
-          class="w-full h-full object-cover"
-        />
-        <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-          {{ tokenSymbol.slice(0, 2) }}
+  <div class="bg-trading-surface border border-binance-border rounded-lg overflow-hidden hover:border-binance-yellow transition-colors">
+    <!-- Token Header -->
+    <div class="p-4 border-b border-binance-border">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <img 
+            :src="token.imageUrl || fallbackImage" 
+            :alt="token.name"
+            class="w-10 h-10 rounded-full"
+            @error="handleImageError"
+          >
+          <div>
+            <h3 class="text-lg font-semibold text-white">{{ token.name }}</h3>
+            <p class="text-sm text-binance-gray">{{ token.symbol }}</p>
+          </div>
         </div>
-      </div>
-      
-      <div class="flex-1 min-w-0">
-        <h3 class="font-semibold text-gray-900 dark:text-white truncate">
-          {{ tokenName }}
-        </h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          ${{ tokenSymbol }}
-        </p>
-      </div>
-      
-      <!-- Status Badge -->
-      <span 
-        :class="[
-          'px-2 py-1 text-xs font-medium rounded-full',
-          token?.status === 'graduated' ? 'bg-purple-500 text-white' :
-          token?.status === 'active' ? 'bg-pump-green text-white' :
-          'bg-gray-500 text-white'
-        ]"
-      >
-        {{ statusText }}
-      </span>
-    </div>
-    
-    <!-- Token Metrics -->
-    <div class="space-y-3">
-      <!-- Price -->
-      <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.price') }}</span>
-        <span class="font-medium text-gray-900 dark:text-white">
-          ${{ currentPrice }}
-        </span>
-      </div>
-      
-      <!-- Market Cap -->
-      <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.marketCap') }}</span>
-        <span class="font-medium text-gray-900 dark:text-white">
-          ${{ marketCap }}
-        </span>
-      </div>
-      
-      <!-- Volume 24h -->
-      <div class="flex justify-between items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $t('token.volume24h') }}</span>
-        <span class="font-medium text-pump-green">
-          ${{ volume24h }}
-        </span>
-      </div>
-      
-      <!-- Progress Bar for Bonding Curve -->
-      <div class="pt-2">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-xs text-gray-600 dark:text-gray-400">{{ $t('token.progress') }}</span>
-          <span class="text-xs text-gray-600 dark:text-gray-400">{{ progress }}%</span>
-        </div>
-        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-          <div 
-            class="bg-gradient-to-r from-pump-green to-primary-500 h-2 rounded-full transition-all duration-300" 
-            :style="`width: ${progress}%`"
-          ></div>
+        <div class="text-right">
+          <p class="text-sm font-medium text-binance-yellow">${{ formatPrice(token.price) }}</p>
+          <p :class="priceChangeClass">{{ formatPriceChange(token.priceChange24h) }}%</p>
         </div>
       </div>
     </div>
-    
-    <!-- Creator Info -->
-    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <span>{{ $t('token.createdBy') }}</span>
-        <span class="font-medium text-primary-600 dark:text-primary-400">
-          {{ creatorAddress }}
-        </span>
+
+    <!-- Token Stats -->
+    <div class="p-4 space-y-3">
+      <div class="flex justify-between text-sm">
+        <span class="text-binance-gray">{{ t('token.marketCap') }}</span>
+        <span class="text-white font-medium">${{ formatNumber(token.marketCap) }}</span>
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-binance-gray">{{ t('token.volume24h') }}</span>
+        <span class="text-white font-medium">${{ formatNumber(token.volume24h) }}</span>
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-binance-gray">{{ t('token.holders') }}</span>
+        <span class="text-white font-medium">{{ formatNumber(token.holders) }}</span>
+      </div>
+    </div>
+
+    <!-- Token Actions -->
+    <div class="p-4 bg-trading-elevated border-t border-binance-border">
+      <div class="flex space-x-2">
+        <button 
+          @click="$emit('trade', token)"
+          class="flex-1 bg-binance-yellow text-black font-medium py-2 px-4 rounded-lg hover:bg-binance-yellow-dark transition-colors"
+        >
+          {{ t('trading.trade') }}
+        </button>
+        <button 
+          @click="$emit('view', token)"
+          class="flex-1 border border-binance-border text-white font-medium py-2 px-4 rounded-lg hover:bg-trading-surface transition-colors"
+        >
+          {{ t('common.view') }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'TokenCard',
-  props: {
-    token: {
-      type: Object,
-      required: true,
-      validator: (value) => {
-        return value && typeof value === 'object' && 'id' in value
-      }
-    }
-  },
-  computed: {
-    tokenName() {
-      return this.token?.name || this.$t('common.unknown')
-    },
-    tokenSymbol() {
-      return this.token?.symbol || 'N/A'
-    },
-    statusText() {
-      const status = this.token?.status || 'active'
-      switch (status) {
-        case 'graduated':
-          return this.$t('token.graduated')
-        case 'active':
-          return this.$t('common.active')
-        default:
-          return status.charAt(0).toUpperCase() + status.slice(1)
-      }
-    },
-    creatorAddress() {
-      if (this.token?.creator?.username) {
-        return this.token.creator.username
-      }
-      if (this.token?.creator?.wallet_address) {
-        return `${this.token.creator.wallet_address.slice(0, 4)}...${this.token.creator.wallet_address.slice(-4)}`
-      }
-      if (this.token?.creator_address) {
-        return `${this.token.creator_address.slice(0, 4)}...${this.token.creator_address.slice(-4)}`
-      }
-      return this.$t('common.unknown')
-    },
-    currentPrice() {
-      return this.token?.current_price?.toFixed(6) || '0.000000'
-    },
-    marketCap() {
-      const cap = this.token?.market_cap || 0
-      if (cap >= 1000000) return `${(cap / 1000000).toFixed(1)}M`
-      if (cap >= 1000) return `${(cap / 1000).toFixed(1)}K`
-      return cap.toString()
-    },
-    volume24h() {
-      const volume = this.token?.volume_24h || 0
-      if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`
-      if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
-      return volume.toString()
-    },
-    progress() {
-      return Math.round(this.token?.bonding_curve_progress || 0)
-    }
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+// Define token interface
+interface Token {
+  id: string
+  name: string
+  symbol: string
+  imageUrl?: string
+  price: number
+  priceChange24h: number
+  marketCap: number
+  volume24h: number
+  holders: number
+}
+
+// Define props
+const props = defineProps<{
+  token: Token
+}>()
+
+// Define emits
+const emit = defineEmits<{
+  (e: 'trade', token: Token): void
+  (e: 'view', token: Token): void
+}>()
+
+// Setup i18n
+const { t } = useI18n()
+
+// Setup fallback image
+const fallbackImage = ref('/images/token-fallback.svg')
+
+// Computed properties
+const priceChangeClass = computed(() => {
+  return {
+    'text-sm font-medium': true,
+    'text-green-500': props.token.priceChange24h > 0,
+    'text-red-500': props.token.priceChange24h < 0,
+    'text-binance-gray': props.token.priceChange24h === 0
   }
+})
+
+// Methods
+function handleImageError(event: Event) {
+  const img = event.target as HTMLImageElement
+  img.src = fallbackImage.value
+}
+
+function formatPrice(price: number): string {
+  if (price < 0.01) {
+    return price.toFixed(8)
+  }
+  if (price < 1) {
+    return price.toFixed(4)
+  }
+  return price.toFixed(2)
+}
+
+function formatPriceChange(change: number): string {
+  return change > 0 ? `+${change.toFixed(2)}` : change.toFixed(2)
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1_000_000_000) {
+    return `${(num / 1_000_000_000).toFixed(2)}B`
+  }
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(2)}M`
+  }
+  if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(2)}K`
+  }
+  return num.toString()
 }
 </script>
 
 <style scoped>
-/* Component-specific styles are handled by Tailwind classes */
+.hover\:bg-binance-yellow-dark:hover {
+  background-color: #F0B90B;
+  filter: brightness(0.9);
+}
 </style> 
