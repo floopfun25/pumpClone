@@ -31,21 +31,21 @@ async function initializeApp() {
       console.error('Error Info:', info)
     }
     
-    // Initialize Pinia first
+    // Initialize i18n first
+    app.use(i18n)
+    
+    // Initialize Pinia
     const pinia = createPinia()
     app.use(pinia)
     
-    // Initialize i18n before router
-    app.use(i18n)
-    
-    // Initialize router after i18n
+    // Initialize router last
     app.use(router)
     
     // Validate i18n is working
     try {
       const testKey = 'app.name'
-      const testTranslation = i18n.global.t(testKey)
-      if (testTranslation && testTranslation !== testKey) {
+      const translation = i18n.global.t(testKey)
+      if (translation && translation !== testKey) {
         console.log('✅ i18n initialized successfully')
         console.log('🔍 i18n test translation successful')
       } else {

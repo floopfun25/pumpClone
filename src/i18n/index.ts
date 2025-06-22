@@ -1,5 +1,6 @@
 import { createI18n } from 'vue-i18n'
 import type { I18n, Locale } from 'vue-i18n'
+import { useI18n } from 'vue-i18n'
 
 // Import all language files
 import en from './locales/en.json'
@@ -93,8 +94,8 @@ export const i18n = createI18n({
   fallbackLocale: 'en',
   messages,
   globalInjection: true,
-  allowComposition: true, // Enable Composition API
-  useScope: 'global', // Set the scope to global
+  allowComposition: true,
+  runtimeOnly: false,
   missingWarn: process.env.NODE_ENV === 'development',
   fallbackWarn: process.env.NODE_ENV === 'development',
   warnHtmlMessage: process.env.NODE_ENV === 'development',
@@ -116,7 +117,8 @@ export const i18n = createI18n({
 
 // Export type-safe composer
 export type MessageSchema = typeof en
-export type TypedComposer = typeof i18n.global & { t(key: keyof MessageSchema): string }
+export type TypedI18n = typeof i18n
+export type TypedComposer = ReturnType<typeof useI18n>
 
 // Export for use in app
 export default i18n 

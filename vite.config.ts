@@ -29,6 +29,9 @@ export default defineConfig({
     __VUE_I18N_FULL_INSTALL__: JSON.stringify(true),
     __VUE_I18N_LEGACY_API__: JSON.stringify(false),
     __INTLIFY_PROD_DEVTOOLS__: JSON.stringify(false),
+    __VUE_I18N_RUNTIME_ONLY__: JSON.stringify(false),
+    __VUE_I18N_BUNDLED_LOCALE_MESSAGES__: JSON.stringify(true),
+    __VUE_I18N_PROD_MESSAGES__: JSON.stringify(true)
   },
   // Optimize dependencies for faster development
   optimizeDeps: {
@@ -45,16 +48,16 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
+        manualChunks: (id: string) => {
           if (id.includes('node_modules')) {
-            // Include i18n in the vendor chunk to prevent loading issues
-            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-i18n')) {
+            // Bundle all Vue-related packages together
+            if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia') || id.includes('vue-i18n')) {
               return 'vendor'
             }
-            if (id.includes('@solana')) {
+            if (id.includes('@solana/')) {
               return 'solana'
             }
-            if (id.includes('@headlessui') || id.includes('@heroicons')) {
+            if (id.includes('@headlessui/') || id.includes('@heroicons/')) {
               return 'ui'
             }
           }
