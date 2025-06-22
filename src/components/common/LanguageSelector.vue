@@ -56,13 +56,16 @@ export default {
   name: 'LanguageSelector',
   data() {
     return {
-      showLanguageMenu: false
+      showLanguageMenu: false,
+      supportedLanguages: supportedLanguages
     }
   },
   computed: {
     currentLanguage() {
       try {
-        return getLanguageInfo(this.$i18n.locale || 'en')
+        const currentLang = getLanguageInfo(this.$i18n.locale || 'en')
+        console.log('Current language:', currentLang) // Debug log
+        return currentLang
       } catch (error) {
         console.warn('Failed to get language info:', error)
         return { code: 'en', name: 'English', flag: '🇺🇸', rtl: false }
@@ -103,6 +106,12 @@ export default {
   },
   mounted() {
     document.addEventListener('click', this.handleClickOutside)
+    
+    // Debug logging
+    console.log('LanguageSelector mounted')
+    console.log('Current locale:', this.$i18n.locale)
+    console.log('Supported languages:', this.supportedLanguages)
+    console.log('Current language info:', this.currentLanguage)
     
     // Set initial RTL state
     try {

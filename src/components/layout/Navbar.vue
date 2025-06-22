@@ -204,115 +204,108 @@
   />
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script lang="ts">
+import { defineComponent } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import WalletModal from '@/components/common/WalletModal.vue'
 import LanguageSelector from '@/components/common/LanguageSelector.vue'
 
-const authStore = useAuthStore()
-const walletStore = useWalletStore()
-const uiStore = useUIStore()
-
-// State
-const searchQuery = ref('')
-const showMobileMenu = ref(false)
-const showWalletModal = ref(false)
-
-// Computed properties
-const isConnected = computed(() => walletStore.isConnected)
-const walletAddress = computed(() => walletStore.walletAddress)
-const balance = computed(() => walletStore.formattedBalance)
-const isDarkMode = computed(() => uiStore.isDarkMode)
-
-// Reactive state
-const showUserMenu = ref(false)
-
-// Computed properties
-const walletInitials = computed(() => {
-  if (!walletAddress.value) return 'W'
-  return walletAddress.value.slice(0, 2).toUpperCase()
-})
-
-const shortWalletAddress = computed(() => {
-  if (!walletAddress.value) return ''
-  return `${walletAddress.value.slice(0, 4)}...${walletAddress.value.slice(-4)}`
-})
-
-// Methods
-const toggleTheme = () => {
-  uiStore.toggleDarkMode()
-}
-
-/**
- * Connect wallet
- * Opens wallet selection modal
- */
-const connectWallet = () => {
-  showWalletModal.value = true
-}
-
-/**
- * Disconnect wallet
- */
-const disconnectWallet = async () => {
-  try {
-    await walletStore.disconnectWallet()
-    await authStore.signOut()
-    
-    uiStore.showToast({
-      type: 'success',
-      title: '🔌 Wallet Disconnected Successfully',
-      message: 'Your wallet has been safely disconnected'
-    })
-  } catch (error) {
-    console.error('Failed to disconnect wallet:', error)
-    uiStore.showToast({
-      type: 'error',
-      title: '❌ Disconnection Failed',
-      message: 'Failed to disconnect wallet properly'
-    })
-  }
-}
-
-/**
- * Handle wallet connection success
- */
-const handleWalletConnected = async (walletName) => {
-  showWalletModal.value = false
-  
-  try {
-    // Get wallet address from wallet store
-    const currentWalletAddress = walletStore.walletAddress
-    
-    if (!currentWalletAddress) {
-      throw new Error('Wallet connected but no address available')
+export default defineComponent({
+  name: 'Navbar',
+  components: {
+    WalletModal,
+    LanguageSelector
+  },
+  data() {
+    return {
+      searchQuery: '',
+      showMobileMenu: false,
+      showWalletModal: false,
+      showUserMenu: false,
+      authStore: useAuthStore(),
+      walletStore: useWalletStore(),
+      uiStore: useUIStore()
     }
-    
-    // Sign in with the connected wallet
-    await authStore.signInWithWallet(currentWalletAddress)
-  } catch (error) {
-    console.error('Failed to sign in with wallet:', error)
+  },
+  computed: {
+    isConnected(): boolean {
+      return this.walletStore.isConnected
+    },
+    walletAddress(): string | null {
+      return this.walletStore.walletAddress
+    },
+    balance(): string {
+      return this.walletStore.formattedBalance
+    },
+    isDarkMode(): boolean {
+      return this.uiStore.isDarkMode
+    },
+    walletInitials(): string {
+      if (!this.walletAddress) return 'W'
+      return this.walletAddress.slice(0, 2).toUpperCase()
+    },
+    shortWalletAddress(): string {
+      if (!this.walletAddress) return ''
+      return `${this.walletAddress.slice(0, 4)}...${this.walletAddress.slice(-4)}`
+    }
+  },
+  methods: {
+    toggleTheme(): void {
+      this.uiStore.toggleDarkMode()
+    },
+    connectWallet(): void {
+      this.showWalletModal = true
+    },
+    async disconnectWallet(): Promise<void> {
+      try {
+        await this.walletStore.disconnectWallet()
+        await this.authStore.signOut()
+        
+        this.uiStore.showToast({
+          type: 'success',
+          title: '🔌 Wallet Disconnected Successfully',
+          message: 'Your wallet has been safely disconnected'
+        })
+      } catch (error) {
+        console.error('Failed to disconnect wallet:', error)
+        this.uiStore.showToast({
+          type: 'error',
+          title: '❌ Disconnection Failed',
+          message: 'Failed to disconnect wallet properly'
+        })
+      }
+    },
+    async handleWalletConnected(walletName: string): Promise<void> {
+      this.showWalletModal = false
+      
+      try {
+        const currentWalletAddress = this.walletStore.walletAddress
+        
+        if (!currentWalletAddress) {
+          throw new Error('Wallet connected but no address available')
+        }
+        
+        await this.authStore.signInWithWallet(currentWalletAddress)
+      } catch (error) {
+        console.error('Failed to sign in with wallet:', error)
+      }
+    },
+    toggleUserMenu(): void {
+      this.showUserMenu = !this.showUserMenu
+    },
+    closeUserMenu(): void {
+      this.showUserMenu = false
+    },
+    toggleMobileMenu(): void {
+      this.showMobileMenu = !this.showMobileMenu
+    },
+    closeMobileMenu(): void {
+      this.showMobileMenu = false
+    }
   }
-}
-
-const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value
-}
-
-const closeUserMenu = () => {
-  showUserMenu.value = false
-}
-
-const toggleMobileMenu = () => {
-  showMobileMenu.value = !showMobileMenu.value
-}
-
-const closeMobileMenu = () => {
-  showMobileMenu.value = false
-}
+})
 </script>
 
 <style scoped>

@@ -147,126 +147,82 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+<script lang="ts">
+import { defineComponent } from 'vue'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { isMobile } from '@/utils/mobile'
 
-// Props
-interface Props {
-  isOpen: boolean
-}
-
-const props = defineProps<Props>()
-
-// Emits
-const emit = defineEmits<{
-  close: []
-  connected: [walletName: string]
-}>()
-
-// Stores
-const walletStore = useWalletStore()
-const uiStore = useUIStore()
-
-// State
-const connecting = ref(false)
-const error = ref<string | null>(null)
-
-// Mobile detection using our utility
-const isMobileDevice = computed(() => isMobile())
-
-// Computed properties
-const availableWallets = computed(() => {
-  const wallets = walletStore.getAvailableWallets()
-  console.log('Available wallets:', wallets.map(w => w.name))
-  return wallets
-})
-
-const allWallets = computed(() => {
-  const wallets = walletStore.getAllWallets()
-  console.log('All wallets:', wallets.map(w => w.name))
-  return wallets
-})
-
-// For mobile: show MWA-compatible wallets (via availableWallets)
-// For desktop: show only detected wallets
-const displayWallets = computed(() => {
-  // Use the wallet service's logic for determining available wallets
-  // This handles mobile MWA detection correctly
-  return availableWallets.value
-})
-
-const notInstalledWallets = computed(() => {
-  if (isMobileDevice.value) {
-    // On mobile, don't show "not installed" section since we handle this in the connection flow
-    return []
-  }
-  return allWallets.value.filter(wallet => 
-    !availableWallets.value.some(available => available.name === wallet.name)
-  )
-})
-
-// Watch for connection status changes
-watch(() => walletStore.isConnected, (connected) => {
-  if (connected) {
-    emit('connected', walletStore.wallet?.name || 'Unknown')
-    closeModal()
-  }
-})
-
-// Methods
-const connectWallet = async (walletName: string) => {
-  try {
-    connecting.value = true
-    error.value = null
-    
-    await walletStore.connectWallet(walletName)
-    
-    // Show success message only if not on mobile (mobile connections redirect to app)
-    if (!isMobileDevice.value) {
-      uiStore.showToast({
-        type: 'success',
-        title: '🔗 Wallet Connected Successfully',
-        message: `Connected to ${walletName} wallet`
-      })
+export default defineComponent({
+  name: 'WalletModal',
+  props: {
+    isOpen: {
+      type: Boolean,
+      required: true
     }
-    
-  } catch (err) {
-    console.error('Failed to connect wallet:', err)
-    const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet'
-    error.value = errorMessage
-    
-    // Show detailed error in toast for debugging
-    uiStore.showToast({
-      type: 'error',
-      title: '❌ Connection Failed',
-      message: errorMessage
-    })
-    
-    // Also show error details in the modal for mobile debugging
-    if (isMobileDevice.value) {
-      // Add technical details to the error display on mobile
-      const errorDetails = `Error: ${errorMessage}${err instanceof Error && err.stack ? '\n\nStack: ' + err.stack.slice(0, 200) + '...' : ''}`
-      error.value = errorDetails
+  },
+  emits: ['close', 'connected'],
+  data() {
+    return {
+      connecting: false,
+      error: null as string | null,
+      walletStore: useWalletStore(),
+      uiStore: useUIStore()
     }
-  } finally {
-    connecting.value = false
+  },
+  computed: {
+    isMobileDevice(): boolean {
+      return isMobile()
+    },
+    availableWallets() {
+      const wallets = this.walletStore.getAvailableWallets()
+      console.log('Available wallets:', wallets.map(w => w.name))
+      return wallets
+    },
+    allWallets() {
+      const wallets = this.walletStore.getAllWallets()
+      console.log('All wallets:', wallets.map(w => w.name))
+      return wallets
+    },
+    displayWallets() {
+      return this.availableWallets
+    },
+    notInstalledWallets() {
+      if (this.isMobileDevice) return []
+      return this.allWallets.filter(wallet => !this.availableWallets.find(w => w.name === wallet.name))
+    }
+  },
+  methods: {
+    closeModal() {
+      this.$emit('close')
+    },
+    async connectWallet(walletName: string) {
+      this.connecting = true
+      this.error = null
+      
+      try {
+        await this.walletStore.connectWallet(walletName)
+        this.$emit('connected', walletName)
+        this.closeModal()
+      } catch (error) {
+        console.error('Failed to connect wallet:', error)
+        this.error = error instanceof Error ? error.message : 'Unknown error'
+        
+        this.uiStore.showToast({
+          type: 'error',
+          title: '❌ Wallet Connection Failed',
+          message: this.error
+        })
+      } finally {
+        this.connecting = false
+      }
+    },
+    handleImageError(event: Event) {
+      const target = event.target as HTMLImageElement
+      target.src = '/images/wallet-fallback.png'
+    }
   }
-}
-
-const closeModal = () => {
-  if (!connecting.value) {
-    error.value = null
-    emit('close')
-  }
-}
-
-const handleImageError = (event: Event) => {
-  const img = event.target as HTMLImageElement
-  img.src = `${import.meta.env.BASE_URL}wallet-fallback.svg` // Fallback icon with proper base path
-}
+})
 </script>
 
 <style scoped>
