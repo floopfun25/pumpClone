@@ -43,6 +43,7 @@ async function initializeApp() {
     app.use(router)
     
     // Mount the application
+    await router.isReady() // Wait for router to be ready
     app.mount('#app')
     console.log('✅ Application mounted successfully')
   } catch (error) {

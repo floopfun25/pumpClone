@@ -107,6 +107,8 @@ export const i18n = createI18n({
   warnHtmlMessage: false, // Disable HTML warnings
   silentTranslationWarn: true, // Silent in production
   silentFallbackWarn: true, // Silent in production
+  sync: true, // Keep composition API in sync
+  useScope: 'global', // Use global scope by default
   pluralizationRules: {
     // Add custom pluralization rules for languages that need them
     ar: (choice: number) => {
