@@ -92,12 +92,12 @@ export const i18n = createI18n({
   locale: getInitialLanguage(),
   fallbackLocale: 'en',
   messages,
-  globalInjection: true, // Enable global injection for backwards compatibility
-  missingWarn: false, // Disable missing translation warnings
-  fallbackWarn: false, // Disable fallback warnings
-  warnHtmlMessage: false, // Disable HTML message warnings
-  silentTranslationWarn: true, // Suppress translation warnings
-  silentFallbackWarn: true, // Suppress fallback warnings
+  globalInjection: true,
+  missingWarn: process.env.NODE_ENV === 'development',
+  fallbackWarn: process.env.NODE_ENV === 'development',
+  warnHtmlMessage: process.env.NODE_ENV === 'development',
+  silentTranslationWarn: process.env.NODE_ENV === 'production',
+  silentFallbackWarn: process.env.NODE_ENV === 'production',
   pluralizationRules: {
     // Add custom pluralization rules for languages that need them
     ar: (choice: number) => {
@@ -111,6 +111,10 @@ export const i18n = createI18n({
     }
   }
 })
+
+// Export type-safe composer
+export type MessageSchema = typeof en
+export type TypedComposer = typeof i18n.global & { t(key: keyof MessageSchema): string }
 
 // Export for use in app
 export default i18n 

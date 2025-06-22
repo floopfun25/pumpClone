@@ -41,13 +41,25 @@ export default defineConfig({
     ]
   },
   build: {
+    target: 'esnext',
+    minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['vue', 'vue-router', 'pinia'],
-          i18n: ['vue-i18n'],
-          solana: ['@solana/web3.js', '@solana/wallet-adapter-base', '@solana/wallet-adapter-phantom', '@solana/wallet-adapter-solflare'],
-          ui: ['@headlessui/vue', '@heroicons/vue']
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('vue') || id.includes('pinia')) {
+              return 'vendor'
+            }
+            if (id.includes('i18n')) {
+              return 'i18n'
+            }
+            if (id.includes('@solana')) {
+              return 'solana'
+            }
+            if (id.includes('@headlessui') || id.includes('@heroicons')) {
+              return 'ui'
+            }
+          }
         }
       }
     },

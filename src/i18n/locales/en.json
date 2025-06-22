@@ -122,7 +122,8 @@
     "transactionConfirmed": "Transaction Confirmed",
     "transactionFailed": "Transaction Failed",
     "viewOnExplorer": "View on Explorer",
-    "retry": "Retry"
+    "retry": "Retry",
+    "trade": "Trade"
   },
   "portfolio": {
     "title": "Portfolio",
@@ -328,7 +329,8 @@
     "loadMore": "Load More",
     "unknown": "Unknown",
     "active": "Active",
-    "back": "Go Back"
+    "back": "Go Back",
+    "viewAll": "View All"
   },
   "tokenDetail": {
     "change24h": "24h Change",

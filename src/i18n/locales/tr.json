@@ -122,7 +122,8 @@
     "transactionConfirmed": "İşlem Onaylandı",
     "transactionFailed": "İşlem Başarısız",
     "viewOnExplorer": "Explorer'da Görüntüle",
-    "retry": "Yeniden Dene"
+    "retry": "Yeniden Dene",
+    "trade": "İşlem Yap"
   },
   "portfolio": {
     "title": "Portföy",
@@ -296,7 +297,8 @@
     "loadMore": "Daha Fazla Yükle",
     "unknown": "Bilinmeyen",
     "active": "Aktif",
-    "back": "Geri"
+    "back": "Geri",
+    "viewAll": "Tümünü Gör"
   },
   "about": {
     "title": "FloppFun Hakkında",
