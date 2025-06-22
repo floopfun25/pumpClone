@@ -1,6 +1,6 @@
 import { createI18n } from 'vue-i18n'
 
-// Import all language files
+// Import all language files with error handling
 import en from './locales/en.json'
 import es from './locales/es.json'
 import zh from './locales/zh.json'
@@ -73,9 +73,36 @@ export function getLanguageInfo(langCode: string) {
   return supportedLanguages.find(lang => lang.code === langCode) || supportedLanguages[0]
 }
 
-// Prepare messages object with validation
+// Comprehensive fallback messages for production builds
+const fallbackMessages = {
+  app: { name: 'FloppFun', tagline: 'The Ultimate Meme Token Launchpad' },
+  navigation: { home: 'Home', create: 'Create Token', leaderboard: 'Leaderboard', about: 'About' },
+  wallet: { connect: 'Connect Wallet' },
+  search: { placeholder: 'Search tokens...' },
+  footer: { 
+    description: 'The easiest way to create and trade meme tokens on Solana', 
+    platform: 'Platform', 
+    resources: 'Resources', 
+    documentation: 'Documentation', 
+    api: 'API', 
+    copyright: '© 2024 FloppFun' 
+  },
+  common: { loading: 'Loading...', browse: 'Browse', all: 'All', back: 'Back' },
+  token: { trending: 'Trending', tokens: 'Tokens', graduated: 'Graduated' },
+  dashboard: { stats: { totalTokens: 'Total Tokens', totalVolume: 'Total Volume', totalUsers: 'Total Users' } },
+  messages: { 
+    info: { 
+      launchDescription: 'Launch your own token with fair launch bonding curves',
+      trendingDescription: 'Discover the hottest meme tokens',
+      browseDescription: 'Browse all available tokens'
+    } 
+  },
+  error: { pageNotFound: 'Page Not Found', pageNotFoundDescription: 'The page you\'re looking for doesn\'t exist' }
+}
+
+// Prepare messages object with validation and proper fallbacks
 const messages: Record<string, any> = {
-  en: en || {},
+  en: en || fallbackMessages,
   es: es || {},
   zh: zh || {},
   hi: hi || {},
@@ -87,11 +114,30 @@ const messages: Record<string, any> = {
   tr: tr || {}
 }
 
-// Validate that at least English messages exist
+// Validate that at least English messages exist and are complete
 if (!messages.en || Object.keys(messages.en).length === 0) {
   console.error('English locale messages are missing or empty!')
-  // Provide minimal fallback
-  messages.en = { common: { loading: 'Loading...' } } as any
+  messages.en = fallbackMessages
+}
+
+// Additional validation for critical keys
+const requiredKeys = ['app.name', 'navigation.home', 'wallet.connect', 'search.placeholder']
+for (const key of requiredKeys) {
+  const keyPath = key.split('.')
+  let current = messages.en
+  for (const part of keyPath) {
+    if (!current || !current[part]) {
+      console.warn(`Missing required translation key: ${key}`)
+      // Add the missing key with a fallback
+      if (!current) current = {}
+      if (keyPath.length === 2) {
+        if (!current[keyPath[0]]) current[keyPath[0]] = {}
+        current[keyPath[0]][keyPath[1]] = keyPath[1]
+      }
+      break
+    }
+    current = current[part]
+  }
 }
 
 // Create i18n instance with robust configuration
@@ -105,7 +151,9 @@ const i18n = createI18n({
   messages,
   // Ensure proper handling of missing keys
   missingWarn: false,
-  fallbackWarn: false
+  fallbackWarn: false,
+  // Add warnHtmlMessage to avoid HTML warnings in production
+  warnHtmlMessage: false
 })
 
 export default i18n 

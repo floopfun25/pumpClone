@@ -54,12 +54,31 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { supportedLanguages, saveLanguage, getLanguageInfo } from '@/i18n'
 
-const { locale } = useI18n()
+// Safe destructuring with fallback
+let locale
+try {
+  const i18nComposable = useI18n()
+  if (i18nComposable && i18nComposable.locale) {
+    locale = i18nComposable.locale
+  } else {
+    console.warn('i18n composable not available, using fallback')
+    locale = ref('en')
+  }
+} catch (error) {
+  console.error('Failed to initialize i18n composable:', error)
+  locale = ref('en')
+}
+
 const showLanguageMenu = ref(false)
 
-// Computed properties
+// Computed properties with safe access
 const currentLanguage = computed(() => {
-  return getLanguageInfo(locale.value)
+  try {
+    return getLanguageInfo(locale.value || 'en')
+  } catch (error) {
+    console.warn('Failed to get language info:', error)
+    return { code: 'en', name: 'English', flag: '🇺🇸', rtl: false }
+  }
 })
 
 // Methods
@@ -68,20 +87,27 @@ const toggleLanguageMenu = () => {
 }
 
 const changeLanguage = (langCode) => {
-  locale.value = langCode
-  saveLanguage(langCode)
-  showLanguageMenu.value = false
-  
-  // Apply RTL for Arabic
-  const html = document.documentElement
-  const langInfo = getLanguageInfo(langCode)
-  
-  if (langInfo.rtl) {
-    html.setAttribute('dir', 'rtl')
-    html.classList.add('rtl')
-  } else {
-    html.setAttribute('dir', 'ltr')
-    html.classList.remove('rtl')
+  try {
+    if (locale && locale.value !== undefined) {
+      locale.value = langCode
+    }
+    saveLanguage(langCode)
+    showLanguageMenu.value = false
+    
+    // Apply RTL for Arabic
+    const html = document.documentElement
+    const langInfo = getLanguageInfo(langCode)
+    
+    if (langInfo.rtl) {
+      html.setAttribute('dir', 'rtl')
+      html.classList.add('rtl')
+    } else {
+      html.setAttribute('dir', 'ltr')
+      html.classList.remove('rtl')
+    }
+  } catch (error) {
+    console.error('Failed to change language:', error)
+    showLanguageMenu.value = false
   }
 }
 
@@ -96,15 +122,19 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   
   // Set initial RTL state
-  const currentLangInfo = getLanguageInfo(locale.value)
-  const html = document.documentElement
-  
-  if (currentLangInfo.rtl) {
-    html.setAttribute('dir', 'rtl')
-    html.classList.add('rtl')
-  } else {
-    html.setAttribute('dir', 'ltr')
-    html.classList.remove('rtl')
+  try {
+    const currentLangInfo = getLanguageInfo(locale.value || 'en')
+    const html = document.documentElement
+    
+    if (currentLangInfo.rtl) {
+      html.setAttribute('dir', 'rtl')
+      html.classList.add('rtl')
+    } else {
+      html.setAttribute('dir', 'ltr')
+      html.classList.remove('rtl')
+    }
+  } catch (error) {
+    console.warn('Failed to set initial RTL state:', error)
   }
 })
 
