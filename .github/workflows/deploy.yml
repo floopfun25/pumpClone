@@ -34,38 +34,24 @@ jobs:
     - name: Debug environment variables
       run: |
         echo "Checking environment variables..."
-        echo "VITE_SUPABASE_URL is set: ${{ secrets.VITE_SUPABASE_URL != '' }}"
-        echo "VITE_SUPABASE_ANON_KEY is set: ${{ secrets.VITE_SUPABASE_ANON_KEY != '' }}"
-        echo "NODE_ENV: $NODE_ENV"
-      env:
-        NODE_ENV: production
-        
+        echo "NODE_ENV: production"
+        echo "VITE_I18N_LOCALE is set: true"
+        echo "VITE_I18N_FALLBACK_LOCALE is set: true"
+        echo "VITE_BASE_URL is set: true"
+      
     - name: Build with environment variables
       env:
         NODE_ENV: production
-        # Supabase Configuration - using hardcoded values as fallback
+        # i18n Configuration
+        VITE_I18N_LOCALE: en
+        VITE_I18N_FALLBACK_LOCALE: en
+        VITE_BASE_URL: /pumpClone/
+        # Supabase Configuration
         VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://osqniqjbbenjmhehoykv.supabase.co' }}
         VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc' }}
         # Solana Network Configuration
         VITE_SOLANA_NETWORK: devnet
-        VITE_DEVNET_RPC_URL: https://api.devnet.solana.com
-        VITE_MAINNET_RPC_URL: https://api.mainnet-beta.solana.com
-        # Program Addresses (placeholder values - update when you deploy to mainnet)
-        VITE_DEVNET_BONDING_CURVE_PROGRAM: 11111111111111111111111111111111
-        VITE_DEVNET_TOKEN_FACTORY_PROGRAM: 11111111111111111111111111111111
-        VITE_DEVNET_FEE_COLLECTOR: 11111111111111111111111111111111
-        VITE_DEVNET_FEE_WALLET: 11111111111111111111111111111111
-        VITE_DEVNET_AUTHORITY: 11111111111111111111111111111111
-        VITE_DEVNET_TREASURY: 11111111111111111111111111111111
-        # API Keys
-        VITE_BIRDEYE_API_KEY: demo
-        VITE_COINGECKO_API_KEY: ""
-        VITE_JUPITER_API_URL: https://price.jup.ag
-        # App Configuration
-        VITE_APP_NAME: FloppFun
-        VITE_APP_URL: https://floopfun25.github.io/pumpClone/
-        VITE_DEBUG: false
-        VITE_USE_MOCK_DATA: false
+        VITE_SOLANA_RPC_URL: https://api.devnet.solana.com
       run: yarn build
       
     - name: Copy documentation files
@@ -82,14 +68,7 @@ jobs:
       uses: actions/upload-pages-artifact@v3
       with:
         path: './dist'
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4 
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4 

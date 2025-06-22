@@ -34,6 +34,12 @@ type LanguageCode = (typeof supportedLanguages)[number]['code']
 // Get initial language from localStorage or browser
 export function getInitialLanguage(): LanguageCode {
   try {
+    // Try to get language from environment variable first
+    const envLocale = import.meta.env.VITE_I18N_LOCALE
+    if (envLocale && isValidLanguageCode(envLocale)) {
+      return envLocale as LanguageCode
+    }
+    
     // Try to get language from localStorage
     const savedLang = localStorage.getItem('language')
     if (savedLang && isValidLanguageCode(savedLang)) {
@@ -49,8 +55,8 @@ export function getInitialLanguage(): LanguageCode {
     console.warn('Failed to get initial language:', error)
   }
   
-  // Default to English
-  return 'en'
+  // Default to environment fallback or English
+  return (import.meta.env.VITE_I18N_FALLBACK_LOCALE as LanguageCode) || 'en'
 }
 
 // Type guard for language codes
@@ -91,7 +97,7 @@ const messages = {
 export const i18n = createI18n({
   legacy: false, // Use Composition API
   locale: getInitialLanguage(),
-  fallbackLocale: 'en',
+  fallbackLocale: import.meta.env.VITE_I18N_FALLBACK_LOCALE || 'en',
   messages,
   globalInjection: true,
   allowComposition: true,
