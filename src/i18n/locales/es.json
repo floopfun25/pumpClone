@@ -453,5 +453,47 @@
   "theme": {
     "darkMode": "Modo Oscuro",
     "lightMode": "Modo Claro"
+  },
+  "profile": {
+    "verified": "Verificado",
+    "tokensCreated": "Tokens Creados",
+    "volumeTraded": "Volumen Negociado",
+    "reputation": "Reputación",
+    "totalHolders": "Holders Totales",
+    "editProfile": "Editar Perfil",
+    "share": "Compartir",
+    "createdTokens": "Tokens Creados",
+    "tradingHistory": "Historial de Trading",
+    "holdings": "Tenencias",
+    "activity": "Actividad",
+    "noTokensCreated": "No hay tokens creados",
+    "noTokensCreatedDesc": "Este usuario aún no ha creado ningún token.",
+    "noTradingHistory": "Sin historial de trading",
+    "noTradingHistoryDesc": "Este usuario aún no ha realizado ningún trade.",
+    "noHoldings": "Sin tenencias",
+    "noHoldingsDesc": "Este usuario no posee ningún token.",
+    "noActivity": "Sin actividad",
+    "noActivityDesc": "Este usuario no ha estado activo recientemente.",
+    "username": "Nombre de Usuario",
+    "bio": "Biografía",
+    "usernamePlaceholder": "Ingresa tu nombre de usuario",
+    "bioPlaceholder": "Cuéntanos sobre ti...",
+    "profileUpdated": "Perfil Actualizado",
+    "profileUpdatedDesc": "Tu perfil se ha actualizado correctamente.",
+    "profileLinkCopied": "Enlace del Perfil Copiado",
+    "profileLinkCopiedDesc": "El enlace del perfil se ha copiado al portapapeles.",
+    "userNotFound": "Usuario no encontrado",
+    "loadError": "Error al cargar el perfil",
+    "level": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio", 
+      "advanced": "Avanzado",
+      "expert": "Experto",
+      "legendary": "Legendario"
+    },
+    "activity": {
+      "tokenCreated": "Creó el token {name}",
+      "trade": "{type} {token}"
+    }
   }
 } 

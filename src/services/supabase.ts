@@ -1888,6 +1888,114 @@ export class SupabaseService {
     
     return volumeScore + marketCapScore + engagementScore + recencyBonus
   }
+
+  /**
+   * Update user profile information
+   */
+  static async updateUserProfile(userId: string, updateData: { username?: string; bio?: string }) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('❌ Failed to update user profile:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get tokens created by a specific user
+   */
+  static async getTokensByCreator(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('creator_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('❌ Failed to get user tokens:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get user's trading history
+   */
+  static async getUserTradingHistory(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          tokens:token_id (
+            name,
+            symbol
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+      
+      // Transform the data to include token info
+      const transformedData = data?.map(tx => ({
+        ...tx,
+        token_name: tx.tokens?.name || 'Unknown',
+        token_symbol: tx.tokens?.symbol || 'UNK',
+        type: tx.transaction_type
+      })) || []
+
+      return transformedData
+    } catch (error) {
+      console.error('❌ Failed to get trading history:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get user's activity feed
+   */
+  static async getUserActivity(userId: string) {
+    try {
+      // For now, return token creation activities from tokens table
+      // This could be expanded to include a dedicated activities table
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .select('id, name, created_at')
+        .eq('creator_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (tokenError) throw tokenError
+
+      const activities = tokenData?.map(token => ({
+        id: `token_${token.id}`,
+        type: 'token_created',
+        token_name: token.name,
+        created_at: token.created_at,
+        description: `Created token ${token.name}`
+      })) || []
+
+      return activities
+    } catch (error) {
+      console.error('❌ Failed to get user activity:', error)
+      return []
+    }
+  }
 }
 
 // Export the configured client as default

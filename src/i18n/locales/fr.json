@@ -453,5 +453,47 @@
   "theme": {
     "darkMode": "Mode Sombre",
     "lightMode": "Mode Clair"
+  },
+  "profile": {
+    "verified": "Vérifié",
+    "tokensCreated": "Tokens Créés",
+    "volumeTraded": "Volume Échangé",
+    "reputation": "Réputation",
+    "totalHolders": "Détenteurs Totaux",
+    "editProfile": "Modifier Profil",
+    "share": "Partager",
+    "createdTokens": "Tokens Créés",
+    "tradingHistory": "Historique de Trading",
+    "holdings": "Avoirs",
+    "activity": "Activité",
+    "noTokensCreated": "Aucun token créé",
+    "noTokensCreatedDesc": "Cet utilisateur n'a créé aucun token pour le moment.",
+    "noTradingHistory": "Aucun historique de trading",
+    "noTradingHistoryDesc": "Cet utilisateur n'a fait aucun trade pour le moment.",
+    "noHoldings": "Aucun avoir",
+    "noHoldingsDesc": "Cet utilisateur ne détient aucun token.",
+    "noActivity": "Aucune activité",
+    "noActivityDesc": "Cet utilisateur n'a pas été actif récemment.",
+    "username": "Nom d'utilisateur",
+    "bio": "Biographie",
+    "usernamePlaceholder": "Entrez votre nom d'utilisateur",
+    "bioPlaceholder": "Parlez-nous de vous...",
+    "profileUpdated": "Profil Mis à Jour",
+    "profileUpdatedDesc": "Votre profil a été mis à jour avec succès.",
+    "profileLinkCopied": "Lien du Profil Copié",
+    "profileLinkCopiedDesc": "Le lien du profil a été copié dans le presse-papiers.",
+    "userNotFound": "Utilisateur non trouvé",
+    "loadError": "Erreur lors du chargement du profil",
+    "level": {
+      "beginner": "Débutant",
+      "intermediate": "Intermédiaire", 
+      "advanced": "Avancé",
+      "expert": "Expert",
+      "legendary": "Légendaire"
+    },
+    "activity": {
+      "tokenCreated": "A créé le token {name}",
+      "trade": "{type} {token}"
+    }
   }
 } 

@@ -27,7 +27,8 @@
     <nav class="p-4 space-y-2">
       <!-- Profile -->
       <router-link
-        to="/profile"
+        v-if="walletStore.walletAddress"
+        :to="`/profile/${walletStore.walletAddress}`"
         class="sidebar-item"
         :class="isCollapsed ? 'justify-center' : 'justify-start'"
       >
@@ -179,10 +180,12 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import { useUIStore } from '@/stores/ui'
+import { useWalletStore } from '@/stores/wallet'
 import { supportedLanguages, saveLanguage, getLanguageInfo, type LanguageCode } from '@/i18n'
 
 const { t, locale } = useTypedI18n()
 const uiStore = useUIStore()
+const walletStore = useWalletStore()
 
 // State
 const showLanguageMenu = ref(false)

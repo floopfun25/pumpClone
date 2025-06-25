@@ -136,10 +136,6 @@
       "invalidCreatorShare": "Creator share must be between 0% and 20%",
       "invalidLockPercentage": "Lock percentage must be between 0% and 100%",
       "invalidPrebuyAmount": "Prebuy amount must be between 0 and 10 SOL"
-    },
-    "theme": {
-      "darkMode": "Dark Mode",
-      "lightMode": "Light Mode"
     }
   },
   "dashboard": {
@@ -504,5 +500,51 @@
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "support": "Support"
+  },
+  "theme": {
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode"
+  },
+  "profile": {
+    "verified": "Verified",
+    "tokensCreated": "Tokens Created",
+    "volumeTraded": "Volume Traded",
+    "reputation": "Reputation",
+    "totalHolders": "Total Holders",
+    "editProfile": "Edit Profile",
+    "share": "Share",
+    "createdTokens": "Created Tokens",
+    "tradingHistory": "Trading History",
+    "holdings": "Holdings",
+    "activity": "Activity",
+    "noTokensCreated": "No tokens created yet",
+    "noTokensCreatedDesc": "This user hasn't created any tokens yet.",
+    "noTradingHistory": "No trading history",
+    "noTradingHistoryDesc": "This user hasn't made any trades yet.",
+    "noHoldings": "No holdings",
+    "noHoldingsDesc": "This user doesn't hold any tokens.",
+    "noActivity": "No activity",
+    "noActivityDesc": "This user hasn't been active recently.",
+    "username": "Username",
+    "bio": "Bio",
+    "usernamePlaceholder": "Enter your username",
+    "bioPlaceholder": "Tell us about yourself...",
+    "profileUpdated": "Profile Updated",
+    "profileUpdatedDesc": "Your profile has been updated successfully.",
+    "profileLinkCopied": "Profile Link Copied",
+    "profileLinkCopiedDesc": "Profile link has been copied to clipboard.",
+    "userNotFound": "User not found",
+    "loadError": "Failed to load profile",
+    "level": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate", 
+      "advanced": "Advanced",
+      "expert": "Expert",
+      "legendary": "Legendary"
+    },
+    "activity": {
+      "tokenCreated": "Created token {name}",
+      "trade": "{type} {token}"
+    }
   }
 } 
