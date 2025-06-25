@@ -23,18 +23,13 @@
           <h3 class="font-semibold text-gray-900 dark:text-white mb-4">{{ $t('footer.platform') }}</h3>
           <ul class="space-y-2 text-sm">
             <li>
-              <router-link to="/" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                {{ $t('navigation.home') }}
-              </router-link>
-            </li>
-            <li>
               <router-link to="/create" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
                 {{ $t('navigation.create') }}
               </router-link>
             </li>
             <li>
-              <router-link to="/leaderboard" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                {{ $t('navigation.leaderboard') }}
+              <router-link to="/" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                {{ $t('navigation.home') }}
               </router-link>
             </li>
           </ul>

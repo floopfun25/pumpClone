@@ -64,15 +64,6 @@ const router = createRouter({
       }
     },
     {
-      path: '/leaderboard',
-      name: 'leaderboard',
-      component: () => import('@/views/LeaderboardPage.vue'),
-      meta: {
-        title: 'Leaderboard - FloppFun',
-        description: 'Top traders and most successful tokens'
-      }
-    },
-    {
       path: '/search',
       name: 'search',
       component: () => import('@/views/SearchPage.vue'),

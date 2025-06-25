@@ -4,7 +4,7 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center h-16">
         <!-- Logo and Brand -->
-        <router-link to="/leaderboard" class="flex items-center space-x-3">
+        <router-link to="/" class="flex items-center space-x-3">
           <div class="w-8 h-8 bg-gold-gradient rounded-lg flex items-center justify-center glow-gold">
             <span class="text-binance-dark font-bold text-sm">F</span>
           </div>
@@ -15,28 +15,21 @@
         
         <!-- Desktop Navigation Links -->
         <div class="hidden md:flex items-center space-x-8">
-          <router-link 
-            to="/create" 
-            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
-          >
-            {{ t('navigation.create') }}
-          </router-link>
-          <router-link 
-            to="/leaderboard" 
-            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
-          >
-            {{ t('navigation.leaderboard') }}
-          </router-link>
-          <router-link 
-            to="/about" 
-            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
-          >
-            {{ t('navigation.about') }}
-          </router-link>
         </div>
         
         <!-- Right Side Actions -->
         <div class="flex items-center space-x-4">
+          <!-- Create Token Button -->
+          <router-link 
+            to="/create" 
+            class="hidden md:flex items-center space-x-2 px-4 py-2 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-dark font-semibold rounded-lg transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>{{ t('navigation.create') }}</span>
+          </router-link>
+
           <!-- Wallet Connection Button -->
           <button 
             v-if="!isConnected"
@@ -122,27 +115,16 @@
     <!-- Mobile Menu -->
     <div v-if="showMobileMenu" class="md:hidden bg-trading-surface border-t border-binance-border">
       <div class="px-4 py-3 space-y-3">
-        <!-- Mobile Navigation Links -->
+        <!-- Mobile Create Button -->
         <router-link 
           to="/create" 
-          class="block py-2 text-white hover:text-binance-yellow transition-colors"
+          class="flex items-center justify-center space-x-2 px-4 py-2 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-dark font-semibold rounded-lg transition-colors w-full"
           @click="closeMobileMenu"
         >
-          {{ t('navigation.create') }}
-        </router-link>
-        <router-link 
-          to="/leaderboard" 
-          class="block py-2 text-white hover:text-binance-yellow transition-colors"
-          @click="closeMobileMenu"
-        >
-          {{ t('navigation.leaderboard') }}
-        </router-link>
-        <router-link 
-          to="/about" 
-          class="block py-2 text-white hover:text-binance-yellow transition-colors"
-          @click="closeMobileMenu"
-        >
-          {{ t('navigation.about') }}
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{{ t('navigation.create') }}</span>
         </router-link>
       </div>
     </div>
