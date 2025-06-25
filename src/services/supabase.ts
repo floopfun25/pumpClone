@@ -558,9 +558,45 @@ export class SupabaseService {
    * Used for live price feeds
    */
   static subscribeToTokenUpdates(tokenId: string, callback: (token: any) => void) {
+    let isRealtimeActive = false
+    let pollingInterval: NodeJS.Timeout | null = null
+    let lastUpdate = 0
+
+    const startPolling = () => {
+      console.log('📊 Starting database polling for token:', tokenId)
+      
+      const poll = async () => {
+        try {
+          const token = await this.getTokenById(tokenId)
+          if (token && new Date(token.updated_at).getTime() > lastUpdate) {
+            lastUpdate = new Date(token.updated_at).getTime()
+            callback(token)
+          }
+        } catch (error) {
+          console.error('Error polling token data:', error)
+        }
+      }
+
+      // Initial poll
+      poll()
+      
+      // Poll every 3 seconds
+      pollingInterval = setInterval(poll, 3000)
+    }
+
+    const stopPolling = () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+        pollingInterval = null
+        console.log('⏹️ Stopped polling for token:', tokenId)
+      }
+    }
+
     try {
-      return supabase
-        .channel(`token-${tokenId}`)
+      console.log('🔔 Attempting realtime subscription for token:', tokenId)
+      
+      const channel = supabase
+        .channel(`token-updates-${tokenId}`)
         .on(
           'postgres_changes',
           {
@@ -569,12 +605,46 @@ export class SupabaseService {
             table: 'tokens',
             filter: `id=eq.${tokenId}`
           },
-          callback
+          (payload) => {
+            console.log('📊 Received realtime token update:', payload)
+            isRealtimeActive = true
+            stopPolling() // Stop polling when realtime works
+            callback(payload.new || payload)
+          }
         )
-        .subscribe()
+        .subscribe((status, err) => {
+          console.log('📡 Token subscription status:', status)
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Realtime subscription active')
+            isRealtimeActive = true
+            stopPolling()
+          } else if (status === 'CHANNEL_ERROR' || err) {
+            console.log('⚠️ Realtime unavailable, falling back to polling')
+            isRealtimeActive = false
+            startPolling()
+          }
+        })
+
+      // Start polling as backup (will stop if realtime works)
+      setTimeout(() => {
+        if (!isRealtimeActive) {
+          startPolling()
+        }
+      }, 2000)
+
+      return {
+        unsubscribe: () => {
+          channel.unsubscribe()
+          stopPolling()
+        }
+      }
     } catch (error) {
-      console.error('Failed to subscribe to token updates:', error)
-      return { unsubscribe: () => {} }
+      console.error('❌ Realtime failed, using polling mode:', error)
+      startPolling()
+      return {
+        unsubscribe: () => stopPolling()
+      }
     }
   }
   
@@ -583,8 +653,54 @@ export class SupabaseService {
    * Used for live trading activity
    */
   static subscribeToTransactions(tokenId: string, callback: (transaction: any) => void) {
+    let isRealtimeActive = false
+    let pollingInterval: NodeJS.Timeout | null = null
+    let lastTransactionTime = Date.now()
+
+    const startTransactionPolling = () => {
+      console.log('💳 Starting transaction polling for token:', tokenId)
+      
+      const pollTransactions = async () => {
+        try {
+          // Get recent transactions
+          const transactions = await this.getTokenTransactions(tokenId, 10)
+          const newTransactions = transactions.filter(tx => 
+            new Date(tx.created_at).getTime() > lastTransactionTime
+          )
+          
+          if (newTransactions.length > 0) {
+            // Update last transaction time
+            lastTransactionTime = Math.max(...newTransactions.map(tx => 
+              new Date(tx.created_at).getTime()
+            ))
+            
+            // Notify about each new transaction
+            newTransactions.forEach(tx => callback(tx))
+          }
+        } catch (error) {
+          console.error('Error polling transaction data:', error)
+        }
+      }
+
+      // Initial poll
+      pollTransactions()
+      
+      // Poll every 2 seconds for transactions
+      pollingInterval = setInterval(pollTransactions, 2000)
+    }
+
+    const stopTransactionPolling = () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+        pollingInterval = null
+        console.log('⏹️ Stopped transaction polling for token:', tokenId)
+      }
+    }
+
     try {
-      return supabase
+      console.log('🔔 Attempting realtime transaction subscription for:', tokenId)
+      
+      const channel = supabase
         .channel(`transactions-${tokenId}`)
         .on(
           'postgres_changes',
@@ -594,12 +710,46 @@ export class SupabaseService {
             table: 'transactions',
             filter: `token_id=eq.${tokenId}`
           },
-          callback
+          (payload) => {
+            console.log('💳 Received realtime transaction update:', payload)
+            isRealtimeActive = true
+            stopTransactionPolling() // Stop polling when realtime works
+            callback(payload.new || payload)
+          }
         )
-        .subscribe()
+        .subscribe((status, err) => {
+          console.log('📡 Transaction subscription status:', status)
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Realtime transaction subscription active')
+            isRealtimeActive = true
+            stopTransactionPolling()
+          } else if (status === 'CHANNEL_ERROR' || err) {
+            console.log('⚠️ Realtime unavailable, falling back to transaction polling')
+            isRealtimeActive = false
+            startTransactionPolling()
+          }
+        })
+
+      // Start polling as backup (will stop if realtime works)
+      setTimeout(() => {
+        if (!isRealtimeActive) {
+          startTransactionPolling()
+        }
+      }, 2000)
+
+      return {
+        unsubscribe: () => {
+          channel.unsubscribe()
+          stopTransactionPolling()
+        }
+      }
     } catch (error) {
-      console.error('Failed to subscribe to transactions:', error)
-      return { unsubscribe: () => {} }
+      console.error('❌ Realtime failed, using transaction polling mode:', error)
+      startTransactionPolling()
+      return {
+        unsubscribe: () => stopTransactionPolling()
+      }
     }
   }
 

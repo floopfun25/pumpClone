@@ -195,9 +195,14 @@ class RealTimePriceService {
   }
 
   /**
-   * Subscribe to real-time transaction updates
+   * Subscribe to real-time transaction updates (DISABLED - using polling instead)
    */
   private static subscribeToTransactionUpdates(tokenId: string) {
+    // DISABLED: Supabase Realtime causing WebSocket errors
+    // Using polling-based updates instead which work reliably
+    console.log('💡 Using polling-based updates instead of realtime for', tokenId)
+    
+    /*
     try {
       SupabaseService.subscribeToTransactions(tokenId, (transaction: any) => {
         // When a new transaction occurs, immediately update the price
@@ -206,6 +211,7 @@ class RealTimePriceService {
     } catch (error) {
       console.error('Failed to subscribe to transaction updates:', error)
     }
+    */
   }
 
   /**
