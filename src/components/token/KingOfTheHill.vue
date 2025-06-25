@@ -60,7 +60,7 @@
               
               <div class="text-center">
                 <div class="text-2xl font-bold text-green-400 mb-1">
-                  ${{ formatMarketCap(kingToken.market_cap) }}
+                  ${{ formatMarketCap((kingToken.market_cap || 0) / 1e9) }}
                 </div>
                 <div class="text-sm text-gray-400 uppercase tracking-wide">{{ $t('token.marketCapShort') }}</div>
               </div>
@@ -95,7 +95,7 @@
                 ></div>
               </div>
               <div class="flex justify-between text-xs text-gray-500 mt-1">
-                <span>${{ formatNumber(kingToken.market_cap) }}</span>
+                <span>${{ formatNumber((kingToken.market_cap || 0) / 1e9) }}</span>
                 <span>${{ formatNumber(69000) }}</span>
               </div>
             </div>

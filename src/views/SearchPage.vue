@@ -122,7 +122,7 @@
                   </p>
                   <div class="flex items-center space-x-6 text-sm">
                     <span class="text-gray-600 dark:text-gray-400">
-                      MC: <span class="font-medium text-gray-900 dark:text-white">${{ formatNumber(token.market_cap) }}</span>
+                      MC: <span class="font-medium text-gray-900 dark:text-white">${{ formatNumber((token.market_cap || 0) / 1e9) }}</span>
                     </span>
                     <span class="text-gray-600 dark:text-gray-400">
                       Vol: <span class="font-medium text-gray-900 dark:text-white">${{ formatNumber(token.volume_24h) }}</span>

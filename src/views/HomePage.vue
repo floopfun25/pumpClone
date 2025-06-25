@@ -152,18 +152,35 @@ const loadTokens = async (reset = true) => {
       status: 'active'
     })
     
+    console.log('🔍 Raw tokens from Supabase (HomePage):', data)
+    
     // Transform and validate data
-    const transformedData = data.map((token: any) => ({
-      id: token.id || '',
-      name: token.name || '',
-      symbol: token.symbol || '',
-      imageUrl: token.image_url || null,
-      price: Number(token.price) || 0,
-      priceChange24h: Number(token.price_change_24h) || 0,
-      marketCap: Number(token.market_cap) || 0,
-      volume24h: Number(token.volume_24h) || 0,
-      holders: Number(token.holders) || 0
-    }))
+    const transformedData = data.map((token: any) => {
+      const transformed = {
+        id: token.id || '',
+        name: token.name || '',
+        symbol: token.symbol || '',
+        imageUrl: token.image_url || null,
+        price: Number(token.current_price) || 0, // Fix: use current_price instead of price
+        priceChange24h: Number(token.price_change_24h) || 0,
+        marketCap: (Number(token.market_cap) || 0) / 1e9, // Convert from lamports to SOL
+        volume24h: (Number(token.volume_24h) || 0) / 1e9, // Convert from lamports to SOL
+        holders: Number(token.holders_count) || 0 // Fix: use holders_count
+      }
+      
+      console.log(`📊 HomePage Token ${token.symbol}:`, {
+        raw_market_cap: token.market_cap,
+        converted_market_cap: transformed.marketCap,
+        raw_volume_24h: token.volume_24h,
+        converted_volume_24h: transformed.volume24h,
+        raw_current_price: token.current_price,
+        converted_price: transformed.price,
+        raw_holders_count: token.holders_count,
+        converted_holders: transformed.holders
+      })
+      
+      return transformed
+    })
     
     if (reset) {
       tokens.value = transformedData

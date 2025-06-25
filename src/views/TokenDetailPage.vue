@@ -61,7 +61,7 @@
             <!-- Market Cap -->
             <span class="text-gray-900 dark:text-white">
               <span class="text-gray-600 dark:text-gray-400">market cap:</span>
-              <span class="font-semibold ml-1">${{ formatMarketCap(token?.market_cap || 0) }}</span>
+              <span class="font-semibold ml-1">${{ formatMarketCap((token?.market_cap || 0) / 1e9) }}</span>
             </span>
 
             <span class="text-gray-400">|</span>
@@ -352,13 +352,14 @@ const tokenDescription = computed(() => token.value?.description || 'No descript
 // Computed properties
 const marketCapFormatted = computed(() => {
   if (!token.value?.market_cap) return '$0'
-  return `$${formatNumber(token.value.market_cap)}`
+  const marketCapInSOL = (token.value.market_cap || 0) / 1e9 // Convert from lamports to SOL
+  return `$${formatNumber(marketCapInSOL)}`
 })
 
 const progressPercentage = computed(() => {
-  const marketCap = token.value?.market_cap || 0
+  const marketCapInSOL = (token.value?.market_cap || 0) / 1e9 // Convert from lamports to SOL
   const graduationThreshold = 69000 // $69K
-  return Math.min(100, (marketCap / graduationThreshold) * 100)
+  return Math.min(100, (marketCapInSOL / graduationThreshold) * 100)
 })
 
 // Computed for comments count from token data
