@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useTypedI18n } from '@/i18n'
+import { getTokenFallbackImage, getTokenImagePath } from '@/utils/paths'
 
 // Define token interface
 interface Token {
@@ -75,7 +76,7 @@ const emit = defineEmits<{
 const { t } = useTypedI18n()
 
 // Setup fallback image and loading state
-const fallbackImage = ref(`${import.meta.env.BASE_URL}images/token-fallback.svg`)
+const fallbackImage = ref(getTokenFallbackImage())
 const imageError = ref(false)
 
 // Set default values for token properties
@@ -128,7 +129,7 @@ function handleImageError(event: Event) {
 function getImageUrl(url: string | undefined): string {
   if (!url) return fallbackImage.value
   if (url.startsWith('http')) return url
-  return `${import.meta.env.BASE_URL}images/tokens/${url}`
+  return getTokenImagePath(url)
 }
 
 function formatPrice(price: number | undefined | null): string {

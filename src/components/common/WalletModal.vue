@@ -153,6 +153,7 @@ import { useTypedI18n } from '@/i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { isMobile } from '@/utils/mobile'
+import { getWalletFallbackImage } from '@/utils/paths'
 
 // Props and emits
 defineProps<{
@@ -224,7 +225,7 @@ const connectWallet = async (walletName: string) => {
 
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement
-  target.src = `${import.meta.env.BASE_URL}images/wallet-fallback.svg`
+  target.src = getWalletFallbackImage()
 }
 </script>
 

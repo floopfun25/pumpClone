@@ -133,10 +133,10 @@
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                       <img 
-                        :src="holding.metadata?.image || `${import.meta.env.BASE_URL}images/token-fallback.svg`" 
+                        :src="holding.metadata?.image || getTokenFallbackImage()" 
                         :alt="holding.metadata?.name || 'Token'"
                         class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600"
-                        @error="(e: Event) => { if (e.target) (e.target as HTMLImageElement).src = `${import.meta.env.BASE_URL}images/token-fallback.svg` }"
+                        @error="(e: Event) => { if (e.target) (e.target as HTMLImageElement).src = getTokenFallbackImage() }"
                       />
                       <div class="ml-3">
                         <p class="text-sm font-medium text-gray-900 dark:text-white">
@@ -252,6 +252,7 @@ import { priceOracleService, formatPrice, formatPriceChange } from '@/services/p
 import Icon from '@/components/common/Icon.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import WalletConnectButton from '@/components/common/WalletConnectButton.vue'
+import { getTokenFallbackImage } from '@/utils/paths'
 
 // Types
 interface TokenHolding {
