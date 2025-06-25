@@ -75,7 +75,7 @@ const emit = defineEmits<{
 const { t } = useTypedI18n()
 
 // Setup fallback image and loading state
-const fallbackImage = ref('/images/token-fallback.svg')
+const fallbackImage = ref(`${import.meta.env.BASE_URL}images/token-fallback.svg`)
 const imageError = ref(false)
 
 // Set default values for token properties
@@ -128,7 +128,7 @@ function handleImageError(event: Event) {
 function getImageUrl(url: string | undefined): string {
   if (!url) return fallbackImage.value
   if (url.startsWith('http')) return url
-  return `/images/tokens/${url}`
+  return `${import.meta.env.BASE_URL}images/tokens/${url}`
 }
 
 function formatPrice(price: number | undefined | null): string {

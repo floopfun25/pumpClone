@@ -339,6 +339,19 @@ class WalletService {
     return await this.currentWallet.value.signMessage(message)
   }
 
+  // Sign transaction
+  async signTransaction<T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> {
+    if (!this.currentWallet.value || !this._connected.value) {
+      throw new WalletNotConnectedError()
+    }
+
+    if (!this.currentWallet.value.signTransaction) {
+      throw new Error('Wallet does not support transaction signing')
+    }
+
+    return await this.currentWallet.value.signTransaction(transaction)
+  }
+
   // Send transaction
   async sendTransaction(transaction: Transaction | VersionedTransaction, options?: SendOptions): Promise<string> {
     if (!this.currentWallet.value || !this._connected.value) {

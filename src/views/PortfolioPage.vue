@@ -133,10 +133,10 @@
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                       <img 
-                        :src="holding.metadata?.image || '/placeholder-token.png'" 
+                        :src="holding.metadata?.image || `${import.meta.env.BASE_URL}images/token-fallback.svg`" 
                         :alt="holding.metadata?.name || 'Token'"
                         class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600"
-                        @error="(e) => { if (e.target) (e.target as HTMLImageElement).src = '/placeholder-token.png' }"
+                        @error="(e: Event) => { if (e.target) (e.target as HTMLImageElement).src = `${import.meta.env.BASE_URL}images/token-fallback.svg` }"
                       />
                       <div class="ml-3">
                         <p class="text-sm font-medium text-gray-900 dark:text-white">

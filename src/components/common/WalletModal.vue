@@ -224,7 +224,7 @@ const connectWallet = async (walletName: string) => {
 
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement
-  target.src = '/images/wallet-fallback.svg'
+  target.src = `${import.meta.env.BASE_URL}images/wallet-fallback.svg`
 }
 </script>
 

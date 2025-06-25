@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watchEffect } from 'vue'
+import { Transaction, VersionedTransaction } from '@solana/web3.js'
 import { walletService, formatWalletAddress, formatSOL } from '@/services/wallet'
 import type { WalletAdapter } from '@/services/wallet'
 
@@ -114,6 +115,14 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 
   /**
+   * Sign transaction with wallet
+   * @param transaction - Transaction to sign
+   */
+  async function signTransaction<T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> {
+    return await walletService.signTransaction(transaction)
+  }
+
+  /**
    * Send transaction
    * @param transaction - Transaction to send
    * @param options - Optional send options
@@ -158,6 +167,7 @@ export const useWalletStore = defineStore('wallet', () => {
     getAllWallets,
     updateBalance,
     signMessage,
+    signTransaction,
     sendTransaction,
     handleMobileWalletReturn,
     updateState
