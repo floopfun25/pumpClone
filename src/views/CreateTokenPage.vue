@@ -129,6 +129,171 @@
             </div>
           </div>
 
+          <!-- Advanced Token Settings -->
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4 flex items-center">
+              <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {{ t('token.advancedSettings') }}
+            </h3>
+            
+            <!-- Total Supply -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {{ t('token.totalSupply') }}
+                </label>
+                <input
+                  v-model.number="tokenForm.totalSupply"
+                  type="number"
+                  :placeholder="t('token.totalSupplyPlaceholder')"
+                  class="input-field"
+                  min="1000000"
+                  max="100000000000"
+                  step="1000000"
+                />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {{ t('token.totalSupplyHint') }}
+                </p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {{ t('token.creatorShare') }} (%)
+                </label>
+                <input
+                  v-model.number="tokenForm.creatorSharePercentage"
+                  type="number"
+                  :placeholder="t('token.creatorSharePlaceholder')"
+                  class="input-field"
+                  min="0"
+                  max="20"
+                  step="0.1"
+                />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {{ t('token.creatorShareHint') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Token Locking Settings -->
+            <div v-if="tokenForm.creatorSharePercentage && tokenForm.creatorSharePercentage > 0" class="space-y-4">
+              <h4 class="text-md font-medium text-blue-800 dark:text-blue-200">
+                {{ t('token.lockingSettings') }}
+              </h4>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {{ t('token.lockPercentage') }} (%)
+                  </label>
+                  <input
+                    v-model.number="tokenForm.lockPercentage"
+                    type="number"
+                    :placeholder="t('token.lockPercentagePlaceholder')"
+                    class="input-field"
+                    min="0"
+                    max="100"
+                    step="1"
+                  />
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ t('token.lockPercentageHint') }}
+                  </p>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {{ t('token.lockDuration') }}
+                  </label>
+                  <select v-model="tokenForm.lockDurationDays" class="input-field">
+                    <option value="0">{{ t('token.noLock') }}</option>
+                    <option value="30">{{ t('token.days30') }}</option>
+                    <option value="90">{{ t('token.days90') }}</option>
+                    <option value="180">{{ t('token.days180') }}</option>
+                    <option value="365">{{ t('token.days365') }}</option>
+                    <option value="730">{{ t('token.days730') }}</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {{ t('token.unlockSchedule') }}
+                </label>
+                <select v-model="tokenForm.unlockSchedule" class="input-field">
+                  <option value="immediate">{{ t('token.immediateUnlock') }}</option>
+                  <option value="cliff">{{ t('token.cliffUnlock') }}</option>
+                  <option value="linear">{{ t('token.linearUnlock') }}</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {{ t('token.unlockScheduleHint') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Token Creation Summary -->
+            <div v-if="tokenCreationSummary" class="mt-6 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+              <h4 class="text-md font-medium text-gray-900 dark:text-white mb-3">
+                {{ t('token.creationSummary') }}
+              </h4>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-gray-600 dark:text-gray-400">{{ t('token.totalSupply') }}:</span>
+                  <span class="font-medium text-gray-900 dark:text-white ml-2">{{ formatNumber(tokenCreationSummary.totalSupply) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600 dark:text-gray-400">{{ t('token.marketSupply') }}:</span>
+                  <span class="font-medium text-gray-900 dark:text-white ml-2">{{ formatNumber(tokenCreationSummary.marketSupply) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600 dark:text-gray-400">{{ t('token.creatorTokens') }}:</span>
+                  <span class="font-medium text-gray-900 dark:text-white ml-2">{{ formatNumber(tokenCreationSummary.creatorTokens) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600 dark:text-gray-400">{{ t('token.lockedTokens') }}:</span>
+                  <span class="font-medium text-gray-900 dark:text-white ml-2">{{ formatNumber(tokenCreationSummary.lockedTokens) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Optional Prebuy -->
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-green-900 dark:text-green-100 mb-4 flex items-center">
+              <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              {{ t('token.optionalPrebuy') }}
+            </h3>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {{ t('token.prebuyAmount') }} (SOL)
+              </label>
+              <input
+                v-model.number="tokenForm.prebuyAmount"
+                type="number"
+                :placeholder="t('token.prebuyAmountPlaceholder')"
+                class="input-field"
+                min="0"
+                max="10"
+                step="0.01"
+              />
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {{ t('token.prebuyHint') }}
+              </p>
+              
+              <div v-if="prebuyEstimate" class="mt-3 text-sm">
+                <span class="text-gray-600 dark:text-gray-400">{{ t('token.estimatedTokens') }}:</span>
+                <span class="font-medium text-green-600 dark:text-green-400 ml-2">
+                  {{ formatNumber(prebuyEstimate.tokens) }} {{ tokenForm.symbol }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <!-- Social Links (Optional) -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -230,7 +395,14 @@ const tokenForm = ref<TokenForm>({
   website: '',
   twitter: '',
   telegram: '',
-  discord: ''
+  discord: '',
+  // Advanced settings with defaults
+  totalSupply: 1000000000, // 1B tokens default
+  creatorSharePercentage: 0,
+  lockPercentage: 0,
+  lockDurationDays: 0,
+  prebuyAmount: 0,
+  unlockSchedule: 'immediate'
 })
 
 const fileInput = ref<HTMLInputElement>()
@@ -246,6 +418,37 @@ const canCreate = computed(() =>
   tokenForm.value.symbol && 
   validationErrors.value.length === 0
 )
+
+const tokenCreationSummary = computed(() => {
+  if (!tokenForm.value.totalSupply) return null
+  
+  const totalSupply = tokenForm.value.totalSupply || 1000000000
+  const creatorPercentage = tokenForm.value.creatorSharePercentage || 0
+  const lockPercentage = tokenForm.value.lockPercentage || 0
+  
+  const creatorTokens = Math.floor((totalSupply * creatorPercentage) / 100)
+  const lockedTokens = Math.floor((creatorTokens * lockPercentage) / 100)
+  const marketSupply = totalSupply - creatorTokens
+  
+  return {
+    totalSupply,
+    marketSupply,
+    creatorTokens,
+    lockedTokens
+  }
+})
+
+const prebuyEstimate = computed(() => {
+  if (!tokenForm.value.prebuyAmount || !tokenForm.value.totalSupply) return null
+  
+  // Simplified calculation - would use actual bonding curve in production
+  const estimatedTokens = Math.floor(tokenForm.value.prebuyAmount * 1000000) // Rough estimate
+  
+  return {
+    tokens: estimatedTokens,
+    solCost: tokenForm.value.prebuyAmount
+  }
+})
 
 // Methods
 const connectWallet = () => {
@@ -286,13 +489,20 @@ const createToken = async () => {
     isCreating.value = true
     validationErrors.value = []
 
+    // Enhanced validation for new fields
+    const errors = validateAdvancedFields()
+    if (errors.length > 0) {
+      validationErrors.value = errors
+      return
+    }
+
     // Validate form
     if (!tokenForm.value.name || !tokenForm.value.symbol) {
       validationErrors.value.push(t('forms.errors.requiredFields'))
       return
     }
 
-    // Create token
+    // Create token with advanced settings
     const result = await tokenService.createToken(tokenForm.value)
     
     // Show success notification
@@ -316,6 +526,35 @@ const createToken = async () => {
   } finally {
     isCreating.value = false
   }
+}
+
+const validateAdvancedFields = (): string[] => {
+  const errors: string[] = []
+  
+  if (tokenForm.value.totalSupply && (tokenForm.value.totalSupply < 1000000 || tokenForm.value.totalSupply > 100000000000)) {
+    errors.push(t('token.errors.invalidTotalSupply'))
+  }
+  
+  if (tokenForm.value.creatorSharePercentage && (tokenForm.value.creatorSharePercentage < 0 || tokenForm.value.creatorSharePercentage > 20)) {
+    errors.push(t('token.errors.invalidCreatorShare'))
+  }
+  
+  if (tokenForm.value.lockPercentage && (tokenForm.value.lockPercentage < 0 || tokenForm.value.lockPercentage > 100)) {
+    errors.push(t('token.errors.invalidLockPercentage'))
+  }
+  
+  if (tokenForm.value.prebuyAmount && (tokenForm.value.prebuyAmount < 0 || tokenForm.value.prebuyAmount > 10)) {
+    errors.push(t('token.errors.invalidPrebuyAmount'))
+  }
+  
+  return errors
+}
+
+const formatNumber = (num: number): string => {
+  if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B'
+  if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
+  if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
+  return num.toLocaleString()
 }
 
 // Lifecycle
