@@ -49,18 +49,31 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'terser',
+    assetsDir: 'assets',
+    cssCodeSplit: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
+        assetFileNames: (assetInfo) => {
+          const name = assetInfo.name || '';
+          const extType = name.split('.').at(1) || 'asset';
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+            return `assets/img/[name]-[hash][extname]`;
+          }
+          return `assets/${extType}/[name]-[hash][extname]`;
+        },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
             if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia') || id.includes('vue-i18n')) {
-              return 'vendor'
+              return 'vendor';
             }
             if (id.includes('@solana/')) {
-              return 'solana'
+              return 'solana';
             }
             if (id.includes('@headlessui/') || id.includes('@heroicons/')) {
-              return 'ui'
+              return 'ui';
             }
           }
         }

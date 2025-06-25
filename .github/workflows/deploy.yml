@@ -53,13 +53,21 @@ jobs:
         VITE_SOLANA_NETWORK: devnet
         VITE_SOLANA_RPC_URL: https://api.devnet.solana.com
       run: yarn build
-      
+
+    - name: Verify build output
+      run: |
+        echo "Checking build output..."
+        ls -la dist/
+        echo "Checking assets directory..."
+        ls -la dist/assets/ || echo "No assets directory found"
+        
     - name: Copy documentation files
       run: |
         cp test/floppfun-pump-karsilastirma.html ./dist/
         cp test/turkce-test-sayfasi.html ./dist/
         cp test/test-features.html ./dist/
         cp docs/FLOPPFUN_OZELLIKLER_VE_TESTLER.md ./dist/
+        touch ./dist/.nojekyll
       
     - name: Setup Pages
       uses: actions/configure-pages@v4

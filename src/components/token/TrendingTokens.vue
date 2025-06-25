@@ -53,6 +53,7 @@ import { ref, onMounted } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import TokenCard from './TokenCard.vue'
 import { useRouter } from 'vue-router'
+import { SupabaseService } from '@/services/supabase'
 
 // Define token interface
 interface Token {
@@ -66,6 +67,8 @@ interface Token {
   volume24h: number
   holders: number
   mint_address?: string
+  trending_score?: number
+  rank?: number
 }
 
 // Define emits
@@ -88,50 +91,27 @@ const loadTrendingTokens = async () => {
   error.value = null
   
   try {
-    // Simulated API call - replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Get trending tokens from Supabase with enhanced sorting
+    const tokens = await SupabaseService.getTrendingTokensEnhanced(8) // Limit to 8 tokens for the grid
     
-    trendingTokens.value = [
-      {
-        id: '1',
-        name: 'Pepe',
-        symbol: 'PEPE',
-        imageUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/24478.png',
-        price: 0.000001234,
-        priceChange24h: 15.6,
-        marketCap: 1_200_000_000,
-        volume24h: 450_000_000,
-        holders: 125_000,
-        mint_address: 'pepe123'
-      },
-      {
-        id: '2',
-        name: 'Wojak',
-        symbol: 'WOJ',
-        imageUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png',
-        price: 0.00000789,
-        priceChange24h: -8.3,
-        marketCap: 800_000_000,
-        volume24h: 250_000_000,
-        holders: 85_000,
-        mint_address: 'wojak456'
-      },
-      {
-        id: '3',
-        name: 'Doge',
-        symbol: 'DOGE',
-        imageUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/74.png',
-        price: 0.12345,
-        priceChange24h: 5.2,
-        marketCap: 15_000_000_000,
-        volume24h: 2_500_000_000,
-        holders: 4_500_000,
-        mint_address: 'doge789'
-      }
-    ]
+    // Map the response to our Token interface
+    trendingTokens.value = tokens.map((token: any, index: number) => ({
+      id: token.id,
+      name: token.name,
+      symbol: token.symbol,
+      imageUrl: token.image_url,
+      price: token.current_price || 0,
+      priceChange24h: token.price_change_24h || 0,
+      marketCap: token.market_cap || 0,
+      volume24h: token.volume_24h || 0,
+      holders: token.holders_count || 0,
+      mint_address: token.mint_address,
+      trending_score: token.trendingScore,
+      rank: index + 1
+    }))
   } catch (err) {
     console.error('Failed to load trending tokens:', err)
-    error.value = 'Failed to load trending tokens'
+    error.value = t('errors.failedToLoadTrending')
   } finally {
     loading.value = false
   }
