@@ -1,42 +1,9 @@
 <template>
   <!-- Home page - main landing page with token listings -->
   <div class="min-h-screen bg-binance-dark">
-    <!-- Stats Section -->
-    <section class="py-16 bg-trading-surface border-b border-binance-border">
-      <div class="container mx-auto px-4">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div class="text-center">
-            <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.totalTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalTokens') }}</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold text-trading-buy mb-2">{{ formatNumber(stats.totalVolume) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalVolume') }} (SOL)</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold text-white mb-2">{{ formatNumber(stats.totalUsers) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('dashboard.stats.totalUsers') }}</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold text-binance-yellow mb-2">{{ formatNumber(stats.graduatedTokens) }}</div>
-            <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('token.graduated') }}</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Trending Tokens Section -->
-    <section class="py-16 bg-binance-dark">
-      <div class="container mx-auto px-4">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold text-white mb-4">🔥 {{ t('token.trending') }} {{ t('token.tokens') }}</h2>
-          <p class="text-binance-gray max-w-2xl mx-auto">
-            {{ t('messages.info.trendingDescription') }}
-          </p>
-        </div>
-        
-        <TrendingTokens />
-      </div>
+    <section class="bg-binance-dark">
+      <TrendingTokens />
     </section>
 
     <!-- Main Tokens Section -->
@@ -51,77 +18,59 @@
           
           <!-- Controls -->
           <div class="flex flex-col sm:flex-row gap-4 mt-4 md:mt-0">
-            <!-- Search -->
-            <div class="relative">
-              <input
-                v-model="simpleQuery"
-                @keyup.enter="handleSimpleSearch"
-                type="text"
-                :placeholder="t('search.placeholder')"
-                class="input-field pl-10 w-full sm:w-64"
-              />
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-5 w-5 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-            
             <!-- Sort & Filter -->
-            <div class="flex gap-2">
-              <select 
-                v-model="sortBy" 
-                @change="() => loadTokens()"
-                class="input-field px-3 py-2 min-w-0"
+            <div class="flex space-x-2">
+              <select
+                v-model="sortBy"
+                class="input-field"
+                @change="loadTokens()"
               >
-                <option value="created_at">{{ t('token.new') }}</option>
-                <option value="market_cap">{{ t('token.marketCap') }}</option>
-                <option value="volume_24h">{{ t('token.volume') }}</option>
+                <option value="created_at">{{ t('search.newest') }}</option>
+                <option value="market_cap">{{ t('search.marketCap') }}</option>
+                <option value="volume_24h">{{ t('search.volume') }}</option>
               </select>
               
-              <button
-                @click="showAdvancedSearch = !showAdvancedSearch"
-                class="btn-secondary px-4 py-2 whitespace-nowrap"
+              <select
+                v-model="filterBy"
+                class="input-field"
+                @change="loadTokens()"
               >
-                {{ showAdvancedSearch ? t('common.hide') : t('search.filters') }}
-              </button>
+                <option value="all">{{ t('common.all') }}</option>
+                <option value="trending">{{ t('token.trending') }}</option>
+                <option value="graduated">{{ t('token.graduated') }}</option>
+              </select>
             </div>
+            
+            <button
+              @click="showAdvancedSearch = true"
+              class="btn-secondary"
+            >
+              {{ t('search.filters') }}
+            </button>
           </div>
         </div>
         
-        <!-- Advanced Search -->
-        <div v-if="showAdvancedSearch" class="mb-8">
-          <AdvancedSearch 
-            @search="handleSearch"
-            @filter-change="handleFilterChange"
-            :loading="searchLoading"
+        <!-- Token Grid -->
+        <div v-if="tokens.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <TokenCard
+            v-for="token in tokens"
+            :key="token.id"
+            :token="token"
+            class="trading-card hover:glow-gold"
           />
         </div>
         
-        <!-- Tokens Grid -->
-        <div v-if="tokens.length > 0" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <TokenCard
-              v-for="token in tokens"
-              :key="token.id"
-              :token="token"
-              class="trading-card hover:glow-gold"
-            />
-          </div>
+        <!-- Loading State -->
+        <div v-else-if="loading" class="text-center py-12">
+          <div class="spinner w-12 h-12 mx-auto mb-4"></div>
+          <p class="text-binance-gray">{{ t('common.loading') }}...</p>
         </div>
         
         <!-- Empty State -->
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🎭</div>
-          <h3 class="text-xl font-semibold text-white mb-2">
-            {{ t('search.noResults') }}
-          </h3>
-          <p class="text-binance-gray mb-6">
-            {{ t('messages.info.createFirstToken') }}
-          </p>
-          <router-link to="/create" class="btn-primary">
-            {{ t('token.createNew') }}
-          </router-link>
+          <h3 class="text-xl font-semibold text-white mb-2">{{ t('messages.info.noTokensFound') }}</h3>
+          <p class="text-binance-gray">{{ t('messages.info.tryDifferentFilters') }}</p>
         </div>
         
         <!-- Load More Button -->
@@ -182,39 +131,6 @@ const showAdvancedSearch = ref(false)
 const searchLoading = ref(false)
 const searchResults = ref<any[]>([])
 const simpleQuery = ref('')
-
-// Real stats data from Supabase
-const stats = ref({
-  totalTokens: 0,
-  totalVolume: 0,
-  totalUsers: 0,
-  graduatedTokens: 0
-})
-
-/**
- * Format numbers for display with K/M suffixes
- */
-const formatNumber = (num: number): string => {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M'
-  } else if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K'
-  } else {
-    return num.toString()
-  }
-}
-
-/**
- * Load dashboard statistics
- */
-const loadStats = async () => {
-  try {
-    const data = await SupabaseService.getDashboardStats()
-    stats.value = data
-  } catch (error) {
-    console.error('Failed to load stats:', error)
-  }
-}
 
 /**
  * Load tokens from database
@@ -277,42 +193,19 @@ const loadMoreTokens = async () => {
 }
 
 /**
- * Handle search
- */
-const handleSearch = async (query: string, filters: any) => {
-  try {
-    searchLoading.value = true
-    const result = await SupabaseService.searchTokens({ query, filters })
-    searchResults.value = result.tokens
-  } catch (error) {
-    console.error('Failed to search tokens:', error)
-    searchResults.value = []
-  } finally {
-    searchLoading.value = false
-  }
-}
-
-/**
- * Handle filter change
- */
-const handleFilterChange = (filters: any) => {
-  // Update filters and reload if needed
-  console.log('Filter changed:', filters)
-}
-
-/**
  * Handle simple search
  */
 const handleSimpleSearch = () => {
-  // Implement simple search logic
+  if (!simpleQuery.value.trim()) return
+  router.push({
+    name: 'search',
+    query: { q: simpleQuery.value }
+  })
 }
 
 // Load initial data when component mounts
 onMounted(async () => {
-  await Promise.all([
-    loadStats(),
-    loadTokens()
-  ])
+  await loadTokens()
 })
 </script>
 

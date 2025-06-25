@@ -1,19 +1,22 @@
 <template>
   <!-- Token card component for displaying token information in a grid -->
-  <div class="bg-trading-surface border border-binance-border rounded-lg overflow-hidden hover:border-binance-yellow transition-colors">
+  <div 
+    class="bg-trading-surface border border-binance-border rounded-lg overflow-hidden hover:border-binance-yellow transition-colors cursor-pointer"
+    @click.stop="$emit('click')"
+  >
     <!-- Token Header -->
-    <div class="p-4 border-b border-binance-border">
+    <div class="p-3">
       <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2">
           <img 
             :src="getImageUrl(token.imageUrl)"
             :alt="token.name"
-            class="w-10 h-10 rounded-full"
+            class="w-8 h-8 rounded-full"
             @error="handleImageError"
           >
           <div>
-            <h3 class="text-lg font-semibold text-white">{{ token.name }}</h3>
-            <p class="text-sm text-binance-gray">{{ token.symbol }}</p>
+            <h3 class="text-base font-semibold text-white">{{ token.name }}</h3>
+            <p class="text-xs text-binance-gray">{{ token.symbol }}</p>
           </div>
         </div>
         <div class="text-right">
@@ -24,36 +27,18 @@
     </div>
 
     <!-- Token Stats -->
-    <div class="p-4 space-y-3">
-      <div class="flex justify-between text-sm">
+    <div class="px-3 pb-3 space-y-1">
+      <div class="flex justify-between text-xs">
         <span class="text-binance-gray">{{ t('token.marketCap') }}</span>
         <span class="text-white font-medium">${{ formatNumber(token.marketCap) }}</span>
       </div>
-      <div class="flex justify-between text-sm">
+      <div class="flex justify-between text-xs">
         <span class="text-binance-gray">{{ t('token.volume24h') }}</span>
         <span class="text-white font-medium">${{ formatNumber(token.volume24h) }}</span>
       </div>
-      <div class="flex justify-between text-sm">
+      <div class="flex justify-between text-xs">
         <span class="text-binance-gray">{{ t('token.holders') }}</span>
         <span class="text-white font-medium">{{ formatNumber(token.holders) }}</span>
-      </div>
-    </div>
-
-    <!-- Token Actions -->
-    <div class="p-4 bg-trading-elevated border-t border-binance-border">
-      <div class="flex space-x-2">
-        <button 
-          @click="$emit('trade', token)"
-          class="flex-1 bg-binance-yellow text-black font-medium py-2 px-4 rounded-lg hover:bg-binance-yellow-dark transition-colors"
-        >
-          {{ t('trading.trade') }}
-        </button>
-        <button 
-          @click="$emit('view', token)"
-          class="flex-1 border border-binance-border text-white font-medium py-2 px-4 rounded-lg hover:bg-trading-surface transition-colors"
-        >
-          {{ t('common.view') }}
-        </button>
       </div>
     </div>
   </div>
@@ -83,8 +68,7 @@ const props = defineProps<{
 
 // Define emits
 const emit = defineEmits<{
-  (e: 'trade', token: Token): void
-  (e: 'view', token: Token): void
+  (e: 'click'): void
 }>()
 
 // Setup i18n
@@ -127,7 +111,7 @@ const token = computed(() => {
 // Computed properties
 const priceChangeClass = computed(() => {
   return {
-    'text-sm font-medium': true,
+    'text-xs font-medium': true,
     'text-green-500': token.value.priceChange24h > 0,
     'text-red-500': token.value.priceChange24h < 0,
     'text-binance-gray': token.value.priceChange24h === 0

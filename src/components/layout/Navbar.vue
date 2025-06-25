@@ -37,20 +37,6 @@
         
         <!-- Right Side Actions -->
         <div class="flex items-center space-x-4">
-          <!-- Theme Toggle -->
-          <button 
-            @click="toggleTheme"
-            class="p-2 text-binance-gray hover:text-binance-yellow transition-colors rounded-lg hover:bg-binance-border/30"
-            :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-          >
-            <svg v-if="!isDarkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          </button>
-          
           <!-- Wallet Connection Button -->
           <button 
             v-if="!isConnected"
@@ -64,52 +50,58 @@
           <div v-else class="relative">
             <button 
               @click="toggleUserMenu"
-              class="flex items-center space-x-2 p-2 rounded-lg bg-trading-surface hover:bg-trading-elevated transition-colors border border-binance-border"
+              class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-trading-elevated hover:bg-binance-border/30 transition-colors"
             >
-              <div class="w-8 h-8 bg-gold-gradient rounded-full flex items-center justify-center">
-                <span class="text-binance-dark text-xs font-bold">{{ walletInitials }}</span>
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-binance-yellow to-primary-600 flex items-center justify-center text-black font-bold text-sm">
+                {{ walletInitials }}
               </div>
-              <div class="hidden sm:block text-left">
-                <div class="text-sm font-medium text-white">
-                  {{ shortWalletAddress }}
-                </div>
-                <div class="text-xs text-binance-gray">
-                  {{ balance }}
-                </div>
-              </div>
-              <svg class="h-4 w-4 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span class="text-white font-medium">{{ shortWalletAddress }}</span>
+              <svg class="w-4 h-4 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            
+
             <!-- User Dropdown Menu -->
             <div 
               v-if="showUserMenu"
-              class="absolute right-0 mt-2 w-48 bg-trading-surface rounded-lg shadow-xl border border-binance-border py-1 z-50 backdrop-blur-lg"
+              class="absolute right-0 mt-2 w-48 bg-trading-surface rounded-lg shadow-xl border border-binance-border py-2"
             >
               <router-link 
-                to="/profile" 
-                class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
-                @click="closeUserMenu"
-              >
-                {{ t('navigation.profile') }}
-              </router-link>
-              <router-link 
                 to="/portfolio" 
-                class="block px-4 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
+                class="block px-4 py-2 text-white hover:bg-trading-elevated transition-colors"
                 @click="closeUserMenu"
               >
                 {{ t('navigation.portfolio') }}
               </router-link>
-              <hr class="my-1 border-binance-border">
+              <router-link 
+                to="/settings" 
+                class="block px-4 py-2 text-white hover:bg-trading-elevated transition-colors"
+                @click="closeUserMenu"
+              >
+                {{ t('navigation.settings') }}
+              </router-link>
               <button 
                 @click="disconnectWallet"
-                class="block w-full text-left px-4 py-2 text-sm text-trading-sell hover:bg-trading-elevated transition-colors"
+                class="w-full text-left px-4 py-2 text-red-500 hover:bg-trading-elevated transition-colors"
               >
                 {{ t('wallet.disconnect') }}
               </button>
             </div>
           </div>
+
+          <!-- Theme Toggle -->
+          <button 
+            @click="toggleTheme"
+            class="p-2 text-binance-gray hover:text-binance-yellow transition-colors rounded-lg hover:bg-binance-border/30"
+            :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+          >
+            <svg v-if="!isDarkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
           
           <!-- Language Selector - Moved to topmost right -->
           <LanguageSelector />
