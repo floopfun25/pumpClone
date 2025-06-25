@@ -1,43 +1,6 @@
 <template>
   <!-- Home page - main landing page with token listings -->
   <div class="min-h-screen bg-binance-dark">
-    <!-- Hero Section with Binance styling -->
-    <section class="bg-binance-gradient text-white py-20 relative overflow-hidden">
-      <!-- Background pattern -->
-      <div class="absolute inset-0 bg-binance-pattern opacity-30"></div>
-      
-      <div class="container mx-auto px-4 text-center relative z-10">
-        <h1 class="text-5xl font-bold mb-6 text-shadow">
-          {{ t('app.tagline') }}
-          <br>
-          <span class="text-binance-gradient">{{ t('token.trending') }}</span>
-        </h1>
-        <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-          {{ t('messages.info.launchDescription') }}
-        </p>
-        
-        <!-- Action Buttons -->
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <router-link 
-            to="/create" 
-            class="btn-success px-8 py-4 text-lg font-semibold glow-green"
-          >
-            🚀 {{ t('token.create') }}
-          </router-link>
-          <button 
-            @click="scrollToTokens"
-            class="btn-secondary px-8 py-4 text-lg font-semibold bg-white/10 text-white border-white/20 hover:bg-white/20"
-          >
-            📈 {{ t('common.browse') }} {{ t('token.tokens') }}
-          </button>
-        </div>
-      </div>
-      
-      <!-- Floating elements -->
-      <div class="absolute top-20 left-10 w-20 h-20 bg-binance-yellow/20 rounded-full animate-pulse"></div>
-      <div class="absolute bottom-20 right-10 w-16 h-16 bg-trading-buy/20 rounded-full animate-bounce"></div>
-    </section>
-    
     <!-- Stats Section -->
     <section class="py-16 bg-trading-surface border-b border-binance-border">
       <div class="container mx-auto px-4">
@@ -59,13 +22,6 @@
             <div class="text-binance-gray text-sm uppercase tracking-wide">{{ t('token.graduated') }}</div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- King of the Hill Section -->
-    <section class="py-16 bg-binance-dark">
-      <div class="container mx-auto px-4">
-        <KingOfTheHill @buy-token="handleQuickBuy" />
       </div>
     </section>
 
@@ -188,13 +144,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import TokenCard from '@/components/token/TokenCard.vue'
 import { SupabaseService } from '@/services/supabase'
 import TrendingTokens from '@/components/token/TrendingTokens.vue'
 import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
-import KingOfTheHill from '@/components/token/KingOfTheHill.vue'
 import { useTypedI18n } from '@/i18n'
 
 // Get i18n composable
@@ -322,16 +277,6 @@ const loadMoreTokens = async () => {
 }
 
 /**
- * Smooth scroll to tokens section
- */
-const scrollToTokens = () => {
-  const element = document.getElementById('tokens')
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
-  }
-}
-
-/**
  * Handle search
  */
 const handleSearch = async (query: string, filters: any) => {
@@ -360,12 +305,6 @@ const handleFilterChange = (filters: any) => {
  */
 const handleSimpleSearch = () => {
   // Implement simple search logic
-}
-
-// Methods
-const handleQuickBuy = (token: any) => {
-  // Navigate to token detail page for quick buy
-  router.push(`/token/${token.id}`)
 }
 
 // Load initial data when component mounts

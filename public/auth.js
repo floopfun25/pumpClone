@@ -180,25 +180,30 @@
     }
   }
   
+  // Prevent right-click context menu and dev tools (only in production)
+  const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+  
+  if (isProduction) {
+    // Prevent right-click context menu (optional security)
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+    });
+    
+    // Prevent F12, Ctrl+Shift+I, etc. (optional security)
+    document.addEventListener('keydown', function(e) {
+      if (e.keyCode === 123 || // F12
+          (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Ctrl+Shift+I
+          (e.ctrlKey && e.shiftKey && e.keyCode === 67) || // Ctrl+Shift+C
+          (e.ctrlKey && e.keyCode === 85)) { // Ctrl+U
+        e.preventDefault();
+      }
+    });
+  }
+  
   // Run authentication check when page loads
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', checkAuth);
   } else {
     checkAuth();
   }
-  
-  // Prevent right-click context menu (optional security)
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  });
-  
-  // Prevent F12, Ctrl+Shift+I, etc. (optional security)
-  document.addEventListener('keydown', function(e) {
-    if (e.keyCode === 123 || // F12
-        (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Ctrl+Shift+I
-        (e.ctrlKey && e.shiftKey && e.keyCode === 67) || // Ctrl+Shift+C
-        (e.ctrlKey && e.keyCode === 85)) { // Ctrl+U
-      e.preventDefault();
-    }
-  });
 })(); 

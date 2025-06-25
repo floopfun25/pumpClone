@@ -4,7 +4,7 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center h-16">
         <!-- Logo and Brand -->
-        <router-link to="/" class="flex items-center space-x-3">
+        <router-link to="/leaderboard" class="flex items-center space-x-3">
           <div class="w-8 h-8 bg-gold-gradient rounded-lg flex items-center justify-center glow-gold">
             <span class="text-binance-dark font-bold text-sm">F</span>
           </div>
@@ -15,12 +15,6 @@
         
         <!-- Desktop Navigation Links -->
         <div class="hidden md:flex items-center space-x-8">
-          <router-link 
-            to="/" 
-            class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
-          >
-            {{ t('navigation.home') }}
-          </router-link>
           <router-link 
             to="/create" 
             class="nav-link text-white hover:text-binance-yellow transition-colors font-medium"
@@ -43,23 +37,6 @@
         
         <!-- Right Side Actions -->
         <div class="flex items-center space-x-4">
-          <!-- Search (Desktop) -->
-          <div class="hidden lg:block">
-            <div class="relative">
-              <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('search.placeholder')"
-                class="pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-surface text-white focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow placeholder-binance-gray"
-              />
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-5 w-5 text-binance-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          
           <!-- Theme Toggle -->
           <button 
             @click="toggleTheme"
@@ -153,24 +130,7 @@
     <!-- Mobile Menu -->
     <div v-if="showMobileMenu" class="md:hidden bg-trading-surface border-t border-binance-border">
       <div class="px-4 py-3 space-y-3">
-        <!-- Mobile Search -->
-        <div class="lg:hidden">
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('search.placeholder')"
-            class="w-full pl-10 pr-4 py-2 border border-binance-border rounded-lg bg-trading-elevated text-white placeholder-binance-gray"
-          />
-        </div>
-        
         <!-- Mobile Navigation Links -->
-        <router-link 
-          to="/" 
-          class="block py-2 text-white hover:text-binance-yellow transition-colors"
-          @click="closeMobileMenu"
-        >
-          {{ t('navigation.home') }}
-        </router-link>
         <router-link 
           to="/create" 
           class="block py-2 text-white hover:text-binance-yellow transition-colors"
@@ -220,7 +180,6 @@ const walletStore = useWalletStore()
 const uiStore = useUIStore()
 
 // State
-const searchQuery = ref('')
 const showMobileMenu = ref(false)
 const showWalletModal = ref(false)
 const showUserMenu = ref(false)
