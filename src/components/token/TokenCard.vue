@@ -36,9 +36,8 @@
         <span class="text-binance-gray">{{ t('token.volume24h') }}</span>
         <span class="text-white font-medium">${{ formatNumber(token.volume24h) }}</span>
       </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-binance-gray">{{ t('token.holders') }}</span>
-        <span class="text-white font-medium">{{ formatNumber(token.holders) }}</span>
+      <div class="flex justify-end text-xs">
+        <span class="text-white font-medium">{{ formatHoldersCount(token.holders) }}</span>
       </div>
     </div>
   </div>
@@ -131,6 +130,24 @@ function getImageUrl(url: string | undefined): string {
   if (!url) return fallbackImage.value
   if (url.startsWith('http')) return url
   return getTokenImagePath(url)
+}
+
+function formatHoldersCount(count: number): string {
+  if (!count || count === 0) return '0'
+  
+  // Format as whole numbers with K, M, B suffixes if needed
+  if (count >= 1_000_000_000) {
+    return `${Math.floor(count / 1_000_000_000)}B`
+  }
+  if (count >= 1_000_000) {
+    return `${Math.floor(count / 1_000_000)}M`
+  }
+  if (count >= 1_000) {
+    return `${Math.floor(count / 1_000)}K`
+  }
+  
+  // For smaller numbers, just return the whole number
+  return Math.floor(count).toString()
 }
 
 // Formatting functions are now imported from @/utils/formatters

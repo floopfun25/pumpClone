@@ -55,6 +55,7 @@
             v-for="token in tokens"
             :key="token.id"
             :token="token"
+            @click="handleTokenClick(token)"
             class="trading-card"
           />
         </div>
@@ -114,6 +115,7 @@ interface Token {
   marketCap: number
   volume24h: number
   holders: number
+  mint_address?: string
 }
 
 const router = useRouter()
@@ -165,7 +167,8 @@ const loadTokens = async (reset = true) => {
         priceChange24h: Number(token.price_change_24h) || 0,
         marketCap: (Number(token.market_cap) || 0) / 1e9, // Convert from lamports to SOL
         volume24h: Number(token.volume_24h) || 0, // Already in SOL, no conversion needed
-        holders: Number(token.holders_count) || 0 // Fix: use holders_count
+        holders: Number(token.holders_count) || 0, // Fix: use holders_count
+        mint_address: token.mint_address || undefined
       }
       
       console.log(`📊 HomePage Token ${token.symbol}:`, {
@@ -217,6 +220,13 @@ const handleSimpleSearch = () => {
     name: 'search',
     query: { q: simpleQuery.value }
   })
+}
+
+/**
+ * Handle token card click - navigate to token page
+ */
+const handleTokenClick = (token: Token) => {
+  router.push(`/token/${token.mint_address || token.id}`)
 }
 
 // Load initial data when component mounts

@@ -286,14 +286,14 @@ const filters = ref<SearchFilters>({
 })
 
 // Quick filter options
-const quickFilters = [
-  { key: 'trending', label: 'Trending', emoji: '🔥' },
-  { key: 'new', label: 'New', emoji: '🆕' },
-  { key: 'featured', label: 'Featured', emoji: '⭐' },
-  { key: 'graduated', label: 'Graduated', emoji: '🎓' },
-  { key: 'high-volume', label: 'High Volume', emoji: '📈' },
-  { key: 'low-mcap', label: 'Low Market Cap', emoji: '💎' }
-]
+const quickFilters = computed(() => [
+  { key: 'trending', label: t('search.quickFilterTrending'), emoji: '🔥' },
+  { key: 'new', label: t('search.quickFilterNew'), emoji: '🆕' },
+  { key: 'featured', label: t('search.quickFilterFeatured'), emoji: '⭐' },
+  { key: 'graduated', label: t('search.quickFilterGraduated'), emoji: '🎓' },
+  { key: 'high-volume', label: t('search.quickFilterHighVolume'), emoji: '📈' },
+  { key: 'low-mcap', label: t('search.quickFilterLowMarketCap'), emoji: '💎' }
+])
 
 // Computed
 const hasActiveFilters = computed(() => {
@@ -320,7 +320,7 @@ const activeFiltersDisplay = computed(() => {
   if (filters.value.excludeNsfw) active.push('Safe Content')
   if (activeQuickFilters.value.length > 0) {
     activeQuickFilters.value.forEach(filter => {
-      const filterObj = quickFilters.find(f => f.key === filter)
+      const filterObj = quickFilters.value.find(f => f.key === filter)
       if (filterObj) active.push(filterObj.label)
     })
   }
