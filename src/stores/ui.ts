@@ -29,6 +29,9 @@ export const useUIStore = defineStore('ui', () => {
   // Theme state - default to dark mode (Binance style)
   const isDarkMode = ref(true)
   
+  // Sidebar state
+  const isSidebarCollapsed = ref(true)
+  
   // Search state
   const searchQuery = ref('')
   const searchResults = ref<any[]>([])
@@ -209,13 +212,58 @@ export const useUIStore = defineStore('ui', () => {
   }
   
   /**
-   * Clear search state
-   * Used to reset search
+   * Clear search results and query
+   * Used to reset search state
    */
   function clearSearch() {
     searchQuery.value = ''
     searchResults.value = []
     isSearching.value = false
+  }
+  
+  /**
+   * Toggle sidebar collapsed state
+   * Used for sidebar navigation
+   */
+  function toggleSidebar() {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value
+    saveSidebarState()
+  }
+  
+  /**
+   * Set sidebar collapsed state
+   * Used to force sidebar state
+   */
+  function setSidebarCollapsed(collapsed: boolean) {
+    isSidebarCollapsed.value = collapsed
+    saveSidebarState()
+  }
+  
+  /**
+   * Save sidebar state to localStorage
+   * Internal function for persistence
+   */
+  function saveSidebarState() {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('floppfun-sidebar-collapsed', JSON.stringify(isSidebarCollapsed.value))
+    }
+  }
+  
+  /**
+   * Initialize sidebar state from localStorage
+   * Used during app initialization
+   */
+  function initializeSidebar() {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('floppfun-sidebar-collapsed')
+      
+      if (savedState !== null) {
+        isSidebarCollapsed.value = JSON.parse(savedState)
+      } else {
+        // Default to collapsed
+        isSidebarCollapsed.value = true
+      }
+    }
   }
   
   return {
@@ -226,6 +274,7 @@ export const useUIStore = defineStore('ui', () => {
     modalData,
     toasts,
     isDarkMode,
+    isSidebarCollapsed,
     searchQuery,
     searchResults,
     isSearching,
@@ -245,6 +294,9 @@ export const useUIStore = defineStore('ui', () => {
     setSearchQuery,
     setSearching,
     setSearchResults,
-    clearSearch
+    clearSearch,
+    toggleSidebar,
+    setSidebarCollapsed,
+    initializeSidebar
   }
 }) 

@@ -185,12 +185,12 @@ const { t, locale } = useTypedI18n()
 const uiStore = useUIStore()
 
 // State
-const isCollapsed = ref(true)
 const showLanguageMenu = ref(false)
 const isMobile = ref(false)
 
 // Computed
 const isDarkMode = computed(() => uiStore.isDarkMode)
+const isCollapsed = computed(() => uiStore.isSidebarCollapsed)
 
 const currentLanguage = computed(() => {
   try {
@@ -203,13 +203,13 @@ const currentLanguage = computed(() => {
 
 // Methods
 function toggleCollapse() {
-  isCollapsed.value = !isCollapsed.value
+  uiStore.toggleSidebar()
   showLanguageMenu.value = false
 }
 
 function collapseSidebar() {
   if (isMobile.value) {
-    isCollapsed.value = true
+    uiStore.setSidebarCollapsed(true)
     showLanguageMenu.value = false
   }
 }
@@ -267,26 +267,13 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   handleResize()
   
-  // Load saved state
-  const savedState = localStorage.getItem('sidebar-collapsed')
-  if (savedState !== null) {
-    isCollapsed.value = JSON.parse(savedState)
-  }
+  // Sidebar state initialization is now handled globally in App.vue
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', handleResize)
 })
-
-// Save state to localStorage
-function saveSidebarState() {
-  localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed.value))
-}
-
-// Watch for changes to save state
-import { watch } from 'vue'
-watch(isCollapsed, saveSidebarState)
 </script>
 
 <style scoped>

@@ -8,13 +8,13 @@
     <Sidebar />
     
     <!-- Main Content Area -->
-    <main class="bg-binance-pattern ml-16 transition-all duration-300">
+    <main class="bg-binance-dark transition-all duration-300" :class="mainContentClass">
       <!-- Vue Router outlet for page content -->
       <RouterView />
     </main>
     
     <!-- Footer -->
-    <Footer class="ml-16 transition-all duration-300" />
+    <Footer class="transition-all duration-300" :class="footerClass" />
     
     <!-- Global Toast Notifications -->
     <ToastContainer />
@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref, onBeforeUnmount } from 'vue'
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -43,14 +43,49 @@ const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
 
+// Reactive window width for responsive behavior
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
 // Computed properties for reactive state
 const isLoading = computed(() => uiStore.isLoading)
+const isMobile = computed(() => windowWidth.value < 768)
+
+// Dynamic classes based on sidebar state
+const mainContentClass = computed(() => {
+  const baseClasses = 'transition-all duration-300'
+  
+  // On mobile, don't add margin when sidebar is expanded (it uses overlay)
+  if (isMobile.value) {
+    return `${baseClasses} ml-0`
+  }
+  
+  return uiStore.isSidebarCollapsed ? `${baseClasses} ml-16` : `${baseClasses} ml-64`
+})
+
+const footerClass = computed(() => {
+  const baseClasses = 'transition-all duration-300'
+  
+  // On mobile, don't add margin when sidebar is expanded (it uses overlay)
+  if (isMobile.value) {
+    return `${baseClasses} ml-0`
+  }
+  
+  return uiStore.isSidebarCollapsed ? `${baseClasses} ml-16` : `${baseClasses} ml-64`
+})
+
+// Handle window resize
+function handleResize() {
+  windowWidth.value = window.innerWidth
+}
 
 // Application initialization
 onMounted(async () => {
   try {
     // Initialize theme first (sets dark mode as default)
     uiStore.initializeTheme()
+    
+    // Initialize sidebar state
+    uiStore.initializeSidebar()
     
     // Setup auth listener
     authStore.setupAuthListener()
@@ -63,10 +98,18 @@ onMounted(async () => {
       await authStore.initializeUser()
     }
     
+    // Add window resize listener
+    window.addEventListener('resize', handleResize)
+    
     console.log('App initialized successfully')
   } catch (error) {
     console.error('Failed to initialize app:', error)
   }
+})
+
+// Cleanup on component unmount
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -77,6 +120,11 @@ onMounted(async () => {
   font-feature-settings: 'cv03', 'cv04', 'cv11';
   background: var(--binance-gradient);
   color: var(--text-primary);
+}
+
+/* Ensure smooth sidebar transitions */
+main, footer {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Ensure proper text rendering on dark backgrounds */
@@ -94,5 +142,12 @@ onMounted(async () => {
 ::-moz-selection {
   background-color: rgba(240, 185, 11, 0.3);
   color: #ffffff;
+}
+
+/* Mobile responsiveness for sidebar */
+@media (max-width: 768px) {
+  main, footer {
+    margin-left: 0 !important;
+  }
 }
 </style> 
