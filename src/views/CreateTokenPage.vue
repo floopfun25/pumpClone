@@ -7,9 +7,6 @@
         <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
           {{ t('token.createYourMemeToken') }}
         </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">
-          {{ t('token.createTokenDescription') }}
-        </p>
       </div>
 
       <!-- Wallet Connection Required -->

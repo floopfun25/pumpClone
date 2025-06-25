@@ -164,7 +164,7 @@ const loadTokens = async (reset = true) => {
         price: Number(token.current_price) || 0, // Fix: use current_price instead of price
         priceChange24h: Number(token.price_change_24h) || 0,
         marketCap: (Number(token.market_cap) || 0) / 1e9, // Convert from lamports to SOL
-        volume24h: (Number(token.volume_24h) || 0) / 1e9, // Convert from lamports to SOL
+        volume24h: Number(token.volume_24h) || 0, // Already in SOL, no conversion needed
         holders: Number(token.holders_count) || 0 // Fix: use holders_count
       }
       

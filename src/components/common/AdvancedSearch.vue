@@ -3,14 +3,14 @@
     <!-- Search Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">🔍 Advanced Search</h2>
-        <p class="text-gray-600 dark:text-gray-400">Find exactly what you're looking for</p>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">🔍 {{ t('search.advancedSearch') }}</h2>
+        <p class="text-gray-600 dark:text-gray-400">{{ t('search.findExactly') }}</p>
       </div>
       <button 
         @click="resetFilters"
         class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
       >
-        Reset Filters
+        {{ t('search.resetFilters') }}
       </button>
     </div>
 
@@ -23,7 +23,7 @@
         v-model="searchQuery"
         @input="handleSearch"
         type="text"
-        placeholder="Search tokens, creators, or descriptions..."
+        :placeholder="t('search.searchPlaceholder')"
         class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
       />
       <div v-if="searching" class="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -33,7 +33,7 @@
 
     <!-- Quick Filters -->
     <div class="mb-6">
-      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Filters</h3>
+      <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{{ t('search.quickFilters') }}</h3>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="filter in quickFilters"
@@ -56,55 +56,55 @@
       <!-- Market Cap Range -->
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Market Cap Range
+          {{ t('search.marketCapRange') }}
         </label>
         <select v-model="filters.marketCapRange" class="input-field text-sm">
-          <option value="">Any Size</option>
-          <option value="micro">Micro ($0 - $10K)</option>
-          <option value="small">Small ($10K - $100K)</option>
-          <option value="medium">Medium ($100K - $1M)</option>
-          <option value="large">Large ($1M+)</option>
+          <option value="">{{ t('search.anySize') }}</option>
+          <option value="micro">{{ t('search.micro') }}</option>
+          <option value="small">{{ t('search.small') }}</option>
+          <option value="medium">{{ t('search.medium') }}</option>
+          <option value="large">{{ t('search.large') }}</option>
         </select>
       </div>
 
       <!-- Age Filter -->
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Token Age
+          {{ t('search.tokenAge') }}
         </label>
         <select v-model="filters.ageRange" class="input-field text-sm">
-          <option value="">Any Age</option>
-          <option value="1h">Last Hour</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="7d">Last Week</option>
-          <option value="30d">Last Month</option>
+          <option value="">{{ t('search.anyAge') }}</option>
+          <option value="1h">{{ t('search.lastHour') }}</option>
+          <option value="24h">{{ t('search.last24Hours') }}</option>
+          <option value="7d">{{ t('search.lastWeek') }}</option>
+          <option value="30d">{{ t('search.lastMonth') }}</option>
         </select>
       </div>
 
       <!-- Volume Filter -->
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          24h Volume
+          {{ t('search.volume24h') }}
         </label>
         <select v-model="filters.volumeRange" class="input-field text-sm">
-          <option value="">Any Volume</option>
-          <option value="low">Low ($0 - $1K)</option>
-          <option value="medium">Medium ($1K - $10K)</option>
-          <option value="high">High ($10K+)</option>
+          <option value="">{{ t('search.anyVolume') }}</option>
+          <option value="low">{{ t('search.lowVolume') }}</option>
+          <option value="medium">{{ t('search.mediumVolume') }}</option>
+          <option value="high">{{ t('search.highVolume') }}</option>
         </select>
       </div>
 
       <!-- Sort By -->
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Sort By
+          {{ t('search.sortBy') }}
         </label>
         <select v-model="filters.sortBy" class="input-field text-sm">
-          <option value="created_at">Newest First</option>
-          <option value="market_cap">Market Cap</option>
-          <option value="volume_24h">24h Volume</option>
-          <option value="holders_count">Holder Count</option>
-          <option value="bonding_curve_progress">Progress</option>
+          <option value="created_at">{{ t('search.newestFirst') }}</option>
+          <option value="market_cap">{{ t('search.marketCap') }}</option>
+          <option value="volume_24h">{{ t('search.volume24h') }}</option>
+          <option value="holders_count">{{ t('search.holderCount') }}</option>
+          <option value="bonding_curve_progress">{{ t('search.progress') }}</option>
         </select>
       </div>
     </div>
@@ -116,7 +116,7 @@
         class="flex items-center text-sm text-primary-600 hover:text-primary-700"
       >
         <span>{{ showAdvanced ? '▼' : '▶' }}</span>
-        <span class="ml-1">Advanced Options</span>
+        <span class="ml-1">{{ t('search.advancedOptions') }}</span>
       </button>
     </div>
 
@@ -126,12 +126,12 @@
         <!-- Creator Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Creator Address
+            {{ t('search.creatorAddress') }}
           </label>
           <input
             v-model="filters.creatorAddress"
             type="text"
-            placeholder="Enter wallet address..."
+            :placeholder="t('search.enterWalletAddress')"
             class="input-field text-sm"
           />
         </div>
@@ -139,7 +139,7 @@
         <!-- Min Holders -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Minimum Holders
+            {{ t('search.minimumHolders') }}
           </label>
           <input
             v-model.number="filters.minHolders"
@@ -152,7 +152,7 @@
         <!-- Bonding Curve Progress -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Min Progress (%)
+            {{ t('search.minProgress') }}
           </label>
           <input
             v-model.number="filters.minProgress"
@@ -173,7 +173,7 @@
             type="checkbox"
             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
-          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Featured tokens only</span>
+          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ t('search.featuredTokensOnly') }}</span>
         </label>
         <label class="flex items-center">
           <input
@@ -181,7 +181,7 @@
             type="checkbox"
             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
-          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Graduated tokens only</span>
+          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ t('search.graduatedTokensOnly') }}</span>
         </label>
         <label class="flex items-center">
           <input
@@ -189,7 +189,7 @@
             type="checkbox"
             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
-          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Hide NSFW content</span>
+          <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ t('search.hideNsfwContent') }}</span>
         </label>
       </div>
     </div>
@@ -199,10 +199,10 @@
       <div class="flex items-center justify-between">
         <div>
           <span class="text-sm text-gray-600 dark:text-gray-400">
-            {{ searching ? 'Searching...' : `Found ${resultCount} tokens` }}
+            {{ searching ? t('search.searchingTokens') : t('search.foundTokens', { count: resultCount }) }}
           </span>
           <span v-if="searchQuery" class="text-sm text-gray-500 dark:text-gray-400 ml-2">
-            matching "{{ searchQuery }}"
+            {{ t('search.matching', { query: searchQuery }) }}
           </span>
         </div>
         <button
@@ -210,7 +210,7 @@
           @click="clearSearch"
           class="text-sm text-red-600 hover:text-red-700"
         >
-          Clear Search
+          {{ t('search.clearSearch') }}
         </button>
       </div>
 
@@ -231,6 +231,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
+import { useTypedI18n } from '@/i18n'
 
 interface SearchFilters {
   marketCapRange: string
@@ -261,6 +262,9 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   resultCount: 0
 })
+
+// Setup i18n
+const { t } = useTypedI18n()
 
 // State
 const searchQuery = ref('')

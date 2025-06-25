@@ -48,6 +48,7 @@
 import { ref, computed } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import { getTokenFallbackImage, getTokenImagePath } from '@/utils/paths'
+import { formatNumber, formatPrice, formatPriceChange } from '@/utils/formatters'
 
 // Define token interface
 interface Token {
@@ -132,39 +133,5 @@ function getImageUrl(url: string | undefined): string {
   return getTokenImagePath(url)
 }
 
-function formatPrice(price: number | undefined | null): string {
-  if (price === undefined || price === null) {
-    return '0.00'
-  }
-  if (price < 0.01) {
-    return price.toFixed(8)
-  }
-  if (price < 1) {
-    return price.toFixed(4)
-  }
-  return price.toFixed(2)
-}
-
-function formatPriceChange(change: number | undefined | null): string {
-  if (change === undefined || change === null) {
-    return '0.00'
-  }
-  return change > 0 ? `+${change.toFixed(2)}` : change.toFixed(2)
-}
-
-function formatNumber(num: number | undefined | null): string {
-  if (num === undefined || num === null) {
-    return '0'
-  }
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(2)}B`
-  }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(2)}M`
-  }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(2)}K`
-  }
-  return num.toString()
-}
+// Formatting functions are now imported from @/utils/formatters
 </script> 

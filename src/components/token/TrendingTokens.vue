@@ -145,7 +145,7 @@ const loadTrendingTokens = async () => {
         price: token.current_price || 0,
         priceChange24h: token.price_change_24h || 0,
         marketCap: (token.market_cap || 0) / 1e9, // Convert from lamports to SOL
-        volume24h: (token.volume_24h || 0) / 1e9, // Convert from lamports to SOL
+        volume24h: token.volume_24h || 0, // Already in SOL, no conversion needed
         holders: token.holders_count || 0,
         mint_address: token.mint_address,
         trending_score: token.trendingScore,

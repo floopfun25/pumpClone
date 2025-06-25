@@ -1,16 +1,6 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-pump-dark py-8">
     <div class="container mx-auto px-4">
-      <!-- Page Header -->
-      <div class="mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-          🔍 Search Tokens
-        </h1>
-        <p class="text-gray-600 dark:text-gray-400">
-          Find the perfect meme token with advanced filtering and search
-        </p>
-      </div>
-
       <!-- Advanced Search Component -->
       <div class="mb-8">
         <AdvancedSearch
@@ -26,9 +16,9 @@
         <!-- Results Header -->
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">
-            Search Results
+            {{ t('search.searchResults') }}
             <span class="text-lg text-gray-500 dark:text-gray-400 font-normal">
-              ({{ totalResults }} {{ totalResults === 1 ? 'token' : 'tokens' }})
+              ({{ totalResults }} {{ totalResults === 1 ? t('search.token') : t('search.tokens') }})
             </span>
           </h2>
           
@@ -43,7 +33,7 @@
                   : 'text-gray-600 dark:text-gray-400'
               ]"
             >
-              ⊞ Grid
+              ⊞ {{ t('search.grid') }}
             </button>
             <button
               @click="viewMode = 'list'"
@@ -54,7 +44,7 @@
                   : 'text-gray-600 dark:text-gray-400'
               ]"
             >
-              ☰ List
+              ☰ {{ t('search.list') }}
             </button>
           </div>
         </div>
@@ -63,7 +53,7 @@
         <div v-if="loading" class="flex justify-center py-12">
           <div class="text-center">
             <div class="spinner w-12 h-12 mx-auto mb-4"></div>
-            <p class="text-gray-500 dark:text-gray-400">Searching tokens...</p>
+            <p class="text-gray-500 dark:text-gray-400">{{ t('search.searchingTokens') }}</p>
           </div>
         </div>
 
@@ -114,11 +104,11 @@
                       ${{ token.symbol }}
                     </span>
                     <span v-if="token.is_featured" class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded-full">
-                      ⭐ Featured
+                      ⭐ {{ t('search.featured') }}
                     </span>
                   </div>
                   <p class="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
-                    {{ token.description || 'No description available' }}
+                    {{ token.description || t('search.noDescriptionAvailable') }}
                   </p>
                   <div class="flex items-center space-x-6 text-sm">
                     <span class="text-gray-600 dark:text-gray-400">
@@ -131,7 +121,7 @@
                       Holders: <span class="font-medium text-gray-900 dark:text-white">{{ token.holders_count || 0 }}</span>
                     </span>
                     <span class="text-gray-600 dark:text-gray-400">
-                      Progress: <span class="font-medium text-gray-900 dark:text-white">{{ token.bonding_curve_progress || 0 }}%</span>
+                      {{ t('search.progress') }}: <span class="font-medium text-gray-900 dark:text-white">{{ token.bonding_curve_progress || 0 }}%</span>
                     </span>
                   </div>
                 </div>
@@ -176,9 +166,9 @@
             >
               <span v-if="loadingMore" class="flex items-center gap-2">
                 <div class="spinner w-4 h-4"></div>
-                Loading More...
+                {{ t('search.loadingMore') }}
               </span>
-              <span v-else>Load More Results</span>
+              <span v-else>{{ t('search.loadMoreResults') }}</span>
             </button>
           </div>
         </div>
@@ -187,13 +177,13 @@
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🔍</div>
           <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            No tokens found
+            {{ t('search.noTokensFound') }}
           </h3>
           <p class="text-gray-600 dark:text-gray-400 mb-6">
-            Try adjusting your search criteria or filters
+            {{ t('search.adjustSearchCriteria') }}
           </p>
           <button @click="clearSearch" class="btn-primary">
-            Clear Search
+            {{ t('search.clearSearch') }}
           </button>
         </div>
       </div>
@@ -202,15 +192,15 @@
       <div v-else class="text-center py-12">
         <div class="text-6xl mb-4">🚀</div>
         <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Ready to find your next gem?
+          {{ t('search.readyToFind') }}
         </h3>
         <p class="text-gray-600 dark:text-gray-400 mb-6">
-          Use the search and filters above to discover amazing meme tokens
+          {{ t('search.useSearchFilters') }}
         </p>
         
         <!-- Popular Searches -->
         <div class="max-w-md mx-auto">
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Popular searches:</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{{ t('search.popularSearches') }}:</p>
           <div class="flex flex-wrap gap-2 justify-center">
             <button
               v-for="suggestion in popularSearches"
@@ -353,15 +343,21 @@ const navigateToToken = (mintAddress: string) => {
 }
 
 const formatNumber = (num: number): string => {
+  if (num === 0) return '0'
   if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B'
   if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M'
   if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K'
-  return num.toString()
+  if (num >= 1) return num.toFixed(2)
+  if (num >= 0.01) return num.toFixed(3)
+  if (num >= 0.0001) return num.toFixed(4)
+  if (num >= 0.000001) return num.toFixed(6)
+  return num.toFixed(8)
 }
 
 const formatPrice = (price: number): string => {
   if (price === 0) return '0.000000'
-  if (price < 0.000001) return price.toExponential(2)
+  if (price > 0 && price < 0.000001) return price.toFixed(8)
+  if (price < 0.001) return price.toFixed(7)
   if (price < 0.01) return price.toFixed(6)
   if (price < 1) return price.toFixed(4)
   return price.toFixed(2)

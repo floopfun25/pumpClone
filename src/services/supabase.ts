@@ -789,7 +789,7 @@ export class SupabaseService {
       if (volumeError) throw volumeError
 
       const totalVolume = volumeData?.reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) || 0
-      const totalVolumeInSOL = totalVolume / 1e9 // Convert lamports to SOL
+      const totalVolumeInSOL = totalVolume // Already in SOL
 
       return {
         totalTokens: totalTokens || 0,
@@ -1114,7 +1114,7 @@ export class SupabaseService {
       ])
 
       const totalTokens = tokensResult.count || 0
-      const totalVolume24h = (volumeResult.data?.reduce((sum, transaction) => sum + (transaction.sol_amount || 0), 0) || 0) / 1e9 // Convert lamports to SOL
+      const totalVolume24h = volumeResult.data?.reduce((sum, transaction) => sum + (transaction.sol_amount || 0), 0) || 0 // Already in SOL
       
       // Calculate real market cap based on each token's supply and price
       const totalMarketCap = allTokens.data?.reduce((sum, token) => {
