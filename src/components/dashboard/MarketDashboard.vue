@@ -22,28 +22,28 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
         <div class="text-center">
           <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">
-            {{ formatMarketCap(marketOverview.totalMarketCap) }}
+            {{ formatMarketCap(marketData.totalMarketCap) }}
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">Total Market Cap</div>
         </div>
         
         <div class="text-center">
           <div class="text-3xl font-bold text-green-600 dark:text-green-400">
-            {{ formatVolume(marketOverview.totalVolume24h) }}
+            {{ formatVolume(marketData.totalVolume24h) }}
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">24h Volume</div>
         </div>
         
         <div class="text-center">
           <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">
-            {{ marketOverview.totalTokens.toLocaleString() }}
+            {{ marketData.totalTokens.toLocaleString() }}
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">Total Tokens</div>
         </div>
         
         <div class="text-center">
           <div class="text-3xl font-bold text-orange-600 dark:text-orange-400">
-            {{ marketOverview.activeTokens24h.toLocaleString() }}
+            {{ marketData.activeTokens24h.toLocaleString() }}
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">Active 24h</div>
         </div>
@@ -247,6 +247,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { marketAnalyticsService, type MarketOverview } from '@/services/marketAnalytics'
 import { formatPrice, formatVolume, formatMarketCap } from '@/services/priceOracle'
+import { MarketDataService } from '@/services/marketDataService'
 
 const router = useRouter()
 
@@ -255,6 +256,14 @@ const loading = ref(false)
 const lastUpdateTime = ref('')
 
 // Market data
+const marketData = ref({
+  totalMarketCap: 0,
+  totalVolume24h: 0,
+  totalTokens: 0,
+  activeTokens24h: 0
+})
+
+// Market overview
 const marketOverview = ref<MarketOverview>({
   totalMarketCap: 0,
   totalVolume24h: 0,
@@ -266,9 +275,6 @@ const marketOverview = ref<MarketOverview>({
   newListings: []
 })
 
-// Real-time subscription
-let marketSubscription: (() => void) | null = null
-
 /**
  * Load market data
  */
@@ -276,9 +282,8 @@ const loadMarketData = async () => {
   try {
     loading.value = true
     
-    const overview = await marketAnalyticsService.getMarketOverview()
-    marketOverview.value = overview
-    
+    marketData.value = await MarketDataService.getTotalMarketStats()
+    marketOverview.value = await marketAnalyticsService.getMarketOverview()
     lastUpdateTime.value = new Date().toLocaleTimeString()
     
   } catch (error) {
@@ -292,8 +297,6 @@ const loadMarketData = async () => {
  * Refresh market data manually
  */
 const refreshMarketData = async () => {
-  // Clear cache and reload
-  marketAnalyticsService.clearCache()
   await loadMarketData()
 }
 
@@ -304,25 +307,17 @@ const navigateToToken = (mintAddress: string) => {
   router.push(`/token/${mintAddress}`)
 }
 
-/**
- * Setup real-time market updates
- */
-const setupRealTimeUpdates = () => {
-  marketSubscription = marketAnalyticsService.subscribeToMarketUpdates((data) => {
-    marketOverview.value = data
-    lastUpdateTime.value = new Date().toLocaleTimeString()
-  })
-}
+// Update market data periodically
+let marketDataInterval: NodeJS.Timeout | null = null
 
-// Lifecycle
 onMounted(async () => {
   await loadMarketData()
-  setupRealTimeUpdates()
+  marketDataInterval = setInterval(loadMarketData, 60000) // Update every minute
 })
 
 onUnmounted(() => {
-  if (marketSubscription) {
-    marketSubscription()
+  if (marketDataInterval) {
+    clearInterval(marketDataInterval)
   }
 })
 </script>

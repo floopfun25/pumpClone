@@ -127,7 +127,7 @@ class MarketAnalyticsService {
 
     try {
       // Get tokens from database with recent activity
-      const tokens = await SupabaseService.getTrendingTokens(limit * 2) // Get more to filter
+      const tokens = await SupabaseService.getTrendingTokens('volume', limit * 2) // Get more to filter
 
       const trendingTokens: TrendingToken[] = []
 
@@ -451,15 +451,38 @@ class MarketAnalyticsService {
     return ((recentAvg - earlierAvg) / earlierAvg) * 100
   }
 
-  private async getVolume24h(tokenId: string): Promise<number> {
+  private async getVolume24h(tokenId: any): Promise<number> {
     try {
-      const transactions = await SupabaseService.getTokenTransactions(tokenId, 1000)
-      const yesterday = Date.now() - 24 * 60 * 60 * 1000
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       
-      return transactions
-        .filter(tx => new Date(tx.created_at).getTime() > yesterday)
-        .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) / 1e9 // Convert lamports to SOL
-    } catch {
+      // Get all completed transactions in the last 24h
+      const transactions = await SupabaseService.getTokenTransactions(tokenId, 1000)
+      
+      if (!transactions || transactions.length === 0) return 0
+
+      // Filter transactions within last 24h
+      const recent24h = transactions.filter(tx => 
+        new Date(tx.created_at).getTime() >= new Date(yesterday).getTime()
+      )
+
+      // Calculate total volume considering both buys and sells
+      const volume = recent24h.reduce((sum: number, tx: {
+        sol_amount?: number,
+        price_per_token?: number,
+        token_amount?: number,
+        created_at: string
+      }) => {
+        const amount = tx.sol_amount || 0
+        // Use price_per_token * token_amount if available, otherwise use sol_amount
+        const txVolume = tx.price_per_token && tx.token_amount 
+          ? tx.price_per_token * tx.token_amount 
+          : amount
+        return sum + txVolume
+      }, 0)
+
+      return volume
+    } catch (error) {
+      console.error('Failed to calculate 24h volume:', error)
       return 0
     }
   }

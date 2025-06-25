@@ -194,11 +194,13 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { priceOracleService, formatPrice, formatMarketCap, formatVolume } from '@/services/priceOracle'
 import { SupabaseService } from '@/services/supabase'
+import { MarketDataService } from '@/services/marketDataService'
 
 interface Props {
   tokenId: string
   tokenSymbol: string
   mintAddress?: string
+  token?: any
 }
 
 interface CandlestickData {
@@ -254,17 +256,19 @@ const chartTypes = [
 // Computed properties
 const hasData = computed(() => chartData.value.length > 0)
 
-const currentPrice = computed(() => {
-  if (!hasData.value) return 0
-  return chartData.value[chartData.value.length - 1]?.close || 0
+const marketData = ref({
+  price: 0,
+  priceChange24h: 0,
+  volume24h: 0,
+  marketCap: 0,
+  holders: 0,
+  transactions24h: 0
 })
 
-const priceChange = computed(() => {
-  if (chartData.value.length < 2) return 0
-  const current = currentPrice.value
-  const previous = chartData.value[0]?.close || current
-  return previous ? ((current - previous) / previous) * 100 : 0
-})
+const currentPrice = computed(() => marketData.value.price)
+const priceChange = computed(() => marketData.value.priceChange24h)
+const volume24h = computed(() => marketData.value.volume24h)
+const marketCap = computed(() => marketData.value.marketCap)
 
 const high24h = computed(() => {
   if (!hasData.value) return 0
@@ -274,15 +278,6 @@ const high24h = computed(() => {
 const low24h = computed(() => {
   if (!hasData.value) return 0
   return Math.min(...chartData.value.map(d => d.low))
-})
-
-const volume24h = computed(() => {
-  if (!hasData.value) return 0
-  return chartData.value.reduce((sum, d) => sum + (d.volume || 0), 0)
-})
-
-const marketCap = computed(() => {
-  return currentPrice.value * 1000000 // Mock calculation
 })
 
 // Enhanced Canvas Chart Drawing
@@ -649,11 +644,17 @@ const handleResize = () => {
   }
 }
 
+const loadMarketData = async () => {
+  if (!props.token?.id) return
+  marketData.value = await MarketDataService.getTokenMarketData(props.token.id)
+}
+
 // Lifecycle
 onMounted(async () => {
   await nextTick()
   await loadChartData()
   setupRealTimeUpdates()
+  await loadMarketData()
   
   window.addEventListener('resize', handleResize)
 })

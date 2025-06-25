@@ -942,7 +942,7 @@ export class SupabaseService {
     activeTraders24h: number
   }> {
     try {
-      const [tokensResult, volumeResult, tradersResult] = await Promise.all([
+      const [tokensResult, volumeResult, tradersResult, allTokens] = await Promise.all([
         supabase
           .from('tokens')
           .select('id', { count: 'exact', head: true }),
@@ -955,12 +955,24 @@ export class SupabaseService {
         supabase
           .from('transactions')
           .select('user_id', { count: 'exact' })
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+
+        supabase
+          .from('tokens')
+          .select('current_price, total_supply')
+          .eq('status', 'active')
       ])
 
       const totalTokens = tokensResult.count || 0
       const totalVolume24h = (volumeResult.data?.reduce((sum, transaction) => sum + (transaction.sol_amount || 0), 0) || 0) / 1e9 // Convert lamports to SOL
-      const totalMarketCap = totalTokens * 50000 // Mock calculation
+      
+      // Calculate real market cap based on each token's supply and price
+      const totalMarketCap = allTokens.data?.reduce((sum, token) => {
+        const price = token.current_price || 0
+        const supply = token.total_supply || 0
+        return sum + (price * supply)
+      }, 0) || 0
+
       const activeTraders24h = tradersResult.count || 0
 
       return {
