@@ -91,7 +91,16 @@ class PriceOracleService {
 
     try {
       // Get API key from environment
-      const apiKey = import.meta.env.VITE_BIRDEYE_API_KEY || 'demo'
+      const apiKey = import.meta.env.VITE_BIRDEYE_API_KEY
+      
+      if (!apiKey || apiKey === 'demo' || apiKey === 'your_birdeye_api_key_here') {
+        // No valid API key, try Jupiter API as alternative
+        const jupiterPrice = await this.getTokenPriceFromJupiter(mintAddress)
+        if (jupiterPrice) {
+          return jupiterPrice
+        }
+        throw new Error('No valid Birdeye API key configured and Jupiter API failed')
+      }
       
       // Try Birdeye API first
       const response = await fetch(
@@ -178,6 +187,62 @@ class PriceOracleService {
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash)
+  }
+
+  // Alternative: Get token price from Jupiter API (free, no API key required)
+  private async getTokenPriceFromJupiter(mintAddress: string): Promise<TokenPriceData | null> {
+    try {
+      // Use Jupiter Price API v2 - correct endpoint
+      const response = await fetch(`https://lite-api.jup.ag/price/v2?ids=${mintAddress}`)
+      
+      if (!response.ok) {
+        throw new Error(`Jupiter API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      // Jupiter v2 response format: { data: { [mintAddress]: { price: "123.45" } } }
+      if (data.data && data.data[mintAddress]) {
+        const tokenData = data.data[mintAddress]
+        const price = parseFloat(tokenData.price) || 0
+        
+        const priceData: PriceData = {
+          price: price,
+          priceChange24h: 0, // Jupiter doesn't provide 24h change
+          priceChangePercent24h: 0,
+          lastUpdated: Date.now()
+        }
+        
+        this.priceCache.set(`token_${mintAddress}`, priceData)
+        
+        // Try to get token metadata from Jupiter Token API
+        let symbol = 'UNKNOWN'
+        let name = 'Unknown Token'
+        
+        try {
+          const tokenMetaResponse = await fetch(`https://tokens.jup.ag/token/${mintAddress}`)
+          if (tokenMetaResponse.ok) {
+            const tokenMeta = await tokenMetaResponse.json()
+            symbol = tokenMeta.symbol || symbol
+            name = tokenMeta.name || name
+          }
+        } catch (metaError) {
+          // Ignore metadata errors, just use defaults
+        }
+        
+        return {
+          mint: mintAddress,
+          symbol: symbol,
+          name: name,
+          ...priceData
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.warn('Jupiter API failed:', error)
+      return null
+    }
   }
 
   // Calculate portfolio value
