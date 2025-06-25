@@ -1,70 +1,87 @@
-// Import polyfills FIRST before anything else
+// Global imports
+import './style.css'
 import './polyfills'
 
+// Core Vue imports
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import i18n from './i18n'
 
-// Import global styles
-import './style.css'
+// i18n
+import { i18n } from './i18n'
 
-// Global error handlers
-window.addEventListener('error', (event) => {
-  console.error('🚨 Global error caught:', event.error)
-})
+// Stores
+import { createPinia } from 'pinia'
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('🚨 Unhandled promise rejection:', event.reason)
-})
-
-// Enhanced initialization function
-async function initializeApp() {
+// Main app creation function
+async function createVueApp() {
   try {
+    // Create the Vue app
     const app = createApp(App)
     
-    // Add error handler for Vue app
+    // Install global error handler
     app.config.errorHandler = (err, instance, info) => {
-      console.error('🚨 Vue error:', err)
-      console.error('Component:', instance)
-      console.error('Error Info:', info)
-      console.error('Error Info URL:', 'https://vuejs.org/error-reference/#' + info)
+      console.error('Vue error:', err)
+      if (import.meta.env.DEV) {
+        console.error('Component:', instance)
+        console.error('Error Info:', info)
+      }
     }
     
-    // Initialize i18n first
+    // Install plugins
+    app.use(createPinia())
+    app.use(router)
     app.use(i18n)
     
-    // Initialize Pinia
-    const pinia = createPinia()
-    app.use(pinia)
-    
-    // Initialize router last
-    app.use(router)
-    
-    // Wait for i18n to be ready
-    await Promise.resolve()
-    
-    // Mount the application
-    await router.isReady() // Wait for router to be ready
+    // Mount the app
     app.mount('#app')
-    console.log('✅ Application mounted successfully')
-    console.log('App initialized successfully')
+    
+    if (import.meta.env.DEV) {
+      console.log('✅ Application mounted successfully')
+    }
+    
   } catch (error) {
-    console.error('❌ Application initialization failed:', error)
-    // Show user-friendly error message
-    const rootElement = document.getElementById('app')
-    if (rootElement) {
-      rootElement.innerHTML = `
-        <div style="padding: 20px; text-align: center;">
-          <h1 style="color: #e53e3e; margin-bottom: 10px;">Application Error</h1>
-          <p style="color: #4a5568;">Sorry, something went wrong while loading the application. Please try refreshing the page.</p>
+    console.error('❌ Failed to initialize app:', error)
+    
+    // Show fallback error UI
+    const appElement = document.getElementById('app')
+    if (appElement) {
+      appElement.innerHTML = `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          padding: 2rem;
+          background: #0c0c0c;
+          color: #fff;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        ">
+          <div style="text-align: center; max-width: 500px;">
+            <h1 style="color: #f0b90b; margin-bottom: 1rem;">Application Error</h1>
+            <p style="color: #a0a0a0; margin-bottom: 2rem;">
+              Failed to initialize the application. Please refresh the page or try again later.
+            </p>
+            <button 
+              onclick="window.location.reload()" 
+              style="
+                background: #f0b90b;
+                color: #000;
+                border: none;
+                padding: 0.75rem 2rem;
+                border-radius: 0.5rem;
+                font-weight: 600;
+                cursor: pointer;
+              "
+            >
+              Refresh Page
+            </button>
+          </div>
         </div>
       `
     }
-    throw error
   }
 }
 
-// Initialize the application
-initializeApp() 
+// Initialize the app
+createVueApp() 

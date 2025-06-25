@@ -133,11 +133,9 @@ const loadTrendingTokens = async () => {
     // Get trending tokens from Supabase with enhanced sorting
     const tokens = await SupabaseService.getTrendingTokensEnhanced(12) // Get more tokens for scrolling
     
-    console.log('🔍 Raw trending tokens from Supabase:', tokens)
-    
     // Map the response to our Token interface
     trendingTokens.value = tokens.map((token: any, index: number) => {
-      const mappedToken = {
+      return {
         id: token.id,
         name: token.name,
         symbol: token.symbol,
@@ -145,26 +143,13 @@ const loadTrendingTokens = async () => {
         price: token.current_price || 0,
         priceChange24h: token.price_change_24h || 0,
         marketCap: (token.market_cap || 0) / 1e9, // Convert from lamports to SOL
-        volume24h: token.volume_24h || 0, // Already in SOL, no conversion needed
+        volume24h: token.volume_24h || 0,
         holders: token.holders_count || 0,
         mint_address: token.mint_address,
         trending_score: token.trendingScore,
         rank: index + 1
       }
-      
-      console.log(`📊 Token ${token.symbol} (Trending):`, {
-        raw_market_cap: token.market_cap,
-        converted_market_cap: mappedToken.marketCap,
-        raw_volume_24h: token.volume_24h,
-        converted_volume_24h: mappedToken.volume24h,
-        price: token.current_price,
-        total_supply: token.total_supply
-      })
-      
-      return mappedToken
     })
-
-    console.log('📋 Final trending tokens:', trendingTokens.value)
 
     // Check scroll state after data is loaded
     setTimeout(checkScroll, 100)

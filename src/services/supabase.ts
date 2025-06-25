@@ -1840,31 +1840,14 @@ export class SupabaseService {
 
       if (error) throw error
 
-      console.log('🔍 Raw database response (getTrendingTokensEnhanced):', tokens)
-
       // Calculate trending scores
       const trendingTokens = (tokens || [])
-        .map(token => {
-          const scored = {
-            ...token,
-            trendingScore: this.calculateTrendingScore(token)
-          }
-          
-          console.log(`📊 Database Token ${token.symbol}:`, {
-            market_cap: token.market_cap,
-            volume_24h: token.volume_24h,
-            current_price: token.current_price,
-            total_supply: token.total_supply,
-            holders_count: token.holders_count,
-            trendingScore: scored.trendingScore
-          })
-          
-          return scored
-        })
+        .map(token => ({
+          ...token,
+          trendingScore: this.calculateTrendingScore(token)
+        }))
         .sort((a, b) => b.trendingScore - a.trendingScore)
         .slice(0, limit)
-
-      console.log('📋 Final trending tokens (with scores):', trendingTokens)
       
       return trendingTokens
     } catch (error) {

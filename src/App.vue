@@ -100,8 +100,6 @@ onMounted(async () => {
     
     // Add window resize listener
     window.addEventListener('resize', handleResize)
-    
-    console.log('App initialized successfully')
   } catch (error) {
     console.error('Failed to initialize app:', error)
   }
