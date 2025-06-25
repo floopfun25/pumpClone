@@ -24,7 +24,9 @@
     "addressCopied": "Adresse copiée !",
     "selectWallet": "Sélectionner Portefeuille",
     "noWallet": "Aucun portefeuille détecté",
-    "installWallet": "Installez {wallet} pour continuer"
+    "installWallet": "Installez {wallet} pour continuer",
+    "language": "Langue",
+    "selectLanguage": "Sélectionner la Langue"
   },
   "token": {
     "create": "Créer Token",
@@ -447,5 +449,9 @@
     "installInstructions": "Veuillez installer un portefeuille compatible pour continuer",
     "termsAgreement": "En connectant un portefeuille, vous acceptez les {appName}",
     "termsOfService": "Conditions d'Utilisation"
+  },
+  "theme": {
+    "darkMode": "Mode Sombre",
+    "lightMode": "Mode Clair"
   }
 } 

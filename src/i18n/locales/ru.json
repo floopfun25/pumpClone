@@ -24,7 +24,9 @@
     "addressCopied": "Адрес скопирован!",
     "selectWallet": "Выбрать Кошелёк",
     "noWallet": "Кошелёк не обнаружен",
-    "installWallet": "Установите {wallet} для продолжения"
+    "installWallet": "Установите {wallet} для продолжения",
+    "language": "Язык",
+    "selectLanguage": "Выбрать Язык"
   },
   "token": {
     "create": "Создать Токен",
@@ -447,5 +449,9 @@
     "installInstructions": "Пожалуйста, установите совместимый кошелёк для продолжения",
     "termsAgreement": "Подключая кошелёк, вы соглашаетесь с {appName}",
     "termsOfService": "Условиями Использования"
+  },
+  "theme": {
+    "darkMode": "Тёмная Тема",
+    "lightMode": "Светлая Тема"
   }
 } 

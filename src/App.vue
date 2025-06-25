@@ -4,14 +4,17 @@
     <!-- Navigation Header -->
     <Navbar />
     
+    <!-- Sidebar -->
+    <Sidebar />
+    
     <!-- Main Content Area -->
-    <main class="bg-binance-pattern">
+    <main class="bg-binance-pattern ml-16 transition-all duration-300">
       <!-- Vue Router outlet for page content -->
       <RouterView />
     </main>
     
     <!-- Footer -->
-    <Footer />
+    <Footer class="ml-16 transition-all duration-300" />
     
     <!-- Global Toast Notifications -->
     <ToastContainer />
@@ -33,6 +36,7 @@ import Navbar from '@/components/layout/Navbar.vue'
 import Footer from '@/components/layout/Footer.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import LoadingOverlay from '@/components/common/LoadingOverlay.vue'
+import Sidebar from '@/components/layout/Sidebar.vue'
 
 // Initialize stores
 const authStore = useAuthStore()

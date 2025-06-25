@@ -447,5 +447,13 @@
     "installInstructions": "يرجى تثبيت محفظة متوافقة للمتابعة",
     "termsAgreement": "بربط المحفظة، أنت توافق على {appName}",
     "termsOfService": "شروط الخدمة"
+  },
+  "language": {
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة"
+  },
+  "theme": {
+    "darkMode": "الوضع المظلم",
+    "lightMode": "الوضع الفاتح"
   }
 } 

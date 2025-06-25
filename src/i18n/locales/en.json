@@ -5,13 +5,16 @@
   },
   "navigation": {
     "home": "Home",
+    "explore": "Explore",
     "create": "Create Token",
     "leaderboard": "Leaderboard",
     "about": "About",
     "profile": "Profile",
     "portfolio": "Portfolio",
     "search": "Search",
-    "settings": "Settings"
+    "settings": "Settings",
+    "language": "Language",
+    "selectLanguage": "Select Language"
   },
   "wallet": {
     "connect": "Connect Wallet",
@@ -133,6 +136,10 @@
       "invalidCreatorShare": "Creator share must be between 0% and 20%",
       "invalidLockPercentage": "Lock percentage must be between 0% and 100%",
       "invalidPrebuyAmount": "Prebuy amount must be between 0 and 10 SOL"
+    },
+    "theme": {
+      "darkMode": "Dark Mode",
+      "lightMode": "Light Mode"
     }
   },
   "dashboard": {
@@ -479,5 +486,23 @@
     "installInstructions": "Please install a compatible wallet to continue",
     "termsAgreement": "By connecting a wallet, you agree to {appName}'s",
     "termsOfService": "Terms of Service"
+  },
+  "settings": {
+    "description": "Manage your preferences and account settings",
+    "general": "General",
+    "theme": "Theme",
+    "themeDescription": "Choose between light and dark mode",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "notifications": "Notifications",
+    "priceAlerts": "Price Alerts",
+    "priceAlertsDescription": "Get notified when token prices change significantly",
+    "newTokens": "New Tokens",
+    "newTokensDescription": "Get notified when new tokens are launched",
+    "about": "About",
+    "version": "Version",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "support": "Support"
   }
 } 

@@ -73,6 +73,15 @@ const router = createRouter({
       }
     },
     {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsPage.vue'),
+      meta: {
+        title: 'Settings - FloppFun',
+        description: 'Manage your preferences and account settings'
+      }
+    },
+    {
       path: '/about',
       name: 'about',
       component: () => import('@/views/AboutPage.vue'),

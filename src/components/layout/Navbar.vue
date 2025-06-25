@@ -109,23 +109,6 @@
             </div>
           </div>
 
-          <!-- Theme Toggle -->
-          <button 
-            @click="toggleTheme"
-            class="p-2 text-binance-gray hover:text-binance-yellow transition-colors rounded-lg hover:bg-binance-border/30"
-            :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-          >
-            <svg v-if="!isDarkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          </button>
-          
-          <!-- Language Selector - Moved to topmost right -->
-          <LanguageSelector />
-          
           <!-- Mobile Menu Button -->
           <button 
             @click="toggleMobileMenu"
@@ -189,7 +172,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import WalletModal from '@/components/common/WalletModal.vue'
-import LanguageSelector from '@/components/common/LanguageSelector.vue'
 
 // Get composables
 const { t } = useTypedI18n()
@@ -208,7 +190,6 @@ const searchQuery = ref('')
 const isConnected = computed(() => walletStore.isConnected)
 const walletAddress = computed(() => walletStore.walletAddress)
 const balance = computed(() => walletStore.formattedBalance)
-const isDarkMode = computed(() => uiStore.isDarkMode)
 const walletInitials = computed(() => {
   if (!walletAddress.value) return 'W'
   return walletAddress.value.slice(0, 2).toUpperCase()
@@ -246,10 +227,6 @@ const toggleMobileMenu = () => {
 
 const closeMobileMenu = () => {
   showMobileMenu.value = false
-}
-
-const toggleTheme = () => {
-  uiStore.toggleDarkMode()
 }
 
 // Search functionality

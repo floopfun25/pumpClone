@@ -24,7 +24,9 @@
     "addressCopied": "Adres kopyalandı!",
     "selectWallet": "Cüzdan Seç",
     "noWallet": "Cüzdan tespit edilmedi",
-    "installWallet": "Devam etmek için {wallet} yükleyin"
+    "installWallet": "Devam etmek için {wallet} yükleyin",
+    "language": "Dil",
+    "selectLanguage": "Dil Seçin"
   },
   "token": {
     "create": "Token Oluştur",
@@ -477,5 +479,9 @@
     "installInstructions": "Devam etmek için lütfen uyumlu bir cüzdan yükleyin",
     "termsAgreement": "Bir cüzdan bağlayarak, {appName}'in şartlarını kabul etmiş olursunuz",
     "termsOfService": "Hizmet Şartları"
+  },
+  "theme": {
+    "darkMode": "Karanlık Mod",
+    "lightMode": "Aydınlık Mod"
   }
 } 

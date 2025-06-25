@@ -24,7 +24,9 @@
     "addressCopied": "地址已复制！",
     "selectWallet": "选择钱包",
     "noWallet": "未检测到钱包",
-    "installWallet": "安装 {wallet} 以继续"
+    "installWallet": "安装 {wallet} 以继续",
+    "language": "语言",
+    "selectLanguage": "选择语言"
   },
   "token": {
     "create": "创建代币",
@@ -479,5 +481,9 @@
     "installInstructions": "请安装兼容的钱包以继续",
     "termsAgreement": "通过连接钱包，您同意{appName}的",
     "termsOfService": "服务条款"
+  },
+  "theme": {
+    "darkMode": "深色模式",
+    "lightMode": "浅色模式"
   }
 } 

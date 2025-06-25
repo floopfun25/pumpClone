@@ -24,7 +24,9 @@
     "addressCopied": "Endereço copiado!",
     "selectWallet": "Selecionar Carteira",
     "noWallet": "Nenhuma carteira detectada",
-    "installWallet": "Instale {wallet} para continuar"
+    "installWallet": "Instale {wallet} para continuar",
+    "language": "Idioma",
+    "selectLanguage": "Selecionar Idioma"
   },
   "token": {
     "create": "Criar Token",
@@ -447,5 +449,9 @@
     "installInstructions": "Por favor, instale uma carteira compatível para continuar",
     "termsAgreement": "Ao conectar uma carteira, você concorda com os {appName}",
     "termsOfService": "Termos de Serviço"
+  },
+  "theme": {
+    "darkMode": "Modo Escuro",
+    "lightMode": "Modo Claro"
   }
 } 
