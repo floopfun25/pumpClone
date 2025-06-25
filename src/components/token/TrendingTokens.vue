@@ -169,16 +169,6 @@ const checkScroll = () => {
   const { scrollLeft, scrollWidth, clientWidth } = scrollContainer.value
   canScrollLeft.value = scrollLeft > 0
   canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 10
-
-  // Debug scroll state
-  console.log('Scroll state:', {
-    canScrollLeft: canScrollLeft.value,
-    canScrollRight: canScrollRight.value,
-    scrollLeft,
-    scrollWidth,
-    clientWidth,
-    difference: scrollWidth - clientWidth
-  })
 }
 
 const handleScroll = () => {
