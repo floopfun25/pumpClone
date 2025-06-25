@@ -7,13 +7,12 @@
     </section>
 
     <!-- Main Tokens Section -->
-    <section id="tokens" class="py-16 bg-trading-surface">
+    <section id="tokens" class="py-3 bg-trading-surface">
       <div class="container mx-auto px-4">
         <!-- Section Header -->
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
           <div>
-            <h2 class="text-3xl font-bold text-white mb-2">{{ t('common.all') }} {{ t('token.tokens') }}</h2>
-            <p class="text-binance-gray">{{ t('messages.info.browseDescription') }}</p>
+            <h2 class="text-lg font-bold text-white">{{ t('common.all') }} {{ t('token.tokens') }}</h2>
           </div>
           
           <!-- Controls -->
@@ -56,7 +55,7 @@
             v-for="token in tokens"
             :key="token.id"
             :token="token"
-            class="trading-card hover:glow-gold"
+            class="trading-card"
           />
         </div>
         
@@ -208,27 +207,3 @@ onMounted(async () => {
   await loadTokens()
 })
 </script>
-
-<style scoped>
-/* Component-specific styles */
-.text-gradient {
-  background: linear-gradient(135deg, #f0b90b 0%, #fcd34d 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Binance-specific animations */
-@keyframes glow {
-  0%, 100% { 
-    box-shadow: 0 0 5px rgba(240, 185, 11, 0.3); 
-  }
-  50% { 
-    box-shadow: 0 0 20px rgba(240, 185, 11, 0.6); 
-  }
-}
-
-.glow-gold:hover {
-  animation: glow 2s ease-in-out infinite;
-}
-</style> 

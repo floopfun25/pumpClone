@@ -1,7 +1,7 @@
 <template>
   <!-- Token card component for displaying token information in a grid -->
   <div 
-    class="bg-trading-surface border border-binance-border rounded-lg overflow-hidden hover:border-binance-yellow transition-colors cursor-pointer"
+    class="bg-trading-surface border border-binance-border rounded-lg overflow-hidden hover:border-gray-600 transition-colors cursor-pointer"
     @click.stop="$emit('click')"
   >
     <!-- Token Header -->
@@ -166,11 +166,4 @@ function formatNumber(num: number | undefined | null): string {
   }
   return num.toString()
 }
-</script>
-
-<style scoped>
-.hover\:bg-binance-yellow-dark:hover {
-  background-color: #F0B90B;
-  filter: brightness(0.9);
-}
-</style> 
+</script> 
