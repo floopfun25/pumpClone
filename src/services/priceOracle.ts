@@ -124,12 +124,12 @@ class PriceOracleService {
           }
         }
       } else if (response.status === 401) {
-        console.warn('Birdeye API authentication failed, using mock data')
+        // Use mock data for development - authentication failed
       } else {
-        console.warn(`Birdeye API returned ${response.status}, using mock data`)
+        // Use mock data for development
       }
 
-      // Fallback to mock price for new tokens or API failures
+      // Generate mock price as fallback
       const mockPrice = this.generateMockPrice(mintAddress)
       this.priceCache.set(cacheKey, mockPrice)
       
@@ -141,8 +141,6 @@ class PriceOracleService {
       }
       
     } catch (error) {
-      console.warn('Failed to fetch token price, using mock data:', error)
-      
       // Generate mock price as fallback
       const mockPrice = this.generateMockPrice(mintAddress)
       this.priceCache.set(cacheKey, mockPrice)

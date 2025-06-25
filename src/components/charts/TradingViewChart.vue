@@ -364,25 +364,16 @@ let priceSubscription: (() => void) | null = null
 // Initialize chart
 const initChart = async () => {
   try {
-    console.log('🚀 Initializing chart system...')
     loading.value = true
     error.value = ''
     
-    console.log('📊 Using enhanced chart (primary mode)...')
     await initLightweightChart()
-    console.log('✅ Enhanced chart initialization successful!')
     
     // Set up real-time price updates
     setupRealTimePriceUpdates()
     
   } catch (err: any) {
-    console.error('💥 Chart initialization failed:', err)
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-      useFallback: useFallback.value
-    })
+    console.error('Chart initialization failed:', err)
     
     error.value = `Chart initialization failed: ${err.message}`
     loading.value = false
@@ -395,13 +386,9 @@ const setupRealTimePriceUpdates = async () => {
   if (!props.tokenId) return
   
   try {
-    console.log(`📡 Setting up real-time price updates for token ${props.tokenId}...`)
-    
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     
     priceSubscription = RealTimePriceService.subscribe(props.tokenId, async (realPriceData) => {
-      console.log(`💰 Price update received: ${realPriceData.price} SOL`)
-      
       // Update current price display
       currentPrice.value = realPriceData.price
       marketCap.value = realPriceData.marketCap
@@ -431,10 +418,6 @@ const setupRealTimePriceUpdates = async () => {
             candleData.close = (candleData.high + candleData.low) / 2
           }
           
-          if (index === 0) {
-            console.log('📊 Sample candle data:', candleData)
-          }
-          
           return candleData
         })
         
@@ -446,15 +429,32 @@ const setupRealTimePriceUpdates = async () => {
         
         // Update chart if using lightweight charts
         if (useFallback.value && lightweightChart && candlestickSeries) {
-          candlestickSeries.setData(priceData.value)
-          console.log(`📊 Chart updated with ${priceData.value.length} candles`)
+          if (chartType.value === 'candlestick') {
+            candlestickSeries.setData(priceData.value)
+          } else if (chartType.value === 'line') {
+            const lineData = priceData.value.map(candle => ({
+              time: candle.time,
+              value: Number(candle.close) || 0
+            })).filter(item => item.value > 0)
+            
+            if (lineData.length > 0) {
+              candlestickSeries.setData(lineData)
+            }
+          } else if (chartType.value === 'area') {
+            const areaData = priceData.value.map(candle => ({
+              time: candle.time,
+              value: Number(candle.close) || 0
+            })).filter(item => item.value > 0)
+            
+            if (areaData.length > 0) {
+              candlestickSeries.setData(areaData)
+            }
+          }
         }
       }
     })
-    
-    console.log('✅ Real-time price updates configured')
   } catch (error) {
-    console.error('❌ Failed to setup real-time price updates:', error)
+    console.error('Failed to setup real-time price updates:', error)
   }
 }
 
@@ -504,9 +504,8 @@ const initLightweightChart = async () => {
   // Add series with the loaded data
   try {
     addSeries()
-    console.log('✅ Chart series added successfully')
   } catch (error) {
-    console.error('❌ Failed to add chart series:', error)
+    console.error('Failed to add chart series:', error)
     throw error
   }
   
@@ -514,7 +513,6 @@ const initLightweightChart = async () => {
   setupDrawingCanvas()
 
   loading.value = false
-  console.log('✅ Enhanced chart ready!')
 }
 
 const addSeries = () => {
@@ -538,8 +536,6 @@ const addSeries = () => {
     }
     volumeSeries = null
   }
-
-  console.log(`Adding ${chartType.value} series with ${priceData.value.length} data points`)
 
   try {
     // Add new series based on type using correct v5 API
@@ -583,8 +579,8 @@ const addSeries = () => {
       
       const lineData = priceData.value.map(candle => ({
         time: candle.time,
-        value: candle.close
-      }))
+        value: Number(candle.close) || 0
+      })).filter(item => item.value > 0)
       
       if (lineData.length > 0) {
         candlestickSeries.setData(lineData)
@@ -600,15 +596,13 @@ const addSeries = () => {
       
       const areaData = priceData.value.map(candle => ({
         time: candle.time,
-        value: candle.close
-      }))
+        value: Number(candle.close) || 0
+      })).filter(item => item.value > 0)
       
       if (areaData.length > 0) {
         candlestickSeries.setData(areaData)
       }
     }
-    
-    console.log(`✅ Successfully added ${chartType.value} series`)
   } catch (error) {
     console.error('Error creating chart series:', error)
     throw error
@@ -622,22 +616,13 @@ const loadRealChartData = async () => {
   }
 
   try {
-    console.log(`📊 Loading real chart data for token ${props.tokenId}...`)
-    
     // Get bonding curve state first to ensure we have a valid price
     const { BondingCurveService } = await import('../../services/bondingCurve')
     const bondingCurveState = await BondingCurveService.getTokenBondingCurveState(props.tokenId)
     
-    console.log('💰 Bonding curve state:', {
-      currentPrice: bondingCurveState.currentPrice,
-      marketCap: bondingCurveState.marketCap,
-      virtualSolReserves: bondingCurveState.virtualSolReserves,
-      virtualTokenReserves: bondingCurveState.virtualTokenReserves
-    })
-    
     // If price is 0, there's an issue with the bonding curve
     if (bondingCurveState.currentPrice === 0) {
-      console.warn('⚠️ Bonding curve returned price of 0, using fallback price')
+      console.warn('Bonding curve returned price of 0, using fallback price')
       bondingCurveState.currentPrice = 0.000001 // Fallback price
     }
     
@@ -645,12 +630,8 @@ const loadRealChartData = async () => {
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     const chartData = await RealTimePriceService.getHistoricalChartData(props.tokenId, selectedTimeframe.value)
     
-    console.log('📊 Raw chart data:', chartData)
-    
     // Ensure we have valid data
     if (chartData.length === 0) {
-      console.log('⚠️ No chart data available, creating minimal data set')
-      
       // Create a minimal dataset with current price
       const now = Date.now()
       const currentPrice = bondingCurveState.currentPrice
@@ -695,10 +676,6 @@ const loadRealChartData = async () => {
         candleData.close = (candleData.high + candleData.low) / 2
       }
       
-      if (index === 0) {
-        console.log('📊 Sample candle data:', candleData)
-      }
-      
       return candleData
     })
     
@@ -714,13 +691,8 @@ const loadRealChartData = async () => {
     totalVolume.value = chartData.reduce((sum, candle) => sum + (candle.volume || 0), 0)
     marketCap.value = bondingCurveState.marketCap
     
-    console.log(`💰 Current price: ${currentPrice.value} SOL`)
-    console.log(`📈 Market cap: $${marketCap.value.toFixed(2)}`)
-    console.log(`📊 Loaded ${chartData.length} candles for timeframe ${selectedTimeframe.value}`)
-    console.log('📊 Price data for chart:', priceData.value)
-    
   } catch (err: any) {
-    console.error('❌ Failed to load real chart data:', err)
+    console.error('Failed to load chart data:', err)
     error.value = `Failed to load chart data: ${err.message}`
     
     // Create emergency fallback data
@@ -896,7 +868,6 @@ const setChartType = (type: string) => {
 
 const setTimeframe = async (timeframe: string) => {
   selectedTimeframe.value = timeframe
-  console.log(`📅 Switching to ${timeframe} timeframe...`)
   
   // Clear existing data
   priceData.value = []
@@ -983,8 +954,6 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
-  console.log('TradingViewChart mounted for token:', props.tokenSymbol)
-  
   setTimeout(() => {
     initChart()
   }, 500)

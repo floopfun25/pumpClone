@@ -200,7 +200,6 @@ class RealTimePriceService {
   private static subscribeToTransactionUpdates(tokenId: string) {
     // DISABLED: Supabase Realtime causing WebSocket errors
     // Using polling-based updates instead which work reliably
-    console.log('💡 Using polling-based updates instead of realtime for', tokenId)
     
     /*
     try {

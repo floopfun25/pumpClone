@@ -512,7 +512,6 @@ const generateMockHolders = () => {
 const loadTokenData = async () => {
   try {
     const mintAddress = route.params.mintAddress as string
-    console.log('Loading token:', mintAddress)
     
     if (!mintAddress) {
       throw new Error('No mint address provided')
