@@ -15,12 +15,12 @@
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-12">
+      <div v-if="loading" class="flex justify-center items-center py-6">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-binance-yellow"></div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="text-center py-12">
+      <div v-else-if="error" class="text-center py-6">
         <p class="text-red-500 mb-2">{{ error }}</p>
         <button 
           @click="loadTrendingTokens"
@@ -77,7 +77,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="!loading && !error && trendingTokens.length === 0" class="text-center py-12">
+      <div v-if="!loading && !error && trendingTokens.length === 0" class="text-center py-6">
         <p class="text-binance-gray">{{ t('token.noTrendingTokens') }}</p>
       </div>
     </div>

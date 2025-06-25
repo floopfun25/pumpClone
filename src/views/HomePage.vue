@@ -1,6 +1,6 @@
 <template>
   <!-- Home page - main landing page with token listings -->
-  <div class="min-h-screen bg-binance-dark">
+  <div class="bg-binance-dark">
     <!-- Trending Tokens Section -->
     <section class="bg-binance-dark">
       <TrendingTokens />
@@ -60,20 +60,20 @@
         </div>
         
         <!-- Loading State -->
-        <div v-else-if="loading" class="text-center py-12">
+        <div v-else-if="loading" class="text-center py-6">
           <div class="spinner w-12 h-12 mx-auto mb-4"></div>
           <p class="text-binance-gray">{{ t('common.loading') }}...</p>
         </div>
         
         <!-- Empty State -->
-        <div v-else class="text-center py-12">
+        <div v-else class="text-center py-6">
           <div class="text-6xl mb-4">🎭</div>
           <h3 class="text-xl font-semibold text-white mb-2">{{ t('messages.info.noTokensFound') }}</h3>
           <p class="text-binance-gray">{{ t('messages.info.tryDifferentFilters') }}</p>
         </div>
         
         <!-- Load More Button -->
-        <div v-if="tokens.length > 0 && hasMore" class="text-center mt-8">
+        <div v-if="tokens.length > 0 && hasMore" class="text-center mt-4 mb-4">
           <button 
             @click="loadMoreTokens"
             :disabled="loadingMore"

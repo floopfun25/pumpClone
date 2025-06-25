@@ -228,17 +228,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { SupabaseService } from '@/services/supabase'
 import AdvancedSearch from '@/components/common/AdvancedSearch.vue'
 import TokenCard from '@/components/token/TokenCard.vue'
+import { useTypedI18n } from '@/i18n'
 
+const { t } = useTypedI18n()
 const router = useRouter()
 const route = useRoute()
 
+interface Token {
+  id: string
+  name: string
+  symbol: string
+  image_url?: string
+  current_price: number
+  price_change_24h: number
+  market_cap: number
+  volume_24h: number
+  holders_count: number
+  mint_address: string
+}
+
 // State
-const tokens = ref<any[]>([])
+const tokens = ref<Token[]>([])
 const loading = ref(false)
 const loadingMore = ref(false)
 const hasSearched = ref(false)
@@ -246,6 +261,7 @@ const totalResults = ref(0)
 const hasMore = ref(false)
 const page = ref(1)
 const viewMode = ref<'grid' | 'list'>('grid')
+const error = ref<string | null>(null)
 
 // Current search parameters
 const currentQuery = ref('')
@@ -275,11 +291,15 @@ const handleFilterChange = async (filters: any) => {
 }
 
 const performSearch = async () => {
+  if (!currentQuery.value.trim()) return
+  
   loading.value = true
+  error.value = null
+  hasSearched.value = true
   
   try {
     const result = await SupabaseService.searchTokens({
-      query: currentQuery.value,
+      query: currentQuery.value.trim(),
       filters: currentFilters.value,
       page: page.value,
       limit: 20
@@ -293,9 +313,9 @@ const performSearch = async () => {
     
     totalResults.value = result.total
     hasMore.value = result.hasMore
-    
-  } catch (error) {
-    console.error('Search failed:', error)
+  } catch (err) {
+    console.error('Search failed:', err)
+    error.value = 'Failed to perform search'
     tokens.value = []
     totalResults.value = 0
     hasMore.value = false
@@ -347,15 +367,18 @@ const formatPrice = (price: number): string => {
   return price.toFixed(2)
 }
 
-// Handle URL parameters for direct search links
-onMounted(() => {
-  const urlQuery = route.query.q as string
-  if (urlQuery) {
-    currentQuery.value = urlQuery
-    hasSearched.value = true
-    performSearch()
-  }
-})
+// Watch for route query changes
+watch(
+  () => route.query.q,
+  (newQuery) => {
+    if (newQuery) {
+      currentQuery.value = newQuery as string
+      hasSearched.value = true
+      performSearch()
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
