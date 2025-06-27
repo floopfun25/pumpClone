@@ -20,7 +20,7 @@
 
         <!-- Profile Header -->
         <div v-else class="bg-trading-surface border border-binance-border rounded-xl p-6 mb-6">
-          <div class="flex flex-col lg:flex-row items-start gap-6">
+          <div class="flex flex-col lg:flex-row items-start justify-between gap-6">
             <!-- Avatar and Basic Info -->
             <div class="flex items-center gap-4">
               <!-- Avatar -->
@@ -46,11 +46,8 @@
                 <p class="text-binance-gray mb-2 font-mono text-sm">
                   {{ formatWalletAddress(user?.wallet_address || '') }}
                 </p>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="px-2 py-1 bg-binance-yellow/20 text-binance-yellow text-xs rounded-full font-medium">
-                    {{ getUserLevel() }}
-                  </span>
-                  <span v-if="user?.verified" class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
+                <div v-if="user?.verified" class="mb-2">
+                  <span class="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
                     ✓ {{ t('profile.verified') }}
                   </span>
                 </div>
@@ -60,36 +57,10 @@
               </div>
             </div>
             
-            <!-- Stats Grid -->
-            <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 lg:ml-auto">
-              <div class="bg-trading-elevated rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-binance-yellow">
-                  {{ user?.tokens_created || 0 }}
-                </div>
-                <div class="text-xs text-binance-gray uppercase tracking-wider">{{ t('profile.tokensCreated') }}</div>
-              </div>
-              <div class="bg-trading-elevated rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-white">
-                  {{ formatNumber(user?.total_volume_traded || 0) }}
-                </div>
-                <div class="text-xs text-binance-gray uppercase tracking-wider">{{ t('profile.volumeTraded') }}</div>
-              </div>
-              <div class="bg-trading-elevated rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-green-400">
-                  {{ user?.reputation_score || 0 }}
-                </div>
-                <div class="text-xs text-binance-gray uppercase tracking-wider">{{ t('profile.reputation') }}</div>
-              </div>
-              <div class="bg-trading-elevated rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-purple-400">
-                  {{ calculateTotalHolders() }}
-                </div>
-                <div class="text-xs text-binance-gray uppercase tracking-wider">{{ t('profile.totalHolders') }}</div>
-              </div>
-            </div>
+
 
             <!-- Action Buttons -->
-            <div class="flex gap-2">
+            <div class="flex-shrink-0">
               <button
                 v-if="isOwnProfile"
                 @click="showEditModal = true"
@@ -99,15 +70,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
                 {{ t('profile.editProfile') }}
-              </button>
-              <button
-                @click="shareProfile"
-                class="flex items-center gap-2 px-4 py-2 bg-trading-elevated hover:bg-binance-border text-white font-medium rounded-lg transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                </svg>
-                {{ t('profile.share') }}
               </button>
             </div>
           </div>
