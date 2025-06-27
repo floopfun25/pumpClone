@@ -512,9 +512,16 @@
     "loadMore": "Load More",
     "unknown": "Unknown",
     "active": "Active",
-    "back": "Go Back",
-    "viewAll": "View All",
-    "saving": "Saving..."
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "public": "Public",
+    "private": "Private",
+    "draft": "Draft",
+    "published": "Published",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
   },
   "tokenDetail": {
     "change24h": "24h Change",
@@ -603,5 +610,16 @@
   "errors": {
     "updateFailed": "Update Failed",
     "tryAgain": "Please try again"
+  },
+  "pagination": {
+    "showing": "Showing",
+    "page": "Page",
+    "of": "of",
+    "moreAvailable": "More available",
+    "loadingNext100": "Load next 100 tokens",
+    "loading": "Loading",
+    "loadMore100": "Load More (100 items)",
+    "previous": "Previous",
+    "next": "Next"
   }
 } 

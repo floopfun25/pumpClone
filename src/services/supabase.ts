@@ -452,7 +452,7 @@ export class SupabaseService {
         .select(`
           *,
           creator:users(id, username, wallet_address)
-        `)
+        `, { count: 'exact' })
         .eq('status', status)
       
       // Add search filter if provided
@@ -468,13 +468,28 @@ export class SupabaseService {
       const to = from + limit - 1
       query = query.range(from, to)
       
-      const { data, error } = await query
+      const { data, error, count } = await query
       
       if (error) throw error
-      return data || []
+      
+      return {
+        data: data || [],
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit),
+        hasMore: (count || 0) > page * limit
+      }
     } catch (error) {
       console.error('Failed to get tokens:', error)
-      return []
+      return {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasMore: false
+      }
     }
   }
   
