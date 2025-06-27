@@ -13,9 +13,6 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h2 class="text-lg font-bold text-white">{{ t('common.all') }} {{ t('token.tokens') }}</h2>
-            <p class="text-binance-gray text-sm mt-1">
-              {{ t('token.discover') }}
-            </p>
             <!-- Pagination Info -->
             <div v-if="tokens.length > 0" class="text-binance-gray text-xs mt-2 flex items-center gap-4">
               <span>{{ t('pagination.showing') }} {{ currentPageInfo.currentCount }} {{ t('token.tokens') }}</span>
