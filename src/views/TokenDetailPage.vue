@@ -336,8 +336,6 @@
                     <div class="flex flex-col">
                       <code class="text-xs font-mono text-gray-900 dark:text-white">{{ holder.address }}</code>
                       <span v-if="holder.username" class="text-xs text-gray-500 dark:text-gray-400">{{ holder.username }}</span>
-                      <!-- Debug info - remove later -->
-                      <span class="text-xs text-red-500">Raw: {{ holder.amount }} | Display: {{ holder.displayAmount?.toFixed(2) || 'N/A' }}</span>
                     </div>
                   </div>
                   <span class="text-gray-600 dark:text-gray-400">{{ holder.percentage }}%</span>

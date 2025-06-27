@@ -2340,13 +2340,6 @@ export class SupabaseService {
       }) || []
 
       console.log(`✅ Found ${topHolders.length} holders for token ${tokenId}`)
-      console.log('🔍 Debug token info:', {
-        totalSupply,
-        decimals,
-        totalHoldings,
-        sampleHolding: data?.[0]
-      })
-      console.log('🔍 Debug top holder calculations:', topHolders.slice(0, 2))
       return topHolders
     } catch (error) {
       console.error('❌ Failed to get token top holders:', error)
