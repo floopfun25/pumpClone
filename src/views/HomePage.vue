@@ -163,7 +163,7 @@ const loadTokens = async (reset = true) => {
         imageUrl: token.image_url || null,
         price: Number(token.current_price) || 0,
         priceChange24h: Number(token.price_change_24h) || 0,
-        marketCap: (Number(token.market_cap) || 0) / 1e9, // Convert from lamports to SOL
+        marketCap: Number(token.market_cap) || 0, // Market cap is already in USD
         volume24h: Number(token.volume_24h) || 0,
         holders: Number(token.holders_count) || 0,
         mint_address: token.mint_address || undefined

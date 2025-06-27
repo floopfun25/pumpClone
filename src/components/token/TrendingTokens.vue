@@ -142,7 +142,7 @@ const loadTrendingTokens = async () => {
         imageUrl: token.image_url,
         price: token.current_price || 0,
         priceChange24h: token.price_change_24h || 0,
-        marketCap: (token.market_cap || 0) / 1e9, // Convert from lamports to SOL
+        marketCap: token.market_cap || 0, // Market cap is already in USD
         volume24h: token.volume_24h || 0,
         holders: token.holders_count || 0,
         mint_address: token.mint_address,
