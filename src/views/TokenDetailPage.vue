@@ -296,33 +296,60 @@
             </div>
 
             <!-- External Trading -->
+            <!-- TODO: Implement MEXC trading integration
+                 - Add click handler to redirect to MEXC trading page
+                 - Check if token is actually listed on MEXC before showing button
+                 - Handle cases where token is not available on external exchanges
+            -->
+            <!--
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <button class="w-full py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors flex items-center justify-center gap-2">
                 <span>📊</span>
                 trade on MEXC
               </button>
             </div>
+            -->
 
             <!-- Top Holders -->
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <div class="flex items-center justify-between mb-4">
                 <span class="text-sm font-medium text-gray-900 dark:text-white">top holders</span>
+                <!-- TODO: Implement bubble map generation
+                     - Create visual bubble chart showing holder distribution
+                     - Color code by holding size
+                     - Interactive hover tooltips with holder details
+                <!--
                 <button class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
                   generate bubble map
                 </button>
+                -->
               </div>
               
-              <div class="space-y-2">
+              <div v-if="topHolders.length > 0" class="space-y-2">
                 <div 
                   v-for="(holder, index) in topHolders" 
-                  :key="holder.address"
+                  :key="holder.fullAddress || holder.address"
                   class="flex items-center justify-between text-sm"
                 >
                   <div class="flex items-center gap-2">
                     <span class="text-gray-500 dark:text-gray-400">{{ index + 1 }}.</span>
-                    <code class="text-xs font-mono text-gray-900 dark:text-white">{{ holder.address }}</code>
+                    <div class="flex flex-col">
+                      <code class="text-xs font-mono text-gray-900 dark:text-white">{{ holder.address }}</code>
+                      <span v-if="holder.username" class="text-xs text-gray-500 dark:text-gray-400">{{ holder.username }}</span>
+                      <!-- Debug info - remove later -->
+                      <span class="text-xs text-red-500">Raw: {{ holder.amount }} | Display: {{ holder.displayAmount?.toFixed(2) || 'N/A' }}</span>
+                    </div>
                   </div>
                   <span class="text-gray-600 dark:text-gray-400">{{ holder.percentage }}%</span>
+                </div>
+              </div>
+              
+              <!-- Empty state when no holders -->
+              <div v-else class="text-center py-6">
+                <div class="text-gray-400 dark:text-gray-500 text-sm">
+                  <div class="mb-2">👥</div>
+                  <p>No holders yet</p>
+                  <p class="text-xs mt-1">Be the first to buy this token!</p>
                 </div>
               </div>
             </div>
@@ -634,24 +661,31 @@ const executeTrade = async () => {
 }
 
 /**
- * Generate mock top holders data
+ * Load real top holders data from database
  */
-const generateMockHolders = () => {
-  const mockAddresses = [
-    '4LKAVY', 'EQBgro', '3uJLuZ', 'NW3NWn', '2K8PPq', 'GCBVFy', 'DS2VAo', 'Dp96KW',
-    '35PhrV', '6qtArm', 'GbvbMa', 'EeuykU', '6rRT5V', 'CSeLLJ', 'DZZ7Wy', 'GkULz5',
-    'J4r3df', '4u3cUs', 'AeNeGw', '3ApRom'
-  ]
-  
-  const mockPercentages = [
-    4.85, 2.14, 2.11, 1.98, 1.92, 1.19, 1.13, 1.08, 1.01, 0.96,
-    0.88, 0.85, 0.82, 0.81, 0.80, 0.75, 0.73, 0.72, 0.70, 0.69
-  ]
-  
-  return mockAddresses.map((address, index) => ({
-    address,
-    percentage: mockPercentages[index]
-  }))
+const loadTopHolders = async () => {
+  if (!token.value?.id) {
+    console.warn('No token ID available for loading top holders')
+    return
+  }
+
+  try {
+    console.log('🔄 Loading top holders for token:', token.value.id)
+    const holders = await SupabaseService.getTokenTopHolders(token.value.id, 20)
+    
+    if (holders.length > 0) {
+      topHolders.value = holders
+      console.log('✅ Loaded top holders:', holders.length)
+    } else {
+      // Show empty state if no holders found
+      topHolders.value = []
+      console.log('ℹ️ No holders found for this token')
+    }
+  } catch (error) {
+    console.error('❌ Failed to load top holders:', error)
+    // Keep empty array on error
+    topHolders.value = []
+  }
 }
 
 /**
@@ -686,8 +720,8 @@ const loadTokenData = async () => {
       token.value.comments_count = 0
     }
     
-    // Generate mock top holders data (would come from blockchain in real implementation)
-    topHolders.value = generateMockHolders()
+    // Load real top holders data from database
+    await loadTopHolders()
     
     // Format transactions for display
     recentTrades.value = transactions.map((tx: any) => ({
@@ -800,8 +834,10 @@ const copyToClipboard = async (text: string) => {
 
 const handleTradeExecuted = (result: any) => {
   console.log('Trade executed:', result)
-  // Refresh token data and bonding curve state
+  // Refresh token data, bonding curve state, and top holders
   loadTokenData()
+  // Also refresh top holders since holdings may have changed
+  loadTopHolders()
 }
 
 const loadBondingCurveData = async () => {

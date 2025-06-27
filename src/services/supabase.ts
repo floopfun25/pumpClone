@@ -2275,6 +2275,95 @@ export class SupabaseService {
   }
 
   /**
+   * Get top holders for a token based on user holdings
+   */
+  static async getTokenTopHolders(tokenId: string, limit = 20) {
+    try {
+      const { data, error } = await supabase
+        .from('user_holdings')
+        .select(`
+          amount,
+          users:user_id (
+            id,
+            wallet_address,
+            username
+          )
+        `)
+        .eq('token_id', tokenId)
+        .gt('amount', 0)
+        .order('amount', { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+
+      // Get token info to calculate total supply for percentage calculation
+      const tokenInfo = await this.getTokenById(tokenId)
+      const totalSupply = tokenInfo?.total_supply || 1000000000 // Default 1B tokens
+      const decimals = tokenInfo?.decimals || 9 // Default 9 decimals
+
+      // Calculate total actual holdings to use as denominator
+      const totalHoldings = data?.reduce((sum, holding) => sum + holding.amount, 0) || 1
+
+      // Transform data to include percentage and formatted address
+      const topHolders = data?.map((holding) => {
+        const user = holding.users as any
+        
+        // Convert amount from smallest unit to display unit for showing
+        const displayAmount = holding.amount / Math.pow(10, decimals)
+        
+        // Calculate percentage based on actual holdings distribution
+        // This shows what % of all held tokens this person owns
+        let percentage = ((holding.amount / totalHoldings) * 100)
+        
+        // Ensure percentage makes sense (should be between 0-100)
+        if (percentage > 100) {
+          console.warn('⚠️ Percentage calculation error, falling back to safer calculation')
+          // Fallback: assume total supply is in smallest units like holdings
+          percentage = ((holding.amount / totalSupply) * 100)
+          
+          // If still wrong, use a different approach
+          if (percentage > 100) {
+            // Maybe total_supply is in display units, convert holdings to display units for comparison
+            const displayTotalSupply = totalSupply * Math.pow(10, decimals)
+            percentage = ((holding.amount / displayTotalSupply) * 100)
+          }
+        }
+        
+        return {
+          address: user?.wallet_address ? this.formatWalletAddress(user.wallet_address) : 'Unknown',
+          fullAddress: user?.wallet_address || '',
+          username: user?.username || null,
+          amount: holding.amount,
+          displayAmount: displayAmount,
+          percentage: parseFloat(Math.min(percentage, 100).toFixed(2)) // Cap at 100%
+        }
+      }) || []
+
+      console.log(`✅ Found ${topHolders.length} holders for token ${tokenId}`)
+      console.log('🔍 Debug token info:', {
+        totalSupply,
+        decimals,
+        totalHoldings,
+        sampleHolding: data?.[0]
+      })
+      console.log('🔍 Debug top holder calculations:', topHolders.slice(0, 2))
+      return topHolders
+    } catch (error) {
+      console.error('❌ Failed to get token top holders:', error)
+      return []
+    }
+  }
+
+  /**
+   * Helper method to format wallet addresses
+   */
+  private static formatWalletAddress(address: string): string {
+    if (!address) return 'Unknown'
+    if (address.length <= 8) return address
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  /**
    * Debug method to check user tokens and relationships
    */
   static async debugUserTokens(walletAddress: string) {
