@@ -61,7 +61,7 @@
             <!-- Market Cap -->
             <span class="text-gray-900 dark:text-white">
               <span class="text-gray-600 dark:text-gray-400">market cap:</span>
-              <span class="font-semibold ml-1">${{ formatMarketCap((token?.market_cap || 0) / 1e9) }}</span>
+              <span class="font-semibold ml-1">{{ formattedMarketCap }}</span>
             </span>
 
             <span class="text-gray-400">|</span>
@@ -124,8 +124,6 @@
                 </button>
               </div>
 
-
-
               <!-- Balance -->
               <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 balance: <span class="font-medium text-gray-900 dark:text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
@@ -141,10 +139,49 @@
                     class="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white focus:outline-none"
                     step="0.001"
                     min="0"
+                    @input="calculateTradePreview"
                   />
                   <span class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border-l border-gray-300 dark:border-gray-600">
-                    SOL
+                    {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
                   </span>
+                </div>
+              </div>
+
+              <!-- Trade Preview -->
+              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">
+                      {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
+                    </span>
+                    <span class="font-medium text-gray-900 dark:text-white">
+                      {{ tradeType === 'buy' 
+                        ? `${tradePreview.tokensReceived.toFixed(6)} ${tokenSymbol}`
+                        : `${Math.abs(tradePreview.solSpent).toFixed(6)} SOL`
+                      }}
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Price impact:</span>
+                    <span :class="[
+                      'font-medium',
+                      Math.abs(tradePreview.priceImpact) > 5 ? 'text-red-500' : 'text-gray-900 dark:text-white'
+                    ]">
+                      {{ tradePreview.priceImpact.toFixed(2) }}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">New price:</span>
+                    <span class="font-medium text-gray-900 dark:text-white">
+                      {{ tradePreview.newPrice.toFixed(9) }} SOL
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Platform fee:</span>
+                    <span class="font-medium text-gray-900 dark:text-white">
+                      {{ tradePreview.platformFee.toFixed(6) }} SOL
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -159,8 +196,6 @@
                   {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
                 </button>
               </div>
-
-
 
               <!-- Place Trade Button -->
               <button 
@@ -203,6 +238,9 @@
                 <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">
                   bonding curve progress: {{ progressPercentage.toFixed(0) }}%
                 </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {{ bondingProgress?.solRaised?.toFixed(2) || '0.00' }} / {{ bondingProgress?.graduationThreshold || '85' }} SOL raised
+                </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
                     class="h-full bg-green-500 rounded-full transition-all duration-500"
@@ -212,10 +250,13 @@
               </div>
 
               <!-- Graduation Status -->
-              <div v-if="progressPercentage >= 100" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div v-if="progressPercentage >= 100 || bondingCurveState?.isGraduated" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div class="flex items-center gap-2 text-sm">
                   <span class="text-blue-600 dark:text-blue-400">🎉</span>
-                  <span class="text-blue-800 dark:text-blue-200">PumpSwap pool seeded! view on PumpSwap</span>
+                  <span class="text-blue-800 dark:text-blue-200">
+                    {{ bondingCurveState?.isGraduated ? 'Token has graduated!' : 'Ready for graduation!' }}
+                    PumpSwap pool seeded! View on PumpSwap
+                  </span>
                   <a href="#" class="text-blue-600 dark:text-blue-400 hover:underline">here</a>
                 </div>
               </div>
@@ -303,6 +344,8 @@ import TradingViewChart from '@/components/charts/TradingViewChart.vue'
 import EnhancedTradingInterface from '@/components/token/EnhancedTradingInterface.vue'
 import BondingCurveProgress from '@/components/token/BondingCurveProgress.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
+import { SolanaProgram } from '@/services/solanaProgram'
+import { realTimePricingService, type PriceUpdate } from '@/services/realTimePricing'
 
 const route = useRoute()
 const router = useRouter()
@@ -325,9 +368,14 @@ const topHolders = ref<any[]>([])
 const tokenAnalytics = ref<TokenAnalytics | null>(null)
 let analyticsSubscription: (() => void) | null = null
 
-// Bonding curve state and progress
+// Real-time bonding curve state
 const bondingCurveState = ref<any>(null)
 const bondingProgress = ref<any>(null)
+const lastPriceUpdate = ref<Date>(new Date())
+const priceUnsubscribe = ref<(() => void) | null>(null)
+
+// Trade preview state
+const tradePreview = ref<any>(null)
 
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
@@ -335,16 +383,15 @@ const tokenSymbol = computed(() => token.value?.symbol || 'N/A')
 const tokenDescription = computed(() => token.value?.description || 'No description available.')
 
 // Computed properties
-const marketCapFormatted = computed(() => {
-  if (!token.value?.market_cap) return '$0'
-  const marketCapInSOL = (token.value.market_cap || 0) / 1e9 // Convert from lamports to SOL
-  return `$${formatNumber(marketCapInSOL)}`
+const formattedMarketCap = computed(() => {
+  // Use bonding curve state market cap if available, otherwise fall back to token data
+  const marketCap = bondingCurveState.value?.marketCap || token.value?.market_cap || 0
+  return `$${formatNumber(marketCap)}`
 })
 
 const progressPercentage = computed(() => {
-  const marketCapInSOL = (token.value?.market_cap || 0) / 1e9 // Convert from lamports to SOL
-  const graduationThreshold = 69000 // $69K
-  return Math.min(100, (marketCapInSOL / graduationThreshold) * 100)
+  if (!bondingProgress.value) return 0
+  return Math.min(100, bondingProgress.value.progress || 0)
 })
 
 // Computed for comments count from token data
@@ -449,10 +496,72 @@ const executeTrade = async () => {
     return
   }
 
+  // Check if token has graduated
+  if (bondingCurveState.value?.isGraduated) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Token Graduated',
+      message: 'This token has graduated to DEX. Trade on PumpSwap instead.'
+    })
+    return
+  }
+
   try {
     uiStore.setLoading(true)
     
     const mintAddress = new PublicKey(token.value.mint_address)
+    
+    // Get current bonding curve state for calculations
+    const currentState = bondingCurveState.value
+    if (!currentState) {
+      throw new Error('Bonding curve state not available')
+    }
+
+    // Calculate expected trade result using bonding curve math
+    let tradeResult: any
+    if (tradeType.value === 'buy') {
+      tradeResult = BondingCurveService.calculateBuyTrade(
+        amount,
+        currentState.virtualSolReserves,
+        currentState.virtualTokenReserves,
+        currentState.realTokenReserves
+      )
+      
+      // Show trade preview to user
+      console.log('💰 Buy Preview:', {
+        solSpent: amount,
+        tokensReceived: tradeResult.tokensReceived,
+        newPrice: tradeResult.newPrice,
+        priceImpact: tradeResult.priceImpact.toFixed(2) + '%'
+      })
+    } else {
+      tradeResult = BondingCurveService.calculateSellTrade(
+        amount,
+        currentState.virtualSolReserves,
+        currentState.virtualTokenReserves,
+        currentState.realTokenReserves
+      )
+      
+      // Show trade preview to user
+      console.log('💰 Sell Preview:', {
+        tokensSpent: amount,
+        solReceived: tradeResult.solSpent,
+        newPrice: tradeResult.newPrice,
+        priceImpact: tradeResult.priceImpact.toFixed(2) + '%'
+      })
+    }
+
+    // Check if price impact is too high (>10%)
+    if (Math.abs(tradeResult.priceImpact) > 10) {
+      const confirmed = confirm(
+        `Warning: High price impact of ${tradeResult.priceImpact.toFixed(2)}%. Continue?`
+      )
+      if (!confirmed) {
+        uiStore.setLoading(false)
+        return
+      }
+    }
+
     let signature: string
 
     if (tradeType.value === 'buy') {
@@ -462,7 +571,7 @@ const executeTrade = async () => {
       uiStore.showToast({
         type: 'success',
         title: 'Buy Order Successful! 🎉',
-        message: `Successfully bought ${tokenSymbol.value} tokens (Simulation Mode)`
+        message: `Bought ${tradeResult.tokensReceived.toFixed(6)} ${tokenSymbol.value} for ${amount} SOL`
       })
     } else {
       // Execute sell transaction
@@ -471,25 +580,42 @@ const executeTrade = async () => {
       uiStore.showToast({
         type: 'success',
         title: 'Sell Order Successful! 💰',
-        message: `Successfully sold ${tokenSymbol.value} tokens (Simulation Mode)`
+        message: `Sold ${amount} ${tokenSymbol.value} for ${Math.abs(tradeResult.solSpent).toFixed(6)} SOL`
       })
     }
 
     // Clear the trade amount
     tradeAmount.value = ''
     
+    // Trigger immediate price update
+    await realTimePricingService.triggerUpdate(token.value.id)
+    
+    // Refresh bonding curve data immediately after trade
+    await loadBondingCurveData()
+    
     // Refresh token data to show updated stats
     await loadTokenData()
     
-    console.log(`${tradeType.value} transaction completed:`, signature)
+    console.log(`✅ ${tradeType.value} transaction completed:`, signature)
     
   } catch (error: any) {
     console.error('Trade failed:', error)
     
+    let errorMessage = 'An unexpected error occurred during the trade'
+    
+    // Handle specific error types
+    if (error.message.includes('Insufficient')) {
+      errorMessage = error.message
+    } else if (error.message.includes('Slippage')) {
+      errorMessage = 'Price moved too much during trade. Try again with higher slippage tolerance.'
+    } else if (error.message.includes('graduated')) {
+      errorMessage = 'This token has graduated to DEX trading.'
+    }
+    
     uiStore.showToast({
       type: 'error',
       title: 'Trade Failed',
-      message: error.message || 'An unexpected error occurred during the trade'
+      message: errorMessage
     })
   } finally {
     uiStore.setLoading(false)
@@ -633,30 +759,6 @@ const formatWalletAddress = (address: string): string => {
 }
 
 /**
- * Format market cap with proper formatting
- */
-const formatMarketCap = (marketCap: number): string => {
-  if (marketCap >= 1000000) {
-    return (marketCap / 1000000).toFixed(2) + 'M'
-  } else if (marketCap >= 1000) {
-    return (marketCap / 1000).toFixed(0) + 'K'
-  }
-  return marketCap.toLocaleString()
-}
-
-/**
- * Set quick amount for trading
- */
-const setQuickAmount = (amount: string) => {
-  if (amount === 'max') {
-    // TODO: Set to maximum available balance
-    tradeAmount.value = '1.0'
-  } else {
-    tradeAmount.value = amount
-  }
-}
-
-/**
  * Format contract address for display
  */
 const formatContractAddress = (address: string): string => {
@@ -695,13 +797,112 @@ const loadBondingCurveData = async () => {
   if (!token.value) return
   
   try {
-    // Create bonding curve state (mock for now - would come from blockchain)
-    bondingCurveState.value = BondingCurveService.createInitialState(token.value.mint_address)
+    console.log('🔄 Loading bonding curve data for token:', token.value.id)
     
-    // Load bonding curve progress
+    // Load real bonding curve state using the service
+    const curveState = await BondingCurveService.getTokenBondingCurveState(token.value.id)
+    bondingCurveState.value = curveState
+    
+    // Load progress data
     bondingProgress.value = await SupabaseService.getBondingCurveProgress(token.value.id)
+    
+    // Update last price update time
+    lastPriceUpdate.value = new Date()
+    
+    console.log('✅ Bonding curve data loaded:', {
+      price: curveState.currentPrice,
+      progress: curveState.progress,
+      marketCap: curveState.marketCap,
+      graduated: curveState.isGraduated
+    })
+    
+    // Set up real-time price updates every 10 seconds
+    if (priceUnsubscribe.value) {
+      priceUnsubscribe.value()
+    }
+    
+    priceUnsubscribe.value = realTimePricingService.subscribeToToken(
+      token.value.id,
+      (updatedPrice: PriceUpdate) => {
+        bondingCurveState.value = {
+          ...bondingCurveState.value,
+          currentPrice: updatedPrice.price,
+          marketCap: updatedPrice.marketCap,
+          progress: updatedPrice.progress
+        }
+        bondingProgress.value = {
+          ...bondingProgress.value,
+          progress: updatedPrice.progress
+        }
+        lastPriceUpdate.value = new Date()
+        console.log('🔄 Price updated:', {
+          price: updatedPrice.price,
+          progress: updatedPrice.progress
+        })
+      }
+    )
+    
   } catch (error) {
     console.error('Failed to load bonding curve data:', error)
+    
+    // Fallback to basic progress calculation
+    bondingProgress.value = await SupabaseService.getBondingCurveProgress(token.value.id)
+  }
+}
+
+/**
+ * Set quick amount for trading
+ */
+const setQuickAmount = (amount: string) => {
+  if (amount === 'max') {
+    // TODO: Set to maximum available balance
+    tradeAmount.value = '1.0'
+  } else {
+    tradeAmount.value = amount
+  }
+}
+
+/**
+ * Computed property for real-time price display
+ */
+const currentPrice = computed(() => {
+  if (bondingCurveState.value?.currentPrice) {
+    return bondingCurveState.value.currentPrice.toFixed(9)
+  }
+  return token.value?.current_price?.toFixed(9) || '0.000000000'
+})
+
+/**
+ * Calculate trade preview for live price impact
+ */
+const calculateTradePreview = () => {
+  const amount = parseFloat(tradeAmount.value)
+  if (!amount || amount <= 0 || !bondingCurveState.value) {
+    tradePreview.value = null
+    return
+  }
+
+  try {
+    const currentState = bondingCurveState.value
+    
+    if (tradeType.value === 'buy') {
+      tradePreview.value = BondingCurveService.calculateBuyTrade(
+        amount,
+        currentState.virtualSolReserves,
+        currentState.virtualTokenReserves,
+        currentState.realTokenReserves
+      )
+    } else {
+      tradePreview.value = BondingCurveService.calculateSellTrade(
+        amount,
+        currentState.virtualSolReserves,
+        currentState.virtualTokenReserves,
+        currentState.realTokenReserves
+      )
+    }
+  } catch (error) {
+    console.warn('Failed to calculate trade preview:', error)
+    tradePreview.value = null
   }
 }
 
@@ -712,6 +913,12 @@ onMounted(() => {
 onUnmounted(() => {
   // Clean up analytics subscription
   analyticsSubscription?.()
+  
+  // Clean up price update interval
+  if (priceUnsubscribe.value) {
+    priceUnsubscribe.value()
+    priceUnsubscribe.value = null
+  }
 })
 
 // Load bonding curve data after token loads
@@ -719,5 +926,15 @@ watch(() => token.value, () => {
   if (token.value) {
     loadBondingCurveData()
   }
+})
+
+// Recalculate trade preview when trade type changes
+watch(() => tradeType.value, () => {
+  calculateTradePreview()
+})
+
+// Recalculate trade preview when bonding curve state updates
+watch(() => bondingCurveState.value, () => {
+  calculateTradePreview()
 })
 </script> 

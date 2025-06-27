@@ -1802,15 +1802,35 @@ export class SupabaseService {
 
       if (error) throw error
 
-      const GRADUATION_THRESHOLD = 69000 // $69K
-      const progress = Math.min((token.market_cap / GRADUATION_THRESHOLD) * 100, 100)
+      // Get total SOL raised from transactions
+      const { data: transactions, error: txError } = await supabase
+        .from('transactions')
+        .select('sol_amount, transaction_type')
+        .eq('token_id', tokenId)
+        .eq('status', 'completed')
+
+      if (txError) throw txError
+
+      // Calculate net SOL raised (buys - sells)
+      const totalSolRaised = (transactions || []).reduce((sum, tx) => {
+        if (tx.transaction_type === 'buy') {
+          return sum + (tx.sol_amount || 0)
+        } else if (tx.transaction_type === 'sell') {
+          return sum - (tx.sol_amount || 0)
+        }
+        return sum
+      }, 0)
+
+      const GRADUATION_THRESHOLD_SOL = 85 // 85 SOL to graduate (instead of $69K)
+      const progress = Math.min((totalSolRaised / GRADUATION_THRESHOLD_SOL) * 100, 100)
       
       return {
         progress,
         currentMarketCap: token.market_cap,
-        graduationThreshold: GRADUATION_THRESHOLD,
-        graduated: token.status === 'graduated',
-        remaining: Math.max(0, GRADUATION_THRESHOLD - token.market_cap)
+        graduationThreshold: GRADUATION_THRESHOLD_SOL,
+        graduated: progress >= 100 || token.status === 'graduated',
+        remaining: Math.max(0, GRADUATION_THRESHOLD_SOL - totalSolRaised),
+        solRaised: totalSolRaised
       }
     } catch (error) {
       console.error('Failed to get bonding curve progress:', error)
