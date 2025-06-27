@@ -1,4 +1,5 @@
 import { PublicKey } from '@solana/web3.js'
+import { apiHealthMonitor } from './apiHealthMonitor'
 
 export interface PriceData {
   price: number
@@ -116,6 +117,8 @@ class PriceOracleService {
         const data = await response.json()
         
         if (data.success && data.data) {
+          apiHealthMonitor.recordSuccess('birdeye')
+          
           const priceData: PriceData = {
             price: data.data.value || 0,
             priceChange24h: data.data.priceChange24h || 0,
@@ -133,38 +136,94 @@ class PriceOracleService {
           }
         }
       } else if (response.status === 401) {
-        // Use mock data for development - authentication failed
+        apiHealthMonitor.recordFailure('birdeye', 'Authentication failed')
+        apiHealthMonitor.recordFallback('birdeye', 'mock_price', 'Authentication failed', mintAddress)
       } else {
-        // Use mock data for development
+        apiHealthMonitor.recordFailure('birdeye', `HTTP ${response.status}`)
+        apiHealthMonitor.recordFallback('birdeye', 'mock_price', `HTTP ${response.status}`, mintAddress)
       }
 
-      // Generate mock price as fallback
-      const mockPrice = this.generateMockPrice(mintAddress)
-      this.priceCache.set(cacheKey, mockPrice)
+      // Generate price using bonding curve data or fallback
+      const bondingCurvePrice = await this.generateBondingCurvePrice(mintAddress)
+      this.priceCache.set(cacheKey, bondingCurvePrice)
       
       return {
         mint: mintAddress,
         symbol: 'NEW',
         name: 'New Token',
-        ...mockPrice
+        ...bondingCurvePrice
       }
       
     } catch (error) {
-      // Generate mock price as fallback
-      const mockPrice = this.generateMockPrice(mintAddress)
-      this.priceCache.set(cacheKey, mockPrice)
+      // Generate price using bonding curve data or fallback
+      const bondingCurvePrice = await this.generateBondingCurvePrice(mintAddress)
+      this.priceCache.set(cacheKey, bondingCurvePrice)
       
       return {
         mint: mintAddress,
         symbol: 'NEW',
         name: 'New Token',
-        ...mockPrice
+        ...bondingCurvePrice
       }
     }
   }
 
-  // Generate mock price for new tokens (bonding curve simulation)
+  // Generate price based on bonding curve data for platform tokens
+  private async generateBondingCurvePrice(mintAddress: string): Promise<PriceData> {
+    try {
+      // First try to get from database (our platform tokens)
+      const { supabase } = await import('./supabase')
+      const { data: token, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('mint_address', mintAddress)
+        .single()
+
+      if (!error && token) {
+        // Use real bonding curve price from database
+        const tokenPrice = token.current_price || 0.0000001
+        
+        // Get 24h price change from price history if available
+        let priceChange24h = 0
+        try {
+          const { data: priceHistory } = await supabase
+            .from('token_price_history')
+            .select('price')
+            .eq('token_id', token.id)
+            .order('timestamp', { ascending: false })
+            .limit(48) // Last 48 hours of data
+
+          if (priceHistory && priceHistory.length >= 2) {
+            const latestPrice = priceHistory[0]?.price || tokenPrice
+            const oldPrice = priceHistory[priceHistory.length - 1]?.price || tokenPrice
+            priceChange24h = oldPrice > 0 ? ((latestPrice - oldPrice) / oldPrice) * 100 : 0
+          }
+        } catch (priceHistoryError) {
+          // Ignore price history errors
+        }
+
+        return {
+          price: tokenPrice,
+          priceChange24h,
+          priceChangePercent24h: priceChange24h,
+          marketCap: token.market_cap || 0,
+          volume24h: token.volume_24h || 0,
+          lastUpdated: Date.now()
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to get bonding curve price:', error)
+    }
+
+    // Fallback to deterministic mock price for unknown tokens
+    return this.generateMockPrice(mintAddress)
+  }
+
+  // Generate mock price for unknown tokens (fallback)
   private generateMockPrice(mintAddress: string): PriceData {
+    // Record that we're using mock data
+    apiHealthMonitor.recordFallback('price_oracle', 'mock_price', 'Unknown token - using deterministic mock price', mintAddress)
+    
     // Generate deterministic but random-looking prices based on mint address
     const hash = this.hashString(mintAddress)
     const basePrice = (hash % 1000) / 1000000 // Price between 0.000001 and 0.001
@@ -203,6 +262,8 @@ class PriceOracleService {
       
       // Jupiter v2 response format: { data: { [mintAddress]: { price: "123.45" } } }
       if (data.data && data.data[mintAddress]) {
+        apiHealthMonitor.recordSuccess('jupiter')
+        
         const tokenData = data.data[mintAddress]
         const price = parseFloat(tokenData.price) || 0
         
@@ -225,9 +286,12 @@ class PriceOracleService {
             const tokenMeta = await tokenMetaResponse.json()
             symbol = tokenMeta.symbol || symbol
             name = tokenMeta.name || name
+            apiHealthMonitor.recordSuccess('token_metadata')
+          } else {
+            apiHealthMonitor.recordFailure('token_metadata', `HTTP ${tokenMetaResponse.status}`)
           }
         } catch (metaError) {
-          // Ignore metadata errors, just use defaults
+          apiHealthMonitor.recordFailure('token_metadata', metaError instanceof Error ? metaError.message : 'Unknown error')
         }
         
         return {
@@ -236,6 +300,8 @@ class PriceOracleService {
           name: name,
           ...priceData
         }
+      } else {
+        apiHealthMonitor.recordFailure('jupiter', 'No data returned for token')
       }
       
       return null

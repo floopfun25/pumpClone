@@ -139,11 +139,17 @@
                         @error="(e: Event) => { if (e.target) (e.target as HTMLImageElement).src = getTokenFallbackImage() }"
                       />
                       <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1">
                           {{ holding.metadata?.name || 'Unknown Token' }}
+                          <span v-if="holding.metadata?.verified" class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 px-1.5 py-0.5 rounded-full">
+                            ✓
+                          </span>
                         </p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                           {{ holding.metadata?.symbol || 'UNKNOWN' }}
+                          <span v-if="holding.metadata?.source && holding.metadata.source !== 'database'" class="text-xs opacity-60 ml-1">
+                            ({{ holding.metadata.source }})
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -193,22 +199,7 @@
           </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('portfolio.recentActivity') }}</h2>
-          </div>
-          
-          <div class="p-6">
-            <div class="text-center py-8">
-              <Icon name="activity" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p class="text-gray-600 dark:text-gray-400">{{ t('portfolio.recentActivityWillAppear') }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                {{ t('portfolio.startTradingToSeeHistory') }}
-              </p>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       <!-- Error State -->
@@ -250,6 +241,9 @@ import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { solanaProgram } from '@/services/solanaProgram'
 import { priceOracleService, formatPrice, formatPriceChange } from '@/services/priceOracle'
+import { tokenMetadataService } from '@/services/tokenMetadataService'
+import { portfolioTrackingService } from '@/services/portfolioTrackingService'
+import { SupabaseService } from '@/services/supabase'
 import Icon from '@/components/common/Icon.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import WalletConnectButton from '@/components/common/WalletConnectButton.vue'
@@ -260,7 +254,13 @@ interface TokenHolding {
   mint: string
   balance: number
   decimals: number
-  metadata: any
+  metadata: {
+    name: string
+    symbol: string
+    image: string | null
+    verified?: boolean
+    source?: string
+  }
   price: number
   value: number
   priceChange24h: number
@@ -349,12 +349,17 @@ const loadPortfolio = async (): Promise<void> => {
     // Get token metadata and prices
     const tokenHoldings = await Promise.all(
       tokenAccounts.map(async (account): Promise<TokenHolding> => {
-        const tokenPrice = await priceOracleService.getTokenPrice(account.mint)
-        // Mock metadata for now - would integrate with token metadata service
+        const [tokenPrice, tokenMetadata] = await Promise.all([
+          priceOracleService.getTokenPrice(account.mint),
+          tokenMetadataService.getTokenMetadata(account.mint)
+        ])
+
         const metadata = {
-          name: tokenPrice?.name || 'Unknown Token',
-          symbol: tokenPrice?.symbol || 'UNKNOWN',
-          image: null
+          name: tokenMetadata?.name || tokenPrice?.name || 'Unknown Token',
+          symbol: tokenMetadata?.symbol || tokenPrice?.symbol || 'UNKNOWN',
+          image: tokenMetadata?.image || null,
+          verified: tokenMetadata?.verified || false,
+          source: tokenMetadata?.source || 'fallback'
         }
         
         const balance = account.balance / Math.pow(10, account.decimals)
@@ -372,8 +377,31 @@ const loadPortfolio = async (): Promise<void> => {
       })
     )
 
-    // Calculate total change (simplified - would need historical data for accurate calculation)
-    const totalChange24h = 0 // TODO: Implement historical portfolio tracking
+    // Calculate real 24h change using portfolio tracking service
+    let totalChange24h = 0
+    try {
+      // Get user ID from database
+      const user = await SupabaseService.getUserByWallet(walletStore.publicKey.toBase58())
+      if (user) {
+        const portfolioChange = await portfolioTrackingService.getPortfolio24hChange(
+          user.id, 
+          portfolioValue.totalValue
+        )
+        totalChange24h = portfolioChange.valuePercentage24h
+
+        // Store current portfolio snapshot for future tracking
+        await portfolioTrackingService.storePortfolioSnapshot(user.id, {
+          totalValue: portfolioValue.totalValue,
+          solBalance,
+          solValue: portfolioValue.solValue,
+          tokenValue: portfolioValue.tokenValues.reduce((sum, token) => sum + token.value, 0),
+          tokenCount: tokenHoldings.length
+        })
+      }
+    } catch (trackingError) {
+      console.warn('Failed to calculate 24h change:', trackingError)
+      // Keep default value of 0
+    }
 
     portfolioData.value = {
       totalValue: portfolioValue.totalValue,
