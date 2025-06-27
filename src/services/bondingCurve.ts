@@ -108,15 +108,46 @@ export class BondingCurveService {
   }
 
   /**
-   * Calculate market cap based on current price and total supply (in USD)
+   * Calculate market cap based on current price and total supply (in USD) - Synchronous version
    */
-  static calculateMarketCap(state: BondingCurveState, solPriceUSD: number = 169): number {
+  static calculateMarketCapSync(state: BondingCurveState, solPriceUSD: number): number {
     const tokenPrice = this.calculatePrice(state)
-    // Use the full total supply - it's already stored as the actual number of tokens
+    const totalSupply = Number(state.tokenTotalSupply)
+    const marketCapSOL = tokenPrice * totalSupply
+    return marketCapSOL * solPriceUSD
+  }
+
+  /**
+   * Calculate market cap based on current price and total supply (in USD) - Async version with real-time price
+   */
+  static async calculateMarketCap(state: BondingCurveState, solPriceUSD?: number): Promise<number> {
+    // If SOL price is provided, use sync version
+    if (solPriceUSD !== undefined) {
+      return this.calculateMarketCapSync(state, solPriceUSD)
+    }
+    
+    const tokenPrice = this.calculatePrice(state)
     const totalSupply = Number(state.tokenTotalSupply)
     
+    // Get real-time SOL price
+    let currentSolPrice: number
+    try {
+      const { priceOracleService } = await import('./priceOracle')
+      const solPriceData = await priceOracleService.getSOLPrice()
+      currentSolPrice = solPriceData.price
+      
+      console.log('💰 [MARKET CAP] Using real-time SOL price:', {
+        solPrice: `$${currentSolPrice.toFixed(2)}`,
+        tokenPrice: `${tokenPrice.toFixed(10)} SOL`,
+        totalSupply: totalSupply.toLocaleString()
+      })
+    } catch (error) {
+      console.warn('⚠️ [MARKET CAP] Failed to fetch SOL price, using fallback $169:', error)
+      currentSolPrice = 169 // Fallback
+    }
+    
     const marketCapSOL = tokenPrice * totalSupply
-    return marketCapSOL * solPriceUSD // Market cap in USD
+    return marketCapSOL * currentSolPrice
   }
 
   /**
@@ -504,8 +535,8 @@ export class BondingCurveService {
   /**
    * Check if token should graduate based on $69K USD market cap
    */
-  static shouldGraduate(state: BondingCurveState, solPriceUSD: number = 169): boolean {
-    const marketCapUSD = this.calculateMarketCap(state, solPriceUSD)
+  static async shouldGraduate(state: BondingCurveState, solPriceUSD?: number): Promise<boolean> {
+    const marketCapUSD = await this.calculateMarketCap(state, solPriceUSD)
     return marketCapUSD >= GRADUATION_THRESHOLD_USD
   }
 
