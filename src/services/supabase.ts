@@ -2148,17 +2148,16 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from('user_watchlist')
         .select('id')
-        .match({
-          user_id: userId,
-          token_id: tokenId
-        })
-        .single()
+        .eq('user_id', userId)
+        .eq('token_id', tokenId)
+        .limit(1)
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        throw error
+      if (error) {
+        console.warn('Watchlist check error:', error)
+        return false
       }
 
-      return !!data
+      return !!(data && data.length > 0)
     } catch (error) {
       console.error('Failed to check watchlist status:', error)
       return false

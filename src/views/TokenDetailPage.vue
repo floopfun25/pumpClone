@@ -969,14 +969,14 @@ const calculateTradePreview = () => {
  * Check if token is in user's watchlist
  */
 const checkWatchlistStatus = async () => {
-  if (!authStore.isAuthenticated || !authStore.user?.id || !token.value?.id) {
+  if (!authStore.isAuthenticated || !authStore.supabaseUser?.id || !token.value?.id) {
     isInWatchlist.value = false
     return
   }
 
   try {
     isInWatchlist.value = await SupabaseService.isTokenInWatchlist(
-      authStore.user.id,
+      authStore.supabaseUser.id,
       token.value.id
     )
   } catch (error) {
@@ -998,7 +998,7 @@ const toggleWatchlist = async () => {
     return
   }
 
-  if (!authStore.user?.id || !token.value?.id) {
+  if (!authStore.supabaseUser?.id || !token.value?.id) {
     uiStore.showToast({
       type: 'error',
       title: 'Error',
@@ -1012,7 +1012,7 @@ const toggleWatchlist = async () => {
   try {
     if (isInWatchlist.value) {
       // Remove from watchlist
-      await SupabaseService.removeFromWatchlist(authStore.user.id, token.value.id)
+      await SupabaseService.removeFromWatchlist(authStore.supabaseUser.id, token.value.id)
       isInWatchlist.value = false
       
       uiStore.showToast({
@@ -1022,7 +1022,7 @@ const toggleWatchlist = async () => {
       })
     } else {
       // Add to watchlist
-      await SupabaseService.addToWatchlist(authStore.user.id, token.value.id)
+      await SupabaseService.addToWatchlist(authStore.supabaseUser.id, token.value.id)
       isInWatchlist.value = true
       
       uiStore.showToast({
