@@ -5,8 +5,8 @@
       <div class="max-w-7xl mx-auto px-4 py-6">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Portfolio</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">Track your holdings and performance</p>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ t('portfolio.title') }}</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">{{ t('portfolio.description') }}</p>
           </div>
           
           <!-- Refresh Button -->
@@ -16,7 +16,7 @@
             class="flex items-center gap-2 px-4 py-2 bg-pump-purple text-white rounded-lg hover:bg-pump-purple/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Icon name="refresh" :class="{ 'animate-spin': loading }" class="w-4 h-4" />
-            Refresh
+            {{ t('portfolio.refresh') }}
           </button>
         </div>
       </div>
@@ -37,7 +37,7 @@
           <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Total Portfolio Value</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('portfolio.totalPortfolioValue') }}</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">
                   ${{ formatNumber(portfolioData.totalValue) }}
                 </p>
@@ -55,7 +55,7 @@
           <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-600 dark:text-gray-400">SOL Balance</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('portfolio.solBalance') }}</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">
                   {{ formatNumber(portfolioData.solBalance) }} SOL
                 </p>
@@ -73,7 +73,7 @@
           <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Token Holdings</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('portfolio.tokenHoldings') }}</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">
                   {{ portfolioData.tokenHoldings.length }}
                 </p>
@@ -91,14 +91,14 @@
         <!-- Token Holdings Table -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Token Holdings</h2>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('portfolio.tokenHoldings') }}</h2>
           </div>
           
           <div v-if="portfolioData.tokenHoldings.length === 0" class="text-center py-12">
             <Icon name="coins" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p class="text-gray-600 dark:text-gray-400">No token holdings found</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ t('portfolio.noTokenHoldings') }}</p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
-              Create your first token to get started
+              {{ t('portfolio.createFirstToken') }}
             </p>
           </div>
 
@@ -107,22 +107,22 @@
               <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Token
+                    {{ t('portfolio.token') }}
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Price
+                    {{ t('portfolio.price') }}
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Balance
+                    {{ t('portfolio.balance') }}
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Value
+                    {{ t('portfolio.value') }}
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    24h Change
+                    {{ t('portfolio.change24h') }}
                   </th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
+                    {{ t('portfolio.actions') }}
                   </th>
                 </tr>
               </thead>
@@ -184,7 +184,7 @@
                       :to="`/token/${holding.mint}`"
                       class="text-pump-purple hover:text-pump-purple/80 transition-colors"
                     >
-                      View Details
+                      {{ t('portfolio.viewDetails') }}
                     </router-link>
                   </td>
                 </tr>
@@ -196,15 +196,15 @@
         <!-- Recent Activity -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('portfolio.recentActivity') }}</h2>
           </div>
           
           <div class="p-6">
             <div class="text-center py-8">
               <Icon name="activity" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p class="text-gray-600 dark:text-gray-400">Recent activity will appear here</p>
+              <p class="text-gray-600 dark:text-gray-400">{{ t('portfolio.recentActivityWillAppear') }}</p>
               <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                Start trading to see your transaction history
+                {{ t('portfolio.startTradingToSeeHistory') }}
               </p>
             </div>
           </div>
@@ -215,14 +215,14 @@
       <div v-else-if="error" class="text-center py-12">
         <Icon name="exclamation-triangle" class="w-12 h-12 text-red-500 mx-auto mb-4" />
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-          Failed to Load Portfolio
+          {{ t('portfolio.failedToLoadPortfolio') }}
         </h3>
         <p class="text-gray-600 dark:text-gray-400 mb-4">{{ error }}</p>
         <button
           @click="refreshPortfolio"
           class="px-4 py-2 bg-pump-purple text-white rounded-lg hover:bg-pump-purple/90 transition-colors"
         >
-          Try Again
+          {{ t('portfolio.tryAgain') }}
         </button>
       </div>
 
@@ -230,10 +230,10 @@
       <div v-else class="text-center py-12">
         <Icon name="wallet" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-          Connect Your Wallet
+          {{ t('portfolio.connectYourWallet') }}
         </h3>
         <p class="text-gray-600 dark:text-gray-400 mb-4">
-          Connect your wallet to view your portfolio
+          {{ t('portfolio.connectWalletToViewPortfolio') }}
         </p>
         <WalletConnectButton />
       </div>
@@ -244,6 +244,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { PublicKey } from '@solana/web3.js'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
@@ -278,6 +279,7 @@ interface PortfolioData {
 const router = useRouter()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
+const { t } = useI18n()
 
 // Reactive state
 const loading = ref(false)

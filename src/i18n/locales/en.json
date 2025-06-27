@@ -257,6 +257,28 @@
     "profileUpdatedDesc": "Your profile has been updated successfully",
     "profileLinkCopied": "Link Copied",
     "profileLinkCopiedDesc": "Profile link has been copied to clipboard",
+    "editProfile": "Edit Profile",
+    "share": "Share",
+    "createdTokens": "Created Tokens",
+    "volumeTraded": "Volume Traded",
+    "totalHolders": "Total Holders",
+    "noTokensCreated": "No tokens created yet",
+    "noTokensCreatedDesc": "This user hasn't created any tokens yet.",
+    "noTradingHistory": "No trading history",
+    "noTradingHistoryDesc": "This user hasn't made any trades yet.",
+    "noHoldings": "No holdings",
+    "noHoldingsDesc": "This user doesn't hold any tokens.",
+    "noActivity": "No activity",
+    "noActivityDesc": "This user hasn't been active recently.",
+    "usernamePlaceholder": "Enter your username",
+    "bioPlaceholder": "Tell us about yourself...",
+    "removeFromWatchlist": "Remove from watchlist",
+    "added": "Added",
+    "noWatchlistItems": "No Watchlist Items",
+    "loadingWatchlist": "Loading watchlist...",
+    "addTokensToWatchlist": "Add tokens to your watchlist to track them here",
+    "exploreTokens": "Explore Tokens",
+    "watchlistMigrationNote": "Note: If you're getting errors, you may need to run the database migration for watchlist functionality.",
     "activityTypes": {
       "tokenCreated": "Created token {name}",
       "trade": "{type} {token}"
@@ -465,7 +487,8 @@
     "unknown": "Unknown",
     "active": "Active",
     "back": "Go Back",
-    "viewAll": "View All"
+    "viewAll": "View All",
+    "saving": "Saving..."
   },
   "tokenDetail": {
     "change24h": "24h Change",
@@ -522,50 +545,37 @@
     "privacyPolicy": "Privacy Policy",
     "support": "Support"
   },
+  "portfolio": {
+    "title": "Portfolio",
+    "description": "Track your holdings and performance",
+    "refresh": "Refresh",
+    "totalPortfolioValue": "Total Portfolio Value",
+    "solBalance": "SOL Balance",
+    "tokenHoldings": "Token Holdings",
+    "tokenCount": "Token Count",
+    "noTokenHoldings": "No token holdings found",
+    "createFirstToken": "Create your first token to get started",
+    "token": "Token",
+    "price": "Price",
+    "balance": "Balance",
+    "value": "Value",
+    "change24h": "24h Change",
+    "actions": "Actions",
+    "viewDetails": "View Details",
+    "recentActivity": "Recent Activity",
+    "recentActivityWillAppear": "Recent activity will appear here",
+    "startTradingToSeeHistory": "Start trading to see your transaction history",
+    "failedToLoadPortfolio": "Failed to Load Portfolio",
+    "tryAgain": "Try Again",
+    "connectYourWallet": "Connect Your Wallet",
+    "connectWalletToViewPortfolio": "Connect your wallet to view your portfolio"
+  },
   "theme": {
     "darkMode": "Dark Mode",
     "lightMode": "Light Mode"
   },
-  "profile": {
-    "verified": "Verified",
-    "tokensCreated": "Tokens Created",
-    "volumeTraded": "Volume Traded",
-    "reputation": "Reputation",
-    "totalHolders": "Total Holders",
-    "editProfile": "Edit Profile",
-    "share": "Share",
-    "createdTokens": "Created Tokens",
-    "tradingHistory": "Trading History",
-    "holdings": "Holdings",
-    "activity": "Activity",
-    "noTokensCreated": "No tokens created yet",
-    "noTokensCreatedDesc": "This user hasn't created any tokens yet.",
-    "noTradingHistory": "No trading history",
-    "noTradingHistoryDesc": "This user hasn't made any trades yet.",
-    "noHoldings": "No holdings",
-    "noHoldingsDesc": "This user doesn't hold any tokens.",
-    "noActivity": "No activity",
-    "noActivityDesc": "This user hasn't been active recently.",
-    "username": "Username",
-    "bio": "Bio",
-    "usernamePlaceholder": "Enter your username",
-    "bioPlaceholder": "Tell us about yourself...",
-    "profileUpdated": "Profile Updated",
-    "profileUpdatedDesc": "Your profile has been updated successfully.",
-    "profileLinkCopied": "Profile Link Copied",
-    "profileLinkCopiedDesc": "Profile link has been copied to clipboard.",
-    "userNotFound": "User not found",
-    "loadError": "Failed to load profile",
-    "level": {
-      "beginner": "Beginner",
-      "intermediate": "Intermediate", 
-      "advanced": "Advanced",
-      "expert": "Expert",
-      "legendary": "Legendary"
-    },
-    "activity": {
-      "tokenCreated": "Created token {name}",
-      "trade": "{type} {token}"
-    }
+  "errors": {
+    "updateFailed": "Update Failed",
+    "tryAgain": "Please try again"
   }
 } 

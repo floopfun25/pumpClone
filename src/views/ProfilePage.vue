@@ -148,7 +148,7 @@
                     <button 
                       @click.stop="removeFromWatchlist(item.id)"
                       class="text-red-400 hover:text-red-300 transition-colors"
-                      title="Remove from watchlist"
+                      :title="t('profile.removeFromWatchlist')"
                     >
                       ❤️
                     </button>
@@ -157,23 +157,23 @@
                   <!-- Token Stats -->
                   <div class="space-y-2">
                     <div class="flex justify-between text-sm">
-                      <span class="text-binance-gray">Price:</span>
+                      <span class="text-binance-gray">{{ t('token.price') }}:</span>
                       <span class="text-white">${{ formatNumber(item.current_price || 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                      <span class="text-binance-gray">Market Cap:</span>
+                      <span class="text-binance-gray">{{ t('token.marketCap') }}:</span>
                       <span class="text-white">${{ formatNumber(item.market_cap || 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                      <span class="text-binance-gray">24h Volume:</span>
+                      <span class="text-binance-gray">{{ t('token.volume24h') }}:</span>
                       <span class="text-white">${{ formatNumber(item.volume_24h || 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                      <span class="text-binance-gray">Progress:</span>
+                      <span class="text-binance-gray">{{ t('token.progress') }}:</span>
                       <span class="text-binance-yellow">{{ (item.bonding_curve_progress || 0).toFixed(1) }}%</span>
                     </div>
                     <div class="text-xs text-binance-gray">
-                      Added {{ formatDate(item.addedAt) }}
+                      {{ t('profile.added') }} {{ formatDate(item.addedAt) }}
                     </div>
                   </div>
                 </div>
@@ -181,16 +181,16 @@
               
               <div v-else class="text-center py-12">
                 <div class="text-6xl mb-4">🤍</div>
-                <h3 class="text-xl font-semibold text-white mb-2">No Watchlist Items</h3>
+                <h3 class="text-xl font-semibold text-white mb-2">{{ t('profile.noWatchlistItems') }}</h3>
                 <p class="text-binance-gray mb-4">
-                  {{ loading ? 'Loading watchlist...' : 'Add tokens to your watchlist to track them here' }}
+                  {{ loading ? t('profile.loadingWatchlist') : t('profile.addTokensToWatchlist') }}
                 </p>
                 <div v-if="!loading" class="space-y-3">
                   <router-link to="/search" class="btn-primary inline-block">
-                    🔍 Explore Tokens
+                    🔍 {{ t('profile.exploreTokens') }}
                   </router-link>
                   <div class="text-xs text-binance-gray">
-                    Note: If you're getting errors, you may need to run the database migration for watchlist functionality.
+                    {{ t('profile.watchlistMigrationNote') }}
                   </div>
                 </div>
               </div>

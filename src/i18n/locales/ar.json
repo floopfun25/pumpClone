@@ -222,6 +222,28 @@
     "profileUpdatedDesc": "تم تحديث ملفك الشخصي بنجاح",
     "profileLinkCopied": "تم نسخ الرابط",
     "profileLinkCopiedDesc": "تم نسخ رابط الملف الشخصي إلى الحافظة",
+    "editProfile": "تعديل الملف الشخصي",
+    "share": "مشاركة",
+    "createdTokens": "الرموز المُنشأة",
+    "volumeTraded": "حجم التداول",
+    "totalHolders": "إجمالي الحاملين",
+    "noTokensCreated": "لم يتم إنشاء رموز بعد",
+    "noTokensCreatedDesc": "لم ينشئ هذا المستخدم أي رموز بعد.",
+    "noTradingHistory": "لا يوجد تاريخ تداول",
+    "noTradingHistoryDesc": "لم يقم هذا المستخدم بأي صفقات بعد.",
+    "noHoldings": "لا توجد ممتلكات",
+    "noHoldingsDesc": "لا يملك هذا المستخدم أي رموز.",
+    "noActivity": "لا يوجد نشاط",
+    "noActivityDesc": "لم يكن هذا المستخدم نشطاً مؤخراً.",
+    "usernamePlaceholder": "أدخل اسم المستخدم",
+    "bioPlaceholder": "أخبرنا عن نفسك...",
+    "removeFromWatchlist": "إزالة من قائمة المراقبة",
+    "added": "أضيف",
+    "noWatchlistItems": "لا توجد عناصر في قائمة المراقبة",
+    "loadingWatchlist": "تحميل قائمة المراقبة...",
+    "addTokensToWatchlist": "أضف رموز إلى قائمة المراقبة لتتبعها هنا",
+    "exploreTokens": "استكشاف الرموز",
+    "watchlistMigrationNote": "ملاحظة: إذا كنت تواجه أخطاء، قد تحتاج إلى تشغيل ترحيل قاعدة البيانات لوظيفة قائمة المراقبة.",
     "activityTypes": {
       "tokenCreated": "أنشأ الرمز {name}",
       "trade": "{type} {token}"
@@ -430,7 +452,8 @@
     "unknown": "غير معروف",
     "active": "نشط",
     "back": "رجوع",
-    "viewAll": "عرض الكل"
+    "viewAll": "عرض الكل",
+    "saving": "جاري الحفظ..."
   },
   "tokenDetail": {
     "change24h": "التغيير 24 ساعة",
@@ -476,5 +499,52 @@
   "theme": {
     "darkMode": "الوضع المظلم",
     "lightMode": "الوضع الفاتح"
+  },
+  "settings": {
+    "description": "إدارة تفضيلاتك وإعدادات الحساب",
+    "general": "عام",
+    "theme": "الموضوع",
+    "themeDescription": "اختر بين الوضع الفاتح والمظلم",
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة",
+    "notifications": "الإشعارات",
+    "priceAlerts": "تنبيهات الأسعار",
+    "priceAlertsDescription": "احصل على إشعارات عند تغير أسعار الرموز بشكل كبير",
+    "newTokens": "رموز جديدة",
+    "newTokensDescription": "احصل على إشعارات عند إطلاق رموز جديدة",
+    "about": "حول",
+    "version": "الإصدار",
+    "termsOfService": "شروط الخدمة",
+    "privacyPolicy": "سياسة الخصوصية",
+    "support": "الدعم"
+  },
+  "portfolio": {
+    "title": "المحفظة",
+    "description": "تتبع ممتلكاتك وأدائك",
+    "refresh": "تحديث",
+    "totalPortfolioValue": "إجمالي قيمة المحفظة",
+    "solBalance": "رصيد SOL",
+    "tokenHoldings": "ممتلكات الرموز",
+    "tokenCount": "عدد الرموز",
+    "noTokenHoldings": "لم يتم العثور على ممتلكات رموز",
+    "createFirstToken": "أنشئ رمزك الأول للبدء",
+    "token": "الرمز",
+    "price": "السعر",
+    "balance": "الرصيد",
+    "value": "القيمة",
+    "change24h": "التغيير 24 ساعة",
+    "actions": "الإجراءات",
+    "viewDetails": "عرض التفاصيل",
+    "recentActivity": "النشاط الأخير",
+    "recentActivityWillAppear": "سيظهر النشاط الأخير هنا",
+    "startTradingToSeeHistory": "ابدأ التداول لترى تاريخ معاملاتك",
+    "failedToLoadPortfolio": "فشل في تحميل المحفظة",
+    "tryAgain": "حاول مرة أخرى",
+    "connectYourWallet": "اربط محفظتك",
+    "connectWalletToViewPortfolio": "اربط محفظتك لعرض محفظتك"
+  },
+  "errors": {
+    "updateFailed": "فشل التحديث",
+    "tryAgain": "يرجى المحاولة مرة أخرى"
   }
 } 
