@@ -18,7 +18,7 @@
 
         <!-- Token Header - Pump.fun Style -->
         <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-8">
-          <div class="flex items-center gap-3 text-lg flex-wrap">
+          <div class="flex items-center gap-3 text-sm flex-wrap">
             <!-- Token Logo (small, inline with text) -->
             <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
               <img 
@@ -33,7 +33,7 @@
             </div>
 
             <!-- Token Name & Symbol -->
-            <span class="font-bold text-gray-900 dark:text-white">
+            <span class="font-medium text-gray-900 dark:text-white">
               {{ tokenName }} ({{ tokenSymbol }})
             </span>
 
@@ -71,11 +71,6 @@
               <span class="text-gray-600 dark:text-gray-400">replies:</span>
               <span class="font-semibold ml-1">{{ commentsCount }}</span>
             </span>
-          </div>
-
-          <!-- Token Description (separate line, smaller) -->
-          <div v-if="tokenDescription && tokenDescription !== 'No description available.'" class="mt-3 text-gray-700 dark:text-gray-300 text-sm">
-            {{ tokenDescription }}
           </div>
         </div>
 
