@@ -105,7 +105,7 @@ const safePrice = (price: number, fallbackPrice: number = 0.0000001): number => 
 
 // Helper function to safely calculate market cap
 const safeMarketCap = (price: number, totalSupply: number): number => {
-  let marketCap = price * totalSupply * LAMPORTS_PER_SOL
+  let marketCap = price * totalSupply // Market cap in SOL, will be converted to USD elsewhere
   return safeNumber(marketCap)
 }
 

@@ -123,7 +123,7 @@ const fixTokenPrices = async () => {
         if (token.current_price === 0 || token.current_price < 0.000001) {
           // Use bonding curve calculated price if available, otherwise initial price
           newPrice = state.currentPrice > 0 ? state.currentPrice : initialPrice
-          newMarketCap = state.marketCap > 0 ? state.marketCap : (newPrice * (token.total_supply / 1e9))
+          newMarketCap = state.marketCap > 0 ? state.marketCap : (newPrice * token.total_supply)
           
           console.log(`📈 Updating price from ${token.current_price} to ${newPrice}`)
           console.log(`📈 Updating market cap from ${token.market_cap} to ${newMarketCap}`)
@@ -212,7 +212,7 @@ const quickFixDatabase = async () => {
     // Update market caps separately for each token
     if (updatedTokens && updatedTokens.length > 0) {
       for (const token of updatedTokens) {
-        const marketCap = initialPrice * (token.total_supply / 1e9)
+        const marketCap = initialPrice * token.total_supply
         
         await supabase
           .from('tokens')

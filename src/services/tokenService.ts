@@ -599,7 +599,7 @@ class TokenService {
         lock_duration_days: lockDurationDays > 0 ? lockDurationDays : null,
         locked_tokens_amount: bondingCurveTokens, // Tokens available in bonding curve
         current_price: BondingCurveService.calculatePrice(initialState),
-        market_cap: Math.floor(BondingCurveService.calculateMarketCap(initialState) * LAMPORTS_PER_SOL),
+        market_cap: Math.floor(BondingCurveService.calculateMarketCap(initialState)),
         volume_24h: 0,
         holders_count: 1,
         status: 'active',

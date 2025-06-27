@@ -112,7 +112,8 @@ export class BondingCurveService {
    */
   static calculateMarketCap(state: BondingCurveState, solPriceUSD: number = 169): number {
     const tokenPrice = this.calculatePrice(state)
-    const totalSupply = Number(state.tokenTotalSupply) / 1e6
+    // Use the full total supply - it's already stored as the actual number of tokens
+    const totalSupply = Number(state.tokenTotalSupply)
     
     const marketCapSOL = tokenPrice * totalSupply
     return marketCapSOL * solPriceUSD // Market cap in USD

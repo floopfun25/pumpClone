@@ -98,8 +98,9 @@ export class MarketDataService {
       if (!token) throw new Error('Token not found')
 
       const volume24h = await this.calculate24hVolume(tokenId)
-      // Convert from lamports to SOL for market cap calculation
-      const marketCap = (token.total_supply * token.current_price) / LAMPORTS_PER_SOL
+      // Calculate market cap as price * total supply (price is already in SOL, result in SOL)
+      const marketCapSOL = token.total_supply * token.current_price
+      const marketCap = marketCapSOL * 169 // Convert to USD (assuming SOL price ~$169)
       const priceChange24h = token.price_24h_ago 
         ? ((token.current_price - token.price_24h_ago) / token.price_24h_ago) * 100
         : 0
@@ -164,8 +165,10 @@ export class MarketDataService {
       ])
 
       // Calculate total market cap
-      const totalMarketCap = tokens?.reduce((sum, token) => 
-        sum + ((token.total_supply * token.current_price) / LAMPORTS_PER_SOL), 0) || 0
+      const totalMarketCap = tokens?.reduce((sum, token) => {
+        const marketCapSOL = token.total_supply * token.current_price
+        return sum + (marketCapSOL * 169) // Convert to USD
+      }, 0) || 0
 
       // Calculate total 24h volume
       const totalVolume24h = volume24h?.reduce((sum, tx) => {
