@@ -124,20 +124,11 @@
                 </button>
               </div>
 
-              <!-- Switch to Token -->
-              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                switch to {{ tokenSymbol }}
-              </div>
 
-              <!-- Slippage Setting -->
-              <button class="text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4">
-                set max slippage
-              </button>
 
               <!-- Balance -->
-              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">balance:</div>
-              <div class="text-sm font-medium text-gray-900 dark:text-white mb-4">
-                {{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}
+              <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                balance: <span class="font-medium text-gray-900 dark:text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
               </div>
 
               <!-- Amount Input -->
@@ -169,10 +160,7 @@
                 </button>
               </div>
 
-              <!-- Reset Button -->
-              <button class="w-full py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 mb-4">
-                reset
-              </button>
+
 
               <!-- Place Trade Button -->
               <button 
