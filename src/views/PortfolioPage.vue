@@ -370,6 +370,13 @@ const loadPortfolio = async (): Promise<void> => {
           fallbackImage: getTokenFallbackImage()
         })
 
+        // Test image URL accessibility if available
+        if (tokenMetadata?.image) {
+          const { testImageUrl, analyzeSupabaseUrl } = await import('@/utils/imageDebug')
+          analyzeSupabaseUrl(tokenMetadata.image)
+          testImageUrl(tokenMetadata.image, `${tokenMetadata.name || 'Unknown'} (${account.mint})`)
+        }
+
         const metadata = {
           name: tokenMetadata?.name || tokenPrice?.name || 'Unknown Token',
           symbol: tokenMetadata?.symbol || tokenPrice?.symbol || 'UNKNOWN',

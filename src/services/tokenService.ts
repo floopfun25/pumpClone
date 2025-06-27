@@ -130,7 +130,9 @@ class TokenService {
       if (tokenData.imageFile) {
         console.log('📸 Uploading image...')
         imageUrl = await this.uploadImage(tokenData.imageFile)
-        console.log('✅ Image uploaded')
+        console.log('✅ Image uploaded with URL:', imageUrl)
+      } else {
+        console.log('ℹ️ No image file provided for token creation')
       }
 
       // Step 2: Create and upload metadata
@@ -154,6 +156,13 @@ class TokenService {
           }]
         }
       }
+
+      console.log('📋 [METADATA] Created metadata object:', {
+        name: metadata.name,
+        symbol: metadata.symbol,
+        image: metadata.image,
+        hasFiles: metadata.properties.files.length > 0
+      })
 
       const metadataUri = await this.uploadMetadata(metadata)
       console.log('✅ Metadata uploaded')
@@ -348,19 +357,27 @@ class TokenService {
    */
   private async uploadImage(file: File): Promise<string> {
     try {
+      console.log('🔍 [IMAGE UPLOAD] Starting image upload process:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      })
+
       // Check authentication status
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
+        console.error('🚫 [IMAGE UPLOAD] Authentication failed:', authError)
         throw new Error('Authentication required for file upload')
       }
 
-      // Skip bucket creation - assume bucket exists (should be created via SQL scripts)
-      // This prevents unnecessary 400 errors when bucket already exists
+      console.log('✅ [IMAGE UPLOAD] User authenticated:', user.id)
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop()
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
       const filePath = `token-images/${fileName}`
+
+      console.log('📝 [IMAGE UPLOAD] Generated file path:', filePath)
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -371,19 +388,41 @@ class TokenService {
         })
       
       if (error) {
-        console.error('Storage upload error:', error.message)
+        console.error('❌ [IMAGE UPLOAD] Storage upload error:', {
+          error: error.message,
+          details: error
+        })
         throw error
       }
+
+      console.log('✅ [IMAGE UPLOAD] File uploaded successfully:', data)
 
       // Get public URL
       const { data: publicUrl } = supabase.storage
         .from('token-assets')
         .getPublicUrl(filePath)
       
+      console.log('🔗 [IMAGE UPLOAD] Generated public URL:', {
+        publicUrl: publicUrl.publicUrl,
+        filePath: filePath
+      })
+
+      // Test if the URL is accessible using debug utilities
+      try {
+        const { testImageUrl, analyzeSupabaseUrl } = await import('@/utils/imageDebug')
+        analyzeSupabaseUrl(publicUrl.publicUrl)
+        await testImageUrl(publicUrl.publicUrl, 'Newly uploaded token image')
+      } catch (testError) {
+        console.warn('⚠️ [IMAGE UPLOAD] URL debug test failed:', testError)
+      }
+      
       return publicUrl.publicUrl
 
     } catch (error) {
-      console.error('Image upload failed:', error)
+      console.error('💥 [IMAGE UPLOAD] Complete failure:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      })
       throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -537,6 +576,15 @@ class TokenService {
         creation_settings: creationSettings
       }
 
+      console.log('💾 [DATABASE] Preparing to save token with data:', {
+        mint_address: tokenInsert.mint_address,
+        name: tokenInsert.name,
+        symbol: tokenInsert.symbol,
+        image_url: tokenInsert.image_url,
+        metadata_uri: tokenInsert.metadata_uri,
+        creator_id: tokenInsert.creator_id
+      })
+
       // Save token to database
       const { data: savedToken, error } = await supabase
         .from('tokens')
@@ -544,7 +592,20 @@ class TokenService {
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        console.error('❌ [DATABASE] Failed to save token to database:', {
+          error: error.message,
+          details: error
+        })
+        throw error
+      }
+
+      console.log('✅ [DATABASE] Token saved successfully:', {
+        id: savedToken.id,
+        mint_address: savedToken.mint_address,
+        image_url: savedToken.image_url,
+        metadata_uri: savedToken.metadata_uri
+      })
 
       // Create token lock records if there are locked tokens
       if (creatorTokensLocked > 0 && lockDurationDays > 0) {
