@@ -36,7 +36,8 @@
         <span class="text-binance-gray">{{ t('token.volume24h') }}</span>
         <span class="text-white font-medium">${{ formatNumber(token.volume24h) }}</span>
       </div>
-      <div class="flex justify-end text-xs">
+      <div class="flex justify-between text-xs">
+        <span class="text-binance-gray">{{ t('token.holders') }}</span>
         <span class="text-white font-medium">{{ formatHoldersCount(token.holders) }}</span>
       </div>
     </div>
