@@ -180,8 +180,12 @@ class PriceOracleService {
         .single()
 
       if (!error && token) {
-        // Use real bonding curve price from database
-        const tokenPrice = token.current_price || 0.0000001
+        // Use real bonding curve price from database (stored in SOL)
+        const tokenPriceSOL = token.current_price || 0.0000001
+        
+        // Convert SOL price to USD
+        const solPriceData = await this.getSOLPrice()
+        const tokenPriceUSD = tokenPriceSOL * solPriceData.price
         
         // Get 24h price change from price history if available
         let priceChange24h = 0
@@ -194,19 +198,27 @@ class PriceOracleService {
             .limit(48) // Last 48 hours of data
 
           if (priceHistory && priceHistory.length >= 2) {
-            const latestPrice = priceHistory[0]?.price || tokenPrice
-            const oldPrice = priceHistory[priceHistory.length - 1]?.price || tokenPrice
-            priceChange24h = oldPrice > 0 ? ((latestPrice - oldPrice) / oldPrice) * 100 : 0
+            const latestPriceSOL = priceHistory[0]?.price || tokenPriceSOL
+            const oldPriceSOL = priceHistory[priceHistory.length - 1]?.price || tokenPriceSOL
+            // Calculate 24h change in SOL terms (currency-agnostic)
+            priceChange24h = oldPriceSOL > 0 ? ((latestPriceSOL - oldPriceSOL) / oldPriceSOL) * 100 : 0
           }
         } catch (priceHistoryError) {
           // Ignore price history errors
         }
 
+        console.log('🔄 [PRICE ORACLE] Converting platform token price:', {
+          mintAddress: mintAddress.slice(0, 8) + '...',
+          tokenPriceSOL: tokenPriceSOL.toFixed(10),
+          solPriceUSD: solPriceData.price.toFixed(2),
+          tokenPriceUSD: tokenPriceUSD.toFixed(8)
+        })
+
         return {
-          price: tokenPrice,
+          price: tokenPriceUSD, // Now properly converted to USD
           priceChange24h,
           priceChangePercent24h: priceChange24h,
-          marketCap: token.market_cap || 0,
+          marketCap: token.market_cap || 0, // Already in USD
           volume24h: token.volume_24h || 0,
           lastUpdated: Date.now()
         }

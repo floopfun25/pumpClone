@@ -94,7 +94,7 @@ export class BondingCurveService {
 
     // Price = SOL reserves / Token reserves
     const solReserves = Number(state.virtualSolReserves) / 1e9 // Convert lamports to SOL
-    const tokenReserves = Number(state.virtualTokenReserves) / 1e9 // Convert to token decimals (9 decimals)
+    const tokenReserves = Number(state.virtualTokenReserves) // Already in token units, no conversion needed
 
     return solReserves / tokenReserves
   }
