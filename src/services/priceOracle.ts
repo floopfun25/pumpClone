@@ -458,8 +458,13 @@ export function formatPrice(price: number): string {
     return `$${price.toFixed(2)}`
   } else if (price >= 0.01) {
     return `$${price.toFixed(4)}`
-  } else {
+  } else if (price >= 0.000001) {
     return `$${price.toFixed(8)}`
+  } else if (price > 0) {
+    // For very small prices, show up to 12 decimal places to avoid scientific notation
+    return `$${price.toFixed(12)}`
+  } else {
+    return `$0.00`
   }
 }
 

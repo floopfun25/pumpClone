@@ -247,6 +247,7 @@ import { SupabaseService } from '@/services/supabase'
 import Icon from '@/components/common/Icon.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import WalletConnectButton from '@/components/common/WalletConnectButton.vue'
+
 import { getTokenFallbackImage } from '@/utils/paths'
 
 // Types
@@ -354,6 +355,14 @@ const loadPortfolio = async (): Promise<void> => {
           tokenMetadataService.getTokenMetadata(account.mint)
         ])
 
+        // Debug logging
+        console.log(`Token ${account.mint}:`, {
+          tokenPrice,
+          tokenMetadata,
+          balance: account.balance,
+          decimals: account.decimals
+        })
+
         const metadata = {
           name: tokenMetadata?.name || tokenPrice?.name || 'Unknown Token',
           symbol: tokenMetadata?.symbol || tokenPrice?.symbol || 'UNKNOWN',
@@ -362,8 +371,11 @@ const loadPortfolio = async (): Promise<void> => {
           source: tokenMetadata?.source || 'fallback'
         }
         
-        const balance = account.balance / Math.pow(10, account.decimals)
+        // Note: account.balance is already converted to UI amount in getUserTokenAccounts
+        const balance = account.balance
         const value = balance * (tokenPrice?.price || 0)
+        
+        console.log(`Calculated value for ${metadata.name}: ${balance} * ${tokenPrice?.price} = ${value}`)
         
         return {
           mint: account.mint,
@@ -421,13 +433,13 @@ const loadPortfolio = async (): Promise<void> => {
 }
 
 const formatTokenBalance = (balance: number, decimals: number): string => {
-  const adjustedBalance = balance / Math.pow(10, decimals)
-  if (adjustedBalance >= 1000000) {
-    return (adjustedBalance / 1000000).toFixed(2) + 'M'
-  } else if (adjustedBalance >= 1000) {
-    return (adjustedBalance / 1000).toFixed(2) + 'K'
+  // Balance is already in UI amount, no need to convert again
+  if (balance >= 1000000) {
+    return (balance / 1000000).toFixed(2) + 'M'
+  } else if (balance >= 1000) {
+    return (balance / 1000).toFixed(2) + 'K'
   } else {
-    return adjustedBalance.toFixed(4)
+    return balance.toFixed(4)
   }
 }
 
@@ -436,8 +448,14 @@ const formatNumber = (value: number): string => {
     return (value / 1000000).toFixed(2) + 'M'
   } else if (value >= 1000) {
     return (value / 1000).toFixed(2) + 'K'
-  } else {
+  } else if (value >= 0.01) {
     return value.toFixed(2)
+  } else if (value >= 0.0001) {
+    return value.toFixed(4)
+  } else if (value > 0) {
+    return value.toFixed(8)
+  } else {
+    return '0.00'
   }
 }
 
