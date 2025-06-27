@@ -63,108 +63,7 @@
         <span v-if="!isCollapsed" class="ml-3 font-medium">{{ t('navigation.settings') }}</span>
       </router-link>
 
-      <!-- Separator -->
-      <div class="border-t border-binance-border my-4"></div>
 
-      <!-- Theme Toggle -->
-      <button
-        @click="toggleTheme"
-        class="sidebar-item w-full"
-        :class="isCollapsed ? 'justify-center' : 'justify-start'"
-        :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
-      >
-        <svg v-if="!isDarkMode" class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        <svg v-else class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-        <span v-if="!isCollapsed" class="ml-3 font-medium">
-          {{ isDarkMode ? t('theme.lightMode') : t('theme.darkMode') }}
-        </span>
-      </button>
-
-      <!-- Language Selector -->
-      <div class="relative">
-        <button
-          @click="toggleLanguageMenu"
-          class="sidebar-item w-full"
-          :class="isCollapsed ? 'justify-center' : 'justify-between'"
-        >
-          <div class="flex items-center">
-            <span class="text-lg flex-shrink-0">{{ currentLanguage.flag }}</span>
-            <span v-if="!isCollapsed" class="ml-3 font-medium">{{ t('navigation.language') }}</span>
-          </div>
-          <svg 
-            v-if="!isCollapsed"
-            class="h-4 w-4 transition-transform duration-200"
-            :class="showLanguageMenu ? 'rotate-180' : ''"
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        <!-- Language Dropdown -->
-        <div 
-          v-if="showLanguageMenu && !isCollapsed"
-          class="mt-2 bg-trading-elevated rounded-lg border border-binance-border py-2 max-h-48 overflow-y-auto"
-        >
-          <button
-            v-for="language in supportedLanguages"
-            :key="language.code"
-            @click="changeLanguage(language.code)"
-            class="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-trading-surface transition-colors"
-            :class="{ 'bg-trading-surface text-binance-yellow': currentLanguage.code === language.code }"
-          >
-            <span class="text-base mr-2">{{ language.flag }}</span>
-            <span class="font-medium">{{ language.name }}</span>
-            <svg 
-              v-if="currentLanguage.code === language.code"
-              class="h-3 w-3 text-binance-yellow ml-auto"
-              fill="currentColor" 
-              viewBox="0 0 20 20"
-            >
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Collapsed Language Dropdown -->
-        <div 
-          v-if="showLanguageMenu && isCollapsed"
-          class="absolute left-16 top-0 w-56 bg-trading-surface rounded-lg shadow-xl border border-binance-border py-2 z-50"
-        >
-          <div class="px-3 py-2 text-xs font-semibold text-binance-gray uppercase tracking-wider border-b border-binance-border">
-            {{ t('navigation.selectLanguage') }}
-          </div>
-          <div class="max-h-64 overflow-y-auto">
-            <button
-              v-for="language in supportedLanguages"
-              :key="language.code"
-              @click="changeLanguage(language.code)"
-              class="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-trading-elevated transition-colors"
-              :class="{ 'bg-trading-elevated text-binance-yellow': currentLanguage.code === language.code }"
-            >
-              <span class="text-lg mr-3">{{ language.flag }}</span>
-              <div class="flex-1 text-left">
-                <div class="font-medium">{{ language.name }}</div>
-                <div class="text-xs text-binance-gray">{{ language.code.toUpperCase() }}</div>
-              </div>
-              <svg 
-                v-if="currentLanguage.code === language.code"
-                class="h-4 w-4 text-binance-yellow"
-                fill="currentColor" 
-                viewBox="0 0 20 20"
-              >
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
     </nav>
   </div>
 
@@ -181,79 +80,25 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import { useUIStore } from '@/stores/ui'
 import { useWalletStore } from '@/stores/wallet'
-import { supportedLanguages, saveLanguage, getLanguageInfo, type LanguageCode } from '@/i18n'
 
-const { t, locale } = useTypedI18n()
+const { t } = useTypedI18n()
 const uiStore = useUIStore()
 const walletStore = useWalletStore()
 
 // State
-const showLanguageMenu = ref(false)
 const isMobile = ref(false)
 
 // Computed
-const isDarkMode = computed(() => uiStore.isDarkMode)
 const isCollapsed = computed(() => uiStore.isSidebarCollapsed)
-
-const currentLanguage = computed(() => {
-  try {
-    return getLanguageInfo(locale.value as LanguageCode)
-  } catch (error) {
-    console.warn('Failed to get language info:', error)
-    return { code: 'en' as LanguageCode, name: 'English', flag: '🇺🇸', rtl: false }
-  }
-})
 
 // Methods
 function toggleCollapse() {
   uiStore.toggleSidebar()
-  showLanguageMenu.value = false
 }
 
 function collapseSidebar() {
   if (isMobile.value) {
     uiStore.setSidebarCollapsed(true)
-    showLanguageMenu.value = false
-  }
-}
-
-function toggleTheme() {
-  uiStore.toggleDarkMode()
-}
-
-function toggleLanguageMenu() {
-  showLanguageMenu.value = !showLanguageMenu.value
-}
-
-function changeLanguage(langCode: LanguageCode) {
-  try {
-    locale.value = langCode
-    saveLanguage(langCode)
-    showLanguageMenu.value = false
-    
-    // Apply RTL for Arabic
-    const html = document.documentElement
-    const langInfo = getLanguageInfo(langCode)
-    
-    if (langInfo.rtl) {
-      html.setAttribute('dir', 'rtl')
-      html.classList.add('rtl')
-    } else {
-      html.setAttribute('dir', 'ltr')
-      html.classList.remove('rtl')
-    }
-  } catch (error) {
-    console.error('Failed to change language:', error)
-    showLanguageMenu.value = false
-  }
-}
-
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  const sidebar = target.closest('.fixed.left-0')
-  
-  if (!sidebar && showLanguageMenu.value) {
-    showLanguageMenu.value = false
   }
 }
 
@@ -266,7 +111,6 @@ function handleResize() {
 
 // Lifecycle
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', handleResize)
   handleResize()
   
@@ -274,7 +118,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', handleResize)
 })
 </script>
