@@ -94,7 +94,7 @@ export class BondingCurveService {
 
     // Price = SOL reserves / Token reserves
     const solReserves = Number(state.virtualSolReserves) / 1e9 // Convert lamports to SOL
-    const tokenReserves = Number(state.virtualTokenReserves) / 1e6 // Convert to token decimals
+    const tokenReserves = Number(state.virtualTokenReserves) / 1e9 // Convert to token decimals (9 decimals)
 
     return solReserves / tokenReserves
   }
@@ -123,19 +123,20 @@ export class BondingCurveService {
    * Calculate bonding curve progress (0-100%)
    */
   static calculateProgress(state: BondingCurveState): BondingCurveProgress {
-    const tokensRemaining = state.realTokenReserves
-    const totalTokens = BONDING_CURVE_TOKENS
-    const tokensSold = totalTokens - tokensRemaining
+    const tokensRemaining = Number(state.realTokenReserves)
+    // Calculate total tokens available for bonding curve (80% of total supply)
+    const totalBondingCurveTokens = Number(state.tokenTotalSupply) * 0.8
+    const tokensSold = totalBondingCurveTokens - tokensRemaining
 
-    const progress = Math.min(100, (Number(tokensSold) / Number(totalTokens)) * 100)
+    const progress = Math.min(100, (tokensSold / totalBondingCurveTokens) * 100)
     
     // Calculate SOL required for graduation
-    const solRequired = this.calculateSolForTokens(state, tokensRemaining)
+    const solRequired = this.calculateSolForTokens(state, state.realTokenReserves)
     
     return {
       progress,
       solRequired,
-      tokensRemaining,
+      tokensRemaining: state.realTokenReserves,
       graduated: state.complete || progress >= 100
     }
   }
@@ -191,7 +192,7 @@ export class BondingCurveService {
       priceImpact,
       newPrice,
       fees,
-      tokensReceived: Number(tokensOut) / 1e6,
+      tokensReceived: Number(tokensOut) / 1e9,
       solSpent: Number(solIn) / 1e9,
       platformFee: Number(fees) / 1e9
     }
@@ -286,7 +287,7 @@ export class BondingCurveService {
       priceImpact,
       newPrice,
       fees,
-      tokensReceived: -Number(tokensIn) / 1e6,
+      tokensReceived: -Number(tokensIn) / 1e9,
       solSpent: -Number(solAfterFees) / 1e9,
       platformFee: Number(fees) / 1e9
     }
@@ -469,13 +470,33 @@ export class BondingCurveService {
   /**
    * Create initial bonding curve state for new token
    */
-  static createInitialState(tokenMint: PublicKey): BondingCurveState {
+  static createInitialState(tokenMint: PublicKey, actualTotalSupply?: number): BondingCurveState {
+    // Use actual supply if provided, otherwise fall back to default
+    const totalSupply = actualTotalSupply || tokenDefaults.totalSupply
+    
+    // Calculate scaling factor based on actual vs default supply
+    const scalingFactor = totalSupply / tokenDefaults.totalSupply
+    
+    // Scale virtual and real reserves proportionally
+    const scaledVirtualTokenReserves = BigInt(Math.floor(Number(INITIAL_VIRTUAL_TOKEN_RESERVES) * scalingFactor))
+    const scaledRealTokenReserves = BigInt(Math.floor(Number(BONDING_CURVE_TOKENS) * scalingFactor))
+    
+    console.log('🔧 [BONDING CURVE] Creating initial state with scaling:', {
+      actualTotalSupply: totalSupply,
+      defaultTotalSupply: tokenDefaults.totalSupply,
+      scalingFactor,
+      originalVirtualReserves: Number(INITIAL_VIRTUAL_TOKEN_RESERVES),
+      scaledVirtualReserves: Number(scaledVirtualTokenReserves),
+      originalRealReserves: Number(BONDING_CURVE_TOKENS),
+      scaledRealReserves: Number(scaledRealTokenReserves)
+    })
+    
     return {
-      virtualTokenReserves: INITIAL_VIRTUAL_TOKEN_RESERVES,
+      virtualTokenReserves: scaledVirtualTokenReserves,
       virtualSolReserves: INITIAL_VIRTUAL_SOL_RESERVES,
-      realTokenReserves: BONDING_CURVE_TOKENS,
+      realTokenReserves: scaledRealTokenReserves,
       realSolReserves: INITIAL_REAL_SOL_RESERVES,
-      tokenTotalSupply: BigInt(tokenDefaults.totalSupply),
+      tokenTotalSupply: BigInt(totalSupply),
       complete: false
     }
   }
@@ -546,7 +567,7 @@ export class BondingCurveService {
 }
 
 // Utility functions
-export function formatTokenAmount(amount: bigint, decimals: number = 6): string {
+export function formatTokenAmount(amount: bigint, decimals: number = 9): string {
   return (Number(amount) / Math.pow(10, decimals)).toFixed(6)
 }
 

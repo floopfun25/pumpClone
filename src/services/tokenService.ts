@@ -265,7 +265,7 @@ class TokenService {
           console.log('✅ Token minted')
 
           // Step 4: Initialize bonding curve state (no transaction needed)
-          const bondingCurveState = BondingCurveService.createInitialState(mintAddress)
+          const bondingCurveState = BondingCurveService.createInitialState(mintAddress, tokenData.totalSupply || tokenDefaults.totalSupply)
 
           // Step 5: Save to database
           console.log('💾 Saving to database...')
@@ -565,7 +565,7 @@ class TokenService {
       const bondingCurveTokens = totalSupply - creatorTokensUnlocked // Exclude unlocked creator tokens from bonding curve
 
       // Create initial bonding curve state
-      const initialState = BondingCurveService.createInitialState(new PublicKey(data.mintAddress))
+      const initialState = BondingCurveService.createInitialState(new PublicKey(data.mintAddress), totalSupply)
 
       // Prepare creation settings
       const creationSettings = {
