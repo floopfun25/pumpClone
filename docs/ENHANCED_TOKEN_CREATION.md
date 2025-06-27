@@ -7,15 +7,16 @@ The FloppFun platform now supports advanced token creation features that give cr
 ## New Features
 
 ### 1. **Configurable Total Supply**
-- **Range**: 1M to 100B tokens
+- **Range**: 100K to 1B tokens
 - **Default**: 1B tokens (existing behavior)
 - **Purpose**: Allows creators to set custom token supply based on their project needs
 
 ### 2. **Creator Share Allocation**
-- **Range**: 0% to 20% of total supply
+- **Range**: 0% to 80% of total supply
 - **Default**: 0% (fully fair launch)
+- **Recommended**: 20% (for maintaining community trust)
 - **Purpose**: Allocate tokens to creator for development, marketing, or team rewards
-- **Fair Launch Principle**: Limited to 20% to maintain community-driven nature
+- **Note**: Higher percentages may reduce community trust
 
 ### 3. **Token Locking Mechanism**
 - **Lock Percentage**: 0% to 100% of creator tokens
@@ -253,16 +254,19 @@ supabase sql --file supabase/sql/04-enhance-token-creation.sql
 
 ### Common Validation Errors
 
-1. **"Total supply must be between 1M and 100B tokens"**
+1. **"Total supply must be between 100K and 1B tokens"**
    - Adjust total supply to be within valid range
 
-2. **"Creator share cannot exceed 20% for fair launch"**
-   - Reduce creator share percentage to 20% or less
+2. **"Creator share cannot exceed 80%"**
+   - Reduce creator share percentage to 80% or less
 
-3. **"Market supply should be at least 80% of total supply"**
-   - Reduce creator share to maintain fair launch principles
+3. **"Warning: Creator shares above 20% may reduce community trust"**
+   - Consider reducing creator share to 20% or less for better community reception
 
-4. **"Lock percentage must be between 0% and 100%"**
+4. **"Market supply should be at least 50% of total supply for high creator allocations"**
+   - Ensure adequate market supply when using high creator percentages
+
+5. **"Lock percentage must be between 0% and 100%"**
    - Set valid lock percentage value
 
 ### Database Issues

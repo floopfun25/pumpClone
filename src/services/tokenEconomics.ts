@@ -225,20 +225,25 @@ class TokenEconomicsService {
     const errors: string[] = []
     const { totalSupply, creatorSharePercentage, lockPercentage, lockDurationDays } = params
 
-    // Total supply validation
-    if (totalSupply < 1000000) {
-      errors.push('Total supply must be at least 1 million tokens')
+    // Total supply validation - updated range
+    if (totalSupply < 100000) {
+      errors.push('Total supply must be at least 100,000 tokens')
     }
-    if (totalSupply > 100000000000) {
-      errors.push('Total supply cannot exceed 100 billion tokens')
+    if (totalSupply > 1000000000) {
+      errors.push('Total supply cannot exceed 1 billion tokens')
     }
 
-    // Creator share validation
+    // Creator share validation - updated range
     if (creatorSharePercentage < 0) {
       errors.push('Creator share cannot be negative')
     }
+    if (creatorSharePercentage > 80) {
+      errors.push('Creator share cannot exceed 80%')
+    }
+    
+    // Add recommendation warning for high creator shares
     if (creatorSharePercentage > 20) {
-      errors.push('Creator share cannot exceed 20% for fair launch')
+      errors.push('Warning: Creator shares above 20% may reduce community trust')
     }
 
     // Lock percentage validation
@@ -254,15 +259,16 @@ class TokenEconomicsService {
       errors.push('Lock duration cannot exceed 2 years')
     }
 
-    // Economic sanity checks
+    // Economic sanity checks - updated for new limits
     const economics = this.calculateTokenEconomics({
       totalSupply,
       creatorSharePercentage,
       lockPercentage
     })
 
-    if (economics.marketSupply < totalSupply * 0.8) {
-      errors.push('Market supply should be at least 80% of total supply for fair launch')
+    // Only enforce minimum market supply for creator shares above 50%
+    if (creatorSharePercentage > 50 && economics.marketSupply < totalSupply * 0.5) {
+      errors.push('Market supply should be at least 50% of total supply for high creator allocations')
     }
 
     return errors

@@ -101,10 +101,21 @@
     "advancedSettings": "Gelişmiş Ayarlar",
     "totalSupply": "Toplam Arz",
     "totalSupplyPlaceholder": "1000000000",
-    "totalSupplyHint": "Oluşturulacak toplam token sayısı (1M - 100B)",
+    "totalSupplyHint": "Oluşturulacak toplam token sayısı (100K - 1B)",
     "creatorShare": "Yaratıcı Payı",
     "creatorSharePlaceholder": "5",
-    "creatorShareHint": "Yaratıcıya tahsis edilecek token yüzdesi (0-20%)",
+    "creatorShareHint": "Yaratıcıya tahsis edilecek token yüzdesi (%20 güven için tavsiye edilir)",
+    "creatorShareOptions": {
+      "0": "0% - Adil Lansman (Yaratıcı Payı Yok)",
+      "10": "10% - Yaratıcı Payı",
+      "20": "20% - Önerilen Yaratıcı Payı",
+      "30": "30% - Yaratıcı Payı",
+      "40": "40% - Yaratıcı Payı",
+      "50": "50% - Yaratıcı Payı",
+      "60": "60% - Yaratıcı Payı",
+      "70": "70% - Yaratıcı Payı",
+      "80": "80% - Maksimum Yaratıcı Payı"
+    },
     "lockingSettings": "Token Kilitleme Ayarları",
     "lockPercentage": "Kilitleme Yüzdesi",
     "lockPercentagePlaceholder": "50",
@@ -131,8 +142,8 @@
     "prebuyHint": "Oluşturulduktan hemen sonra token satın al (isteğe bağlı)",
     "estimatedTokens": "Tahmini Tokenlar",
     "errors": {
-      "invalidTotalSupply": "Toplam arz 1M ile 100B token arasında olmalıdır",
-      "invalidCreatorShare": "Yaratıcı payı %0 ile %20 arasında olmalıdır",
+      "invalidTotalSupply": "Toplam arz 100K ile 1B token arasında olmalıdır",
+      "invalidCreatorShare": "Yaratıcı payı %0 ile %80 arasında olmalıdır",
       "invalidLockPercentage": "Kilitleme yüzdesi %0 ile %100 arasında olmalıdır",
       "invalidPrebuyAmount": "Ön alım miktarı 0 ile 10 SOL arasında olmalıdır"
     }

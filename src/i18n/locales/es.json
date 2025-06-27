@@ -101,10 +101,21 @@
     "advancedSettings": "Configuraciones Avanzadas",
     "totalSupply": "Suministro Total",
     "totalSupplyPlaceholder": "1000000000",
-    "totalSupplyHint": "Número total de tokens a crear (1M - 100B)",
+    "totalSupplyHint": "Número total de tokens a crear (100K - 1B)",
     "creatorShare": "Participación del Creador",
     "creatorSharePlaceholder": "5",
-    "creatorShareHint": "Porcentaje de tokens asignados al creador (0-20%)",
+    "creatorShareHint": "Porcentaje de tokens asignados al creador (20% recomendado para confianza)",
+    "creatorShareOptions": {
+      "0": "0% - Lanzamiento Justo (Sin Participación del Creador)",
+      "10": "10% - Participación del Creador",
+      "20": "20% - Participación del Creador Recomendada",
+      "30": "30% - Participación del Creador",
+      "40": "40% - Participación del Creador",
+      "50": "50% - Participación del Creador",
+      "60": "60% - Participación del Creador",
+      "70": "70% - Participación del Creador",
+      "80": "80% - Participación Máxima del Creador"
+    },
     "lockingSettings": "Configuraciones de Bloqueo de Tokens",
     "lockPercentage": "Porcentaje de Bloqueo",
     "lockPercentagePlaceholder": "50",
@@ -131,8 +142,8 @@
     "prebuyHint": "Comprar tokens inmediatamente después de la creación (opcional)",
     "estimatedTokens": "Tokens Estimados",
     "errors": {
-      "invalidTotalSupply": "El suministro total debe estar entre 1M y 100B tokens",
-      "invalidCreatorShare": "La participación del creador debe estar entre 0% y 20%",
+      "invalidTotalSupply": "El suministro total debe estar entre 100K y 1B tokens",
+      "invalidCreatorShare": "La participación del creador debe estar entre 0% y 80%",
       "invalidLockPercentage": "El porcentaje de bloqueo debe estar entre 0% y 100%",
       "invalidPrebuyAmount": "La cantidad de precompra debe estar entre 0 y 10 SOL"
     }

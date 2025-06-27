@@ -101,10 +101,21 @@
     "advancedSettings": "Paramètres Avancés",
     "totalSupply": "Offre Totale",
     "totalSupplyPlaceholder": "1000000000",
-    "totalSupplyHint": "Nombre total de tokens à créer (1M - 100B)",
+    "totalSupplyHint": "Nombre total de tokens à créer (100K - 1B)",
     "creatorShare": "Part du Créateur",
     "creatorSharePlaceholder": "5",
-    "creatorShareHint": "Pourcentage de tokens alloués au créateur (0-20%)",
+    "creatorShareHint": "Pourcentage de tokens alloués au créateur (20% recommandé pour la confiance)",
+    "creatorShareOptions": {
+      "0": "0% - Lancement Équitable (Aucune Part de Créateur)",
+      "10": "10% - Part du Créateur",
+      "20": "20% - Part de Créateur Recommandée",
+      "30": "30% - Part du Créateur",
+      "40": "40% - Part du Créateur",
+      "50": "50% - Part du Créateur",
+      "60": "60% - Part du Créateur",
+      "70": "70% - Part du Créateur",
+      "80": "80% - Part de Créateur Maximale"
+    },
     "lockingSettings": "Paramètres de Verrouillage des Tokens",
     "lockPercentage": "Pourcentage de Verrouillage",
     "lockPercentagePlaceholder": "50",
@@ -131,8 +142,8 @@
     "prebuyHint": "Acheter des tokens immédiatement après la création (optionnel)",
     "estimatedTokens": "Tokens Estimés",
     "errors": {
-      "invalidTotalSupply": "L'offre totale doit être entre 1M et 100B tokens",
-      "invalidCreatorShare": "La part du créateur doit être entre 0% et 20%",
+      "invalidTotalSupply": "L'offre totale doit être entre 100K et 1B tokens",
+      "invalidCreatorShare": "La part du créateur doit être entre 0% et 80%",
       "invalidLockPercentage": "Le pourcentage de verrouillage doit être entre 0% et 100%",
       "invalidPrebuyAmount": "Le montant de préachat doit être entre 0 et 10 SOL"
     }

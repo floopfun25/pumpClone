@@ -102,10 +102,21 @@
     "advancedSettings": "Advanced Settings",
     "totalSupply": "Total Supply",
     "totalSupplyPlaceholder": "1000000000",
-    "totalSupplyHint": "Total number of tokens to create (1M - 100B)",
+    "totalSupplyHint": "Total number of tokens to create (100K - 1B)",
     "creatorShare": "Creator Share",
     "creatorSharePlaceholder": "5",
-    "creatorShareHint": "Percentage of tokens allocated to creator (0-20%)",
+    "creatorShareHint": "Percentage of tokens allocated to creator (20% recommended for trust)",
+    "creatorShareOptions": {
+      "0": "0% - Fair Launch (No Creator Share)",
+      "10": "10% - Creator Share",
+      "20": "20% - Recommended Creator Share",
+      "30": "30% - Creator Share",
+      "40": "40% - Creator Share",
+      "50": "50% - Creator Share",
+      "60": "60% - Creator Share",
+      "70": "70% - Creator Share",
+      "80": "80% - Maximum Creator Share"
+    },
     "lockingSettings": "Token Locking Settings",
     "lockPercentage": "Lock Percentage",
     "lockPercentagePlaceholder": "50",
@@ -132,8 +143,8 @@
     "prebuyHint": "Buy tokens immediately after creation (optional)",
     "estimatedTokens": "Estimated Tokens",
     "errors": {
-      "invalidTotalSupply": "Total supply must be between 1M and 100B tokens",
-      "invalidCreatorShare": "Creator share must be between 0% and 20%",
+      "invalidTotalSupply": "Total supply must be between 100K and 1B tokens",
+      "invalidCreatorShare": "Creator share must be between 0% and 80%",
       "invalidLockPercentage": "Lock percentage must be between 0% and 100%",
       "invalidPrebuyAmount": "Prebuy amount must be between 0 and 10 SOL"
     }

@@ -147,9 +147,9 @@
                   type="number"
                   :placeholder="t('token.totalSupplyPlaceholder')"
                   class="input-field"
-                  min="1000000"
-                  max="100000000000"
-                  step="1000000"
+                  min="100000"
+                  max="1000000000"
+                  step="100000"
                 />
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {{ t('token.totalSupplyHint') }}
@@ -160,15 +160,17 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {{ t('token.creatorShare') }} (%)
                 </label>
-                <input
-                  v-model.number="tokenForm.creatorSharePercentage"
-                  type="number"
-                  :placeholder="t('token.creatorSharePlaceholder')"
-                  class="input-field"
-                  min="0"
-                  max="20"
-                  step="0.1"
-                />
+                <select v-model.number="tokenForm.creatorSharePercentage" class="input-field">
+                  <option value="0">{{ t('token.creatorShareOptions.0') }}</option>
+                  <option value="10">{{ t('token.creatorShareOptions.10') }}</option>
+                  <option value="20">{{ t('token.creatorShareOptions.20') }}</option>
+                  <option value="30">{{ t('token.creatorShareOptions.30') }}</option>
+                  <option value="40">{{ t('token.creatorShareOptions.40') }}</option>
+                  <option value="50">{{ t('token.creatorShareOptions.50') }}</option>
+                  <option value="60">{{ t('token.creatorShareOptions.60') }}</option>
+                  <option value="70">{{ t('token.creatorShareOptions.70') }}</option>
+                  <option value="80">{{ t('token.creatorShareOptions.80') }}</option>
+                </select>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {{ t('token.creatorShareHint') }}
                 </p>
@@ -528,11 +530,11 @@ const createToken = async () => {
 const validateAdvancedFields = (): string[] => {
   const errors: string[] = []
   
-  if (tokenForm.value.totalSupply && (tokenForm.value.totalSupply < 1000000 || tokenForm.value.totalSupply > 100000000000)) {
+  if (tokenForm.value.totalSupply && (tokenForm.value.totalSupply < 100000 || tokenForm.value.totalSupply > 1000000000)) {
     errors.push(t('token.errors.invalidTotalSupply'))
   }
   
-  if (tokenForm.value.creatorSharePercentage && (tokenForm.value.creatorSharePercentage < 0 || tokenForm.value.creatorSharePercentage > 20)) {
+  if (tokenForm.value.creatorSharePercentage && (tokenForm.value.creatorSharePercentage < 0 || tokenForm.value.creatorSharePercentage > 80)) {
     errors.push(t('token.errors.invalidCreatorShare'))
   }
   
