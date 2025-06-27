@@ -1,85 +1,34 @@
 <template>
   <div class="tradingview-chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden">
-    <!-- Chart Header with Tools -->
+    <!-- Chart Header -->
     <div class="flex items-center justify-between p-4 border-b border-[#2b3139] bg-[#1e2329]">
-      <!-- Token Info & Chart Type -->
-      <div class="flex items-center gap-4">
-        <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
-        <div class="flex items-center gap-2">
-          <button 
-            v-for="type in chartTypes" 
-            :key="type.value"
-            @click="setChartType(type.value)"
-            :class="[
-              'px-2 py-1 text-xs font-medium rounded transition-colors',
-              chartType === type.value 
-                ? 'bg-[#f0b90b] text-black' 
-                : 'bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white'
-            ]"
-          >
-            {{ type.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Drawing Tools -->
-      <div class="flex items-center gap-2">
-        <button 
-          v-for="tool in drawingTools" 
-          :key="tool.id"
-          @click="selectDrawingTool(tool.id)"
-          :class="[
-            'px-2 py-1 text-xs font-medium rounded transition-colors',
-            selectedTool === tool.id 
-              ? 'bg-[#2ebd85] text-white' 
-              : 'bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white'
-          ]"
-          :title="tool.name"
-        >
-          {{ tool.icon }}
-        </button>
-        <div class="w-px h-4 bg-[#2b3139]"></div>
-        <button 
-          @click="clearDrawings"
-          class="px-2 py-1 text-xs font-medium rounded bg-[#f6465d] text-white hover:bg-[#e63946] transition-colors"
-          title="Clear All Drawings"
-        >
-          🗑️
-        </button>
-        <button 
-          @click="toggleFullscreen"
-          class="px-2 py-1 text-xs font-medium rounded bg-[#2b3139] text-[#848e9c] hover:bg-[#3c4043] hover:text-white transition-colors"
-          title="Fullscreen"
-        >
-          ⛶
-        </button>
+      <!-- Token Info -->
+      <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
+      
+      <!-- OHLC Data -->
+      <div v-if="priceData.length > 0" class="flex items-center gap-3 text-xs">
+        <span class="text-[#848e9c]">
+          O: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.open || 0) }}</span>
+        </span>
+        <span class="text-[#848e9c]">
+          H: <span class="text-[#2ebd85]">${{ formatPrice(getHighPrice()) }}</span>
+        </span>
+        <span class="text-[#848e9c]">
+          L: <span class="text-[#f6465d]">${{ formatPrice(getLowPrice()) }}</span>
+        </span>
+        <span class="text-[#848e9c]">
+          C: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.close || 0) }}</span>
+        </span>
       </div>
     </div>
 
     <!-- Price Info Bar -->
     <div class="flex items-center justify-between p-3 bg-[#1e2329] border-b border-[#2b3139]">
-      <div class="flex items-center gap-6">
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-[#848e9c]">{{ tokenSymbol }}/SOL</span>
-          <span :class="['text-lg font-bold', priceChangeColor]">
-            ${{ currentPrice.toFixed(8) }}
-          </span>
-        </div>
-        
-        <div v-if="priceData.length > 0" class="flex items-center gap-4 text-sm">
-          <span class="text-[#848e9c]">
-            O: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.open || 0) }}</span>
-          </span>
-          <span class="text-[#848e9c]">
-            H: <span class="text-[#2ebd85]">${{ formatPrice(getHighPrice()) }}</span>
-          </span>
-          <span class="text-[#848e9c]">
-            L: <span class="text-[#f6465d]">${{ formatPrice(getLowPrice()) }}</span>
-          </span>
-          <span class="text-[#848e9c]">
-            C: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.close || 0) }}</span>
-          </span>
-        </div>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-[#848e9c]">{{ tokenSymbol }}/SOL</span>
+        <span :class="['text-lg font-bold', priceChangeColor]">
+          ${{ currentPrice.toFixed(8) }}
+        </span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -128,80 +77,14 @@
       <div 
         v-else
         :class="[
-          'flex',
           isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
         ]"
       >
-        <!-- Left Toolbar -->
-        <div class="w-12 bg-[#1e2329] border-r border-[#2b3139] flex flex-col">
-          <!-- Drawing Tools -->
-          <div class="flex flex-col gap-1 p-2">
-            <button 
-              v-for="tool in drawingTools" 
-              :key="tool.id"
-              @click="selectDrawingTool(tool.id)"
-              :class="[
-                'w-8 h-8 flex items-center justify-center rounded text-xs transition-colors',
-                selectedTool === tool.id 
-                  ? 'bg-[#f0b90b] text-black' 
-                  : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
-              ]"
-              :title="tool.name"
-            >
-              {{ tool.icon }}
-            </button>
-          </div>
-          
-          <!-- Chart Type Selector -->
-          <div class="border-t border-[#2b3139] mt-2 pt-2">
-            <div class="flex flex-col gap-1 p-2">
-              <button 
-                v-for="type in chartTypes" 
-                :key="type.value"
-                @click="setChartType(type.value)"
-                :class="[
-                  'w-8 h-8 flex items-center justify-center rounded text-xs transition-colors',
-                  chartType === type.value 
-                    ? 'bg-[#2ebd85] text-white' 
-                    : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
-                ]"
-                :title="type.label"
-              >
-                {{ type.value === 'candlestick' ? '📊' : type.value === 'line' ? '📈' : '📉' }}
-              </button>
-            </div>
-          </div>
-          
-          <!-- Clear Drawings -->
-          <div class="border-t border-[#2b3139] mt-auto">
-            <div class="p-2">
-              <button 
-                @click="clearDrawings"
-                class="w-8 h-8 flex items-center justify-center rounded text-xs text-[#f6465d] hover:text-white hover:bg-[#f6465d] transition-colors"
-                title="Clear All Drawings"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
-        </div>
-        
         <!-- Chart Area -->
         <div 
           ref="chartContainer" 
-          class="chart-area relative flex-1"
-          @mousedown="onMouseDown"
-          @mousemove="onMouseMove"
-          @mouseup="onMouseUp"
-          @click="onChartClick"
+          class="chart-area relative w-full h-full"
         >
-          <!-- Drawing Canvas Overlay -->
-          <canvas 
-            ref="drawingCanvas"
-            class="absolute inset-0 w-full h-full pointer-events-none z-10"
-            :width="canvasWidth"
-            :height="canvasHeight"
-          ></canvas>
         </div>
       </div>
       
@@ -335,9 +218,7 @@ const timeframes = [
 ]
 
 const chartTypes = [
-  { label: 'Candles', value: 'candlestick' },
-  { label: 'Line', value: 'line' },
-  { label: 'Area', value: 'area' }
+  { label: 'Candles', value: 'candlestick' }
 ]
 
 const drawingTools: DrawingTool[] = [
@@ -533,7 +414,7 @@ const addSeries = () => {
       lightweightChart.removeSeries(volumeSeries)
     } catch (error) {
       console.warn('Error removing volume series:', error)
-    }
+    }f
     volumeSeries = null
   }
 

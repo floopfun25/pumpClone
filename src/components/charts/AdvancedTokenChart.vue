@@ -248,9 +248,7 @@ const timeframes = [
 ]
 
 const chartTypes = [
-  { label: '📊 Candlestick', value: 'candlestick' },
-  { label: '📈 Line', value: 'line' },
-  { label: '📉 Area', value: 'area' }
+  { label: '📊 Candlestick', value: 'candlestick' }
 ]
 
 // Computed properties
