@@ -288,6 +288,11 @@ const performSearch = async () => {
   hasSearched.value = true
   
   try {
+    // Get current SOL price for conversion
+    const { priceOracleService } = await import('@/services/priceOracle')
+    const solPriceData = await priceOracleService.getSOLPrice()
+    const solPriceUSD = solPriceData.price
+    
     const result = await SupabaseService.searchTokens({
       query: currentQuery.value.trim(),
       filters: currentFilters.value,
@@ -295,10 +300,16 @@ const performSearch = async () => {
       limit: 20
     })
     
+    // Convert SOL prices to USD for display
+    const tokensWithUSDPrices = result.tokens.map((token: any) => ({
+      ...token,
+      current_price: (Number(token.current_price) || 0) * solPriceUSD // Convert SOL to USD
+    }))
+    
     if (page.value === 1) {
-      tokens.value = result.tokens
+      tokens.value = tokensWithUSDPrices
     } else {
-      tokens.value.push(...result.tokens)
+      tokens.value.push(...tokensWithUSDPrices)
     }
     
     totalResults.value = result.total

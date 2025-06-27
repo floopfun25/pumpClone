@@ -8,16 +8,16 @@
       <!-- OHLC Data -->
       <div v-if="priceData.length > 0" class="flex items-center gap-3" style="font-size: 10px;">
         <span class="text-[#848e9c]" title="Open">
-          O: <span class="text-[#d1d4dc]">${{ (priceData[priceData.length - 1]?.open || 0).toFixed(12) }}</span>
+          O: <span class="text-[#d1d4dc]">${{ convertToUSD(priceData[priceData.length - 1]?.open || 0).toFixed(8) }}</span>
         </span>
         <span class="text-[#848e9c]" title="High">
-          H: <span class="text-[#2ebd85]">${{ getHighPrice().toFixed(12) }}</span>
+          H: <span class="text-[#2ebd85]">${{ convertToUSD(getHighPrice()).toFixed(8) }}</span>
         </span>
         <span class="text-[#848e9c]" title="Low">
-          L: <span class="text-[#f6465d]">${{ getLowPrice().toFixed(12) }}</span>
+          L: <span class="text-[#f6465d]">${{ convertToUSD(getLowPrice()).toFixed(8) }}</span>
         </span>
         <span class="text-[#848e9c]" title="Close">
-          C: <span class="text-[#d1d4dc]">${{ (priceData[priceData.length - 1]?.close || 0).toFixed(12) }}</span>
+          C: <span class="text-[#d1d4dc]">${{ convertToUSD(priceData[priceData.length - 1]?.close || 0).toFixed(8) }}</span>
         </span>
       </div>
     </div>
@@ -27,7 +27,7 @@
       <div class="flex items-center gap-2">
         <span class="text-sm text-[#848e9c]">{{ tokenSymbol }}/SOL</span>
         <span :class="['text-lg font-bold', priceChangeColor]">
-          ${{ currentPrice.toFixed(8) }}
+          ${{ convertToUSD(currentPrice).toFixed(8) }}
         </span>
       </div>
 
@@ -189,6 +189,7 @@ const currentPrice = ref(0)
 const totalVolume = ref(0)
 const marketCap = ref(0)
 const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
+const solPriceUSD = ref(0) // Store current SOL price for conversion
 
 // Drawing tools state
 const selectedTool = ref('cursor')
@@ -238,11 +239,32 @@ const priceChangeColor = computed(() => {
 // Real-time price subscription
 let priceSubscription: (() => void) | null = null
 
+// Get current SOL price for USD conversion
+const getSolPriceUSD = async () => {
+  try {
+    const { priceOracleService } = await import('../../services/priceOracle')
+    const solPriceData = await priceOracleService.getSOLPrice()
+    solPriceUSD.value = solPriceData.price
+    console.log('💰 [CHART] Using SOL price for conversion:', `$${solPriceUSD.value.toFixed(2)}`)
+  } catch (error) {
+    console.error('Failed to get SOL price:', error)
+    solPriceUSD.value = 140 // Fallback SOL price
+  }
+}
+
+// Convert SOL price to USD
+const convertToUSD = (solPrice: number): number => {
+  return solPrice * solPriceUSD.value
+}
+
 // Initialize chart
 const initChart = async () => {
   try {
     loading.value = true
     error.value = ''
+    
+    // Get SOL price first
+    await getSolPriceUSD()
     
     await initLightweightChart()
     
@@ -263,10 +285,15 @@ const setupRealTimePriceUpdates = async () => {
   if (!props.tokenId) return
   
   try {
+    // Ensure we have SOL price for conversion
+    if (solPriceUSD.value === 0) {
+      await getSolPriceUSD()
+    }
+    
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     
     priceSubscription = RealTimePriceService.subscribe(props.tokenId, async (realPriceData) => {
-      // Update current price display
+      // Update current price display (price comes in SOL, will be converted to USD in template)
       currentPrice.value = realPriceData.price
       marketCap.value = realPriceData.marketCap
       
@@ -493,6 +520,11 @@ const loadRealChartData = async () => {
   }
 
   try {
+    // Get SOL price if not already loaded
+    if (solPriceUSD.value === 0) {
+      await getSolPriceUSD()
+    }
+    
     // Get bonding curve state first to ensure we have a valid price
     const { BondingCurveService } = await import('../../services/bondingCurve')
     const bondingCurveState = await BondingCurveService.getTokenBondingCurveState(props.tokenId)

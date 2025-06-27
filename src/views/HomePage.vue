@@ -186,6 +186,13 @@ const loadTokens = async () => {
     loading.value = true
     tokens.value = [] // Always clear previous tokens for page-based navigation
     
+    // Get current SOL price for conversion
+    const { priceOracleService } = await import('@/services/priceOracle')
+    const solPriceData = await priceOracleService.getSOLPrice()
+    const solPriceUSD = solPriceData.price
+    
+    console.log('💰 [HOMEPAGE] Using SOL price for conversion:', `$${solPriceUSD.toFixed(2)}`)
+    
     let data
     const ITEMS_PER_PAGE = 100
     
@@ -196,13 +203,13 @@ const loadTokens = async () => {
         // First time loading trending data
         const allData = await SupabaseService.getTrendingTokens('volume', 1000) // Get more for pagination
         
-        // Transform and store all data
+        // Transform and store all data with proper price conversion
         allTrendingData.value = allData.map((token: any) => ({
           id: token.id || '',
           name: token.name || '',
           symbol: token.symbol || '',
           imageUrl: token.image_url || null,
-          price: Number(token.current_price) || 0,
+          price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
           priceChange24h: Number(token.price_change_24h) || 0,
           marketCap: Number(token.market_cap) || 0,
           volume24h: Number(token.volume_24h) || 0,
@@ -225,13 +232,13 @@ const loadTokens = async () => {
         // First time loading featured data
         const allData = await SupabaseService.getTrendingTokens('featured', 1000) // Get more for pagination
         
-        // Transform and store all data
+        // Transform and store all data with proper price conversion
         allTrendingData.value = allData.map((token: any) => ({
           id: token.id || '',
           name: token.name || '',
           symbol: token.symbol || '',
           imageUrl: token.image_url || null,
-          price: Number(token.current_price) || 0,
+          price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
           priceChange24h: Number(token.price_change_24h) || 0,
           marketCap: Number(token.market_cap) || 0,
           volume24h: Number(token.volume_24h) || 0,
@@ -271,19 +278,32 @@ const loadTokens = async () => {
       
       const result = await SupabaseService.getTokens(queryOptions)
       
-      // Transform and validate data
-      tokens.value = result.data.map((token: any) => ({
-        id: token.id || '',
-        name: token.name || '',
-        symbol: token.symbol || '',
-        imageUrl: token.image_url || null,
-        price: Number(token.current_price) || 0,
-        priceChange24h: Number(token.price_change_24h) || 0,
-        marketCap: Number(token.market_cap) || 0,
-        volume24h: Number(token.volume_24h) || 0,
-        holders: Number(token.holders_count) || 0,
-        mint_address: token.mint_address || undefined
-      }))
+      // Transform and validate data with proper price conversion
+      tokens.value = result.data.map((token: any) => {
+        const priceSOL = Number(token.current_price) || 0
+        const priceUSD = priceSOL * solPriceUSD
+        
+        console.log('🔄 [HOMEPAGE] Converting token price:', {
+          name: token.name,
+          symbol: token.symbol,
+          priceSOL: priceSOL.toFixed(10),
+          solPriceUSD: solPriceUSD.toFixed(2),
+          priceUSD: priceUSD.toFixed(8)
+        })
+        
+        return {
+          id: token.id || '',
+          name: token.name || '',
+          symbol: token.symbol || '',
+          imageUrl: token.image_url || null,
+          price: priceUSD, // Convert SOL to USD
+          priceChange24h: Number(token.price_change_24h) || 0,
+          marketCap: Number(token.market_cap) || 0,
+          volume24h: Number(token.volume_24h) || 0,
+          holders: Number(token.holders_count) || 0,
+          mint_address: token.mint_address || undefined
+        }
+      })
       
       // Use proper pagination metadata from Supabase
       totalPages.value = result.totalPages

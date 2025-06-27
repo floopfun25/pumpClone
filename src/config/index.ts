@@ -64,7 +64,7 @@ export const config = {
   
   // Bonding curve configuration (based on pump.fun)
   bondingCurve: {
-    initialVirtualTokenReserves: 1_073_000_000_000_000, // ~1.073M tokens with decimals
+    initialVirtualTokenReserves: 1_073_000_000, // ~1.073B tokens (correct value)
     initialVirtualSolReserves: 30_000_000_000, // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
     // Graduation parameters (matching pump.fun exactly)

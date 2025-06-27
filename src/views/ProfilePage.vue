@@ -559,6 +559,11 @@ const loadUserProfile = async () => {
     // Debug: investigate token relationships (remove this later)
     // await SupabaseService.debugUserTokens(walletAddress)
     
+    // Get current SOL price for conversion
+    const { priceOracleService } = await import('@/services/priceOracle')
+    const solPriceData = await priceOracleService.getSOLPrice()
+    const solPriceUSD = solPriceData.price
+    
     // Load user's data in parallel
     const [tokens, watchlist, history, holdings, activity] = await Promise.all([
       SupabaseService.getTokensByCreator(userData.id),
@@ -568,7 +573,12 @@ const loadUserProfile = async () => {
       SupabaseService.getUserActivity(userData.id)
     ])
     
-    userTokens.value = tokens || []
+    // Convert token prices from SOL to USD for display
+    userTokens.value = (tokens || []).map((token: any) => ({
+      ...token,
+      current_price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
+      price: (Number(token.current_price) || 0) * solPriceUSD // Also update the price field for consistency
+    }))
     userWatchlist.value = watchlist || []
     tradingHistory.value = history || []
     userHoldings.value = holdings || []

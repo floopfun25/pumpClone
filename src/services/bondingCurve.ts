@@ -78,8 +78,7 @@ const PLATFORM_FEE_SOL = 6.0 // 6 SOL platform fee
 
 export class BondingCurveService {
   // Enhanced bonding curve parameters for pump.fun style
-  private static readonly INITIAL_VIRTUAL_SOL_RESERVES = 30 // 30 SOL
-  private static readonly INITIAL_VIRTUAL_TOKEN_RESERVES = 1073000000 // ~1.073B tokens
+  private static readonly INITIAL_VIRTUAL_SOL_RESERVES = BigInt(bondingCurveConfig.initialVirtualSolReserves) // 30 SOL in lamports
   private static readonly INITIAL_REAL_TOKEN_RESERVES = 793100000 // ~793M tokens
   private static readonly TARGET_SOL_RAISED = 85 // 85 SOL to graduate
   private static readonly PLATFORM_FEE = 0.01 // 1% platform fee
@@ -386,8 +385,12 @@ export class BondingCurveService {
         .filter(tx => tx.transaction_type === 'buy')
         .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) // Already in SOL, no conversion needed
 
-      // Calculate current reserves
-      const virtualSolReserves = this.INITIAL_VIRTUAL_SOL_RESERVES + totalSolRaised
+      // Calculate scaling factor based on actual vs default supply
+      const actualTotalSupply = token.total_supply || tokenDefaults.totalSupply
+      const scalingFactor = actualTotalSupply / tokenDefaults.totalSupply
+      
+      // Calculate current reserves using SCALED values
+      const virtualSolReserves = Number(this.INITIAL_VIRTUAL_SOL_RESERVES) / 1e9 + totalSolRaised
       const tokensSold = transactions
         .reduce((sum, tx) => {
           if (tx.transaction_type === 'buy') {
@@ -398,8 +401,22 @@ export class BondingCurveService {
           return sum
         }, 0)
 
-      const virtualTokenReserves = this.INITIAL_VIRTUAL_TOKEN_RESERVES - tokensSold
-      const realTokenReserves = this.INITIAL_REAL_TOKEN_RESERVES - tokensSold
+      // Use SCALED reserves (crucial for custom supply tokens!)
+      const scaledInitialVirtualTokenReserves = Number(INITIAL_VIRTUAL_TOKEN_RESERVES) * scalingFactor
+      const scaledInitialRealTokenReserves = this.INITIAL_REAL_TOKEN_RESERVES * scalingFactor
+      
+      const virtualTokenReserves = scaledInitialVirtualTokenReserves - tokensSold
+      const realTokenReserves = scaledInitialRealTokenReserves - tokensSold
+      
+      console.log('🔧 [BONDING CURVE STATE] Using scaled reserves:', {
+        actualTotalSupply,
+        scalingFactor,
+        originalVirtualReserves: Number(INITIAL_VIRTUAL_TOKEN_RESERVES),
+        scaledVirtualReserves: scaledInitialVirtualTokenReserves,
+        virtualTokenReserves,
+        virtualSolReserves,
+        tokensSold
+      })
 
       // Calculate current price
       const currentPrice = this.calculatePriceFromReserves(virtualSolReserves, virtualTokenReserves)
@@ -423,12 +440,28 @@ export class BondingCurveService {
       }
     } catch (error) {
       console.error('Error getting bonding curve state:', error)
-      // Return default initial state
+      
+      // Try to get token info for scaling, fallback to default if not available
+      let scalingFactor = 1
+      try {
+        const token = await SupabaseService.getTokenById(tokenId)
+        if (token?.total_supply) {
+          const actualTotalSupply = token.total_supply
+          scalingFactor = actualTotalSupply / tokenDefaults.totalSupply
+        }
+      } catch {
+        // Use default scaling if token fetch fails
+      }
+      
+      const scaledVirtualTokenReserves = Number(INITIAL_VIRTUAL_TOKEN_RESERVES) * scalingFactor
+      const virtualSolReservesSOL = Number(this.INITIAL_VIRTUAL_SOL_RESERVES) / 1e9
+      
+      // Return default initial state with proper scaling
       return {
-        virtualSolReserves: this.INITIAL_VIRTUAL_SOL_RESERVES,
-        virtualTokenReserves: this.INITIAL_VIRTUAL_TOKEN_RESERVES,
-        realTokenReserves: this.INITIAL_REAL_TOKEN_RESERVES,
-        currentPrice: this.calculatePriceFromReserves(this.INITIAL_VIRTUAL_SOL_RESERVES, this.INITIAL_VIRTUAL_TOKEN_RESERVES),
+        virtualSolReserves: virtualSolReservesSOL,
+        virtualTokenReserves: scaledVirtualTokenReserves,
+        realTokenReserves: this.INITIAL_REAL_TOKEN_RESERVES * scalingFactor,
+        currentPrice: this.calculatePriceFromReserves(virtualSolReservesSOL, scaledVirtualTokenReserves),
         marketCap: 0,
         progress: 0,
         isGraduated: false
@@ -524,7 +557,7 @@ export class BondingCurveService {
     
     return {
       virtualTokenReserves: scaledVirtualTokenReserves,
-      virtualSolReserves: INITIAL_VIRTUAL_SOL_RESERVES,
+      virtualSolReserves: BigInt(Number(INITIAL_VIRTUAL_SOL_RESERVES)),
       realTokenReserves: scaledRealTokenReserves,
       realSolReserves: INITIAL_REAL_SOL_RESERVES,
       tokenTotalSupply: BigInt(totalSupply),

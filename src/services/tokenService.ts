@@ -566,6 +566,22 @@ class TokenService {
 
       // Create initial bonding curve state
       const initialState = BondingCurveService.createInitialState(new PublicKey(data.mintAddress), totalSupply)
+      
+      // Calculate prices with debug logging
+      const calculatedPrice = BondingCurveService.calculatePrice(initialState)
+      const calculatedMarketCap = Math.floor(BondingCurveService.calculateMarketCapSync(initialState, 169))
+      
+      console.log('💰 [TOKEN CREATION] Price calculations:', {
+        tokenName: data.tokenData.name,
+        totalSupply: totalSupply,
+        initialState: {
+          virtualSolReserves: Number(initialState.virtualSolReserves),
+          virtualTokenReserves: Number(initialState.virtualTokenReserves),
+          tokenTotalSupply: Number(initialState.tokenTotalSupply)
+        },
+        calculatedPriceSOL: calculatedPrice.toFixed(10),
+        calculatedMarketCapUSD: calculatedMarketCap
+      })
 
       // Prepare creation settings
       const creationSettings = {
@@ -598,8 +614,8 @@ class TokenService {
         dev_tokens_amount: creatorTokensAllocated,
         lock_duration_days: lockDurationDays > 0 ? lockDurationDays : null,
         locked_tokens_amount: bondingCurveTokens, // Tokens available in bonding curve
-        current_price: BondingCurveService.calculatePrice(initialState),
-        market_cap: Math.floor(BondingCurveService.calculateMarketCapSync(initialState, 169)), // Use sync version with fallback
+        current_price: calculatedPrice, // Store price in SOL (will be converted to USD on retrieval)
+        market_cap: calculatedMarketCap, // Store market cap in USD
         volume_24h: 0,
         holders_count: 1,
         status: 'active',
