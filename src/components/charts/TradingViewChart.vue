@@ -7,17 +7,17 @@
       
       <!-- OHLC Data -->
       <div v-if="priceData.length > 0" class="flex items-center gap-3 text-xs">
-        <span class="text-[#848e9c]">
-          O: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.open || 0) }}</span>
+        <span class="text-[#848e9c]" title="Open">
+          O: <span class="text-[#d1d4dc]">${{ (priceData[priceData.length - 1]?.open || 0).toFixed(12) }}</span>
         </span>
-        <span class="text-[#848e9c]">
-          H: <span class="text-[#2ebd85]">${{ formatPrice(getHighPrice()) }}</span>
+        <span class="text-[#848e9c]" title="High">
+          H: <span class="text-[#2ebd85]">${{ getHighPrice().toFixed(12) }}</span>
         </span>
-        <span class="text-[#848e9c]">
-          L: <span class="text-[#f6465d]">${{ formatPrice(getLowPrice()) }}</span>
+        <span class="text-[#848e9c]" title="Low">
+          L: <span class="text-[#f6465d]">${{ getLowPrice().toFixed(12) }}</span>
         </span>
-        <span class="text-[#848e9c]">
-          C: <span class="text-[#d1d4dc]">${{ formatPrice(priceData[priceData.length - 1]?.close || 0) }}</span>
+        <span class="text-[#848e9c]" title="Close">
+          C: <span class="text-[#d1d4dc]">${{ (priceData[priceData.length - 1]?.close || 0).toFixed(12) }}</span>
         </span>
       </div>
     </div>
@@ -33,26 +33,24 @@
 
       <div class="flex items-center gap-4">
         <!-- Timeframe Selection -->
-        <div class="flex items-center gap-1">
-          <button 
-            v-for="timeframe in timeframes" 
-            :key="timeframe.value"
-            @click="setTimeframe(timeframe.value)"
-            :class="[
-              'px-2 py-1 text-xs rounded transition-colors',
-              selectedTimeframe === timeframe.value 
-                ? 'bg-[#f0b90b] text-black font-medium' 
-                : 'text-[#848e9c] hover:text-white hover:bg-[#2b3139]'
-            ]"
+        <div class="flex items-center">
+          <select 
+            v-model="selectedTimeframe"
+            @change="setTimeframe(selectedTimeframe)"
+            class="px-3 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded focus:outline-none focus:border-[#f0b90b] transition-colors min-w-[80px]"
           >
-            {{ timeframe.label }}
-          </button>
+            <option 
+              v-for="timeframe in timeframes" 
+              :key="timeframe.value"
+              :value="timeframe.value"
+              class="bg-[#2b3139] text-[#d1d4dc]"
+            >
+              {{ timeframe.label }}
+            </option>
+          </select>
         </div>
         
-        <div class="flex items-center gap-2 text-xs text-[#848e9c]">
-          <div class="w-2 h-2 bg-[#2ebd85] rounded-full animate-pulse"></div>
-          FloppFun Pro Chart
-        </div>
+
       </div>
     </div>
 
@@ -412,10 +410,10 @@ const addSeries = () => {
   if (volumeSeries) {
     try {
       lightweightChart.removeSeries(volumeSeries)
-    } catch (error) {
-      console.warn('Error removing volume series:', error)
-    }f
-    volumeSeries = null
+          } catch (error) {
+        console.warn('Error removing volume series:', error)
+      }
+      volumeSeries = null
   }
 
   try {
