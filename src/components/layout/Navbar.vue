@@ -189,15 +189,13 @@ const searchQuery = ref('')
 // Computed properties
 const isConnected = computed(() => walletStore.isConnected)
 const walletAddress = computed(() => walletStore.walletAddress)
+const walletAddressFormatted = computed(() => walletStore.walletAddressFormatted)
 const balance = computed(() => walletStore.formattedBalance)
 const walletInitials = computed(() => {
-  if (!walletAddress.value) return 'W'
-  return walletAddress.value.slice(0, 2).toUpperCase()
+  if (!walletAddressFormatted.value) return 'W'
+  return walletAddressFormatted.value.slice(0, 2).toUpperCase()
 })
-const shortWalletAddress = computed(() => {
-  if (!walletAddress.value) return ''
-  return `${walletAddress.value.slice(0, 6)}...${walletAddress.value.slice(-4)}`
-})
+const shortWalletAddress = computed(() => walletAddressFormatted.value || '')
 
 // Methods
 const connectWallet = () => {

@@ -29,6 +29,10 @@ export const useWalletStore = defineStore('wallet', () => {
   
   // Formatted computed properties
   const walletAddress = computed(() => 
+    publicKey.value ? publicKey.value.toBase58() : null
+  )
+  
+  const walletAddressFormatted = computed(() => 
     publicKey.value ? formatWalletAddress(publicKey.value.toBase58()) : null
   )
   
@@ -157,6 +161,7 @@ export const useWalletStore = defineStore('wallet', () => {
     wallet,
     balance,
     walletAddress,
+    walletAddressFormatted,
     formattedBalance,
 
     // Actions
