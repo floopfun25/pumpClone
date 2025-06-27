@@ -363,6 +363,13 @@ const loadPortfolio = async (): Promise<void> => {
           decimals: account.decimals
         })
 
+        // Additional debug for images
+        console.log(`Token metadata for ${account.mint}:`, {
+          image: tokenMetadata?.image,
+          source: tokenMetadata?.source,
+          fallbackImage: getTokenFallbackImage()
+        })
+
         const metadata = {
           name: tokenMetadata?.name || tokenPrice?.name || 'Unknown Token',
           symbol: tokenMetadata?.symbol || tokenPrice?.symbol || 'UNKNOWN',

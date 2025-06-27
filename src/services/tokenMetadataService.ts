@@ -77,9 +77,22 @@ class TokenMetadataService {
         .eq('mint_address', mintAddress)
         .single()
 
-      if (error || !token) {
+      if (error) {
+        console.log(`Database query error for ${mintAddress}:`, error)
         return null
       }
+
+      if (!token) {
+        console.log(`No token found in database for ${mintAddress}`)
+        return null
+      }
+
+      console.log(`Found token in database for ${mintAddress}:`, {
+        name: token.name,
+        symbol: token.symbol,
+        image_url: token.image_url,
+        metadata_uri: token.metadata_uri
+      })
 
       return {
         mint: mintAddress,
