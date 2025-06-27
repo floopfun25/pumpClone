@@ -6,7 +6,7 @@
       <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
       
       <!-- OHLC Data -->
-      <div v-if="priceData.length > 0" class="flex items-center gap-3 text-xs">
+      <div v-if="priceData.length > 0" class="flex items-center gap-3" style="font-size: 10px;">
         <span class="text-[#848e9c]" title="Open">
           O: <span class="text-[#d1d4dc]">${{ (priceData[priceData.length - 1]?.open || 0).toFixed(12) }}</span>
         </span>
@@ -125,9 +125,7 @@
           <span class="text-[#848e9c]">Volume: <span class="text-[#d1d4dc]">{{ formatVolume(totalVolume) }}</span></span>
           <span class="text-[#848e9c]">Market Cap: <span class="text-[#d1d4dc]">${{ formatMarketCap(marketCap) }}</span></span>
         </div>
-        <div class="text-[#848e9c]">
-          FloppFun Pro Chart • Advanced Trading Tools • Real-Time Data
-        </div>
+
       </div>
     </div>
   </div>

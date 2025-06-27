@@ -860,9 +860,7 @@ export class SupabaseService {
         .from('token_comments')
         .select(`
           *,
-          user:users(id, username, wallet_address),
-          likes_count:comment_likes(count),
-          user_liked:comment_likes!inner(user_id)
+          user:users(id, username, wallet_address)
         `, { count: 'exact' })
         .eq('token_id', tokenId)
         .order('created_at', { ascending: false })
@@ -873,8 +871,8 @@ export class SupabaseService {
       // Process the data to format likes properly
       const comments = (data || []).map((comment: any) => ({
         ...comment,
-        likes_count: comment.likes_count?.[0]?.count || 0,
-        user_liked: comment.user_liked?.length > 0
+        likes_count: 0, // Simplified for now
+        user_liked: false // Simplified for now
       }))
 
       return {

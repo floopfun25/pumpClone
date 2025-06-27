@@ -298,12 +298,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import { solanaProgram } from '@/services/solanaProgram'
 import { marketAnalyticsService, formatRSI, formatSentiment, formatRiskLevel, type TokenAnalytics } from '@/services/marketAnalytics'
 import { formatVolume } from '@/services/priceOracle'
@@ -319,6 +320,7 @@ const route = useRoute()
 const router = useRouter()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
+const authStore = useAuthStore()
 
 // State
 const loading = ref(true)
@@ -390,6 +392,15 @@ const connectWallet = async () => {
   try {
     // Open wallet modal using the correct UI store method
     uiStore.showModal('wallet')
+    
+    // Set up listener for successful wallet connection
+    const unwatch = watchEffect(() => {
+      if (walletStore.isConnected && walletStore.walletAddress) {
+        // Authenticate user with Supabase when wallet connects
+        authenticateUserWithWallet()
+        unwatch() // Remove watcher after first execution
+      }
+    })
   } catch (error) {
     console.error('Failed to connect wallet:', error)
     uiStore.showToast({
@@ -397,6 +408,23 @@ const connectWallet = async () => {
       title: 'Connection Failed',
       message: 'Failed to connect wallet. Please try again.'
     })
+  }
+}
+
+/**
+ * Authenticate user with wallet for commenting
+ */
+const authenticateUserWithWallet = async () => {
+  try {
+    if (!walletStore.walletAddress) return
+    
+    // Sign in user with wallet address to enable commenting
+    await authStore.signInWithWallet(walletStore.walletAddress)
+    
+    console.log('✅ User authenticated for commenting')
+  } catch (error) {
+    console.error('❌ Failed to authenticate user for commenting:', error)
+    // Don't show error toast as wallet is still connected for trading
   }
 }
 
