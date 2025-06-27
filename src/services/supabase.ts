@@ -343,17 +343,59 @@ export class SupabaseService {
    */
   static async getUserByWallet(walletAddress: string) {
     try {
-      const { data, error } = await supabase
+      // First try exact match
+      const { data: exactMatch, error: exactError } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress)
         .single()
-      
-      if (error && error.code !== 'PGRST116') {
-        throw error
+
+      if (exactMatch) {
+        return exactMatch
       }
-      
-      return data
+
+      // If no exact match and address seems truncated, try partial matching
+      if (walletAddress.includes('...')) {
+        console.log('🔍 Trying partial wallet address matching for:', walletAddress)
+        
+        const parts = walletAddress.split('...')
+        if (parts.length === 2) {
+          const prefix = parts[0]
+          const suffix = parts[1]
+          
+          const { data: partialMatches, error: partialError } = await supabase
+            .from('users')
+            .select('*')
+            .ilike('wallet_address', `${prefix}%${suffix}`)
+
+          if (partialMatches && partialMatches.length > 0) {
+            console.log('✅ Found partial match:', partialMatches[0])
+            return partialMatches[0]
+          }
+        }
+      }
+
+      // If still no match, try to find by prefix only (first 4 chars)
+      if (walletAddress.length >= 4) {
+        const prefix = walletAddress.substring(0, 4)
+        const { data: prefixMatches, error: prefixError } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('wallet_address', `${prefix}%`)
+
+        if (prefixMatches && prefixMatches.length === 1) {
+          console.log('✅ Found prefix match:', prefixMatches[0])
+          return prefixMatches[0]
+        } else if (prefixMatches && prefixMatches.length > 1) {
+          console.log('⚠️ Multiple users found with same prefix:', prefixMatches)
+        }
+      }
+
+      if (exactError && exactError.code !== 'PGRST116') {
+        throw exactError
+      }
+
+      return null
     } catch (error) {
       console.error('Failed to get user by wallet:', error)
       return null
@@ -1925,7 +1967,21 @@ export class SupabaseService {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data || []
+      
+      // Transform data to match TokenCard expected format
+      const transformedData = data?.map(token => ({
+        ...token,
+        // Map database fields to TokenCard expected format
+        imageUrl: token.image_url,
+        price: token.current_price || 0,
+        priceChange24h: 0, // We don't have price change data yet
+        marketCap: token.market_cap || 0,
+        volume24h: token.volume_24h || 0,
+        holders: token.holders_count || 0
+      })) || []
+
+      console.log(`✅ Found ${transformedData.length} tokens for user ${userId}:`, transformedData)
+      return transformedData
     } catch (error) {
       console.error('❌ Failed to get user tokens:', error)
       return []
@@ -2215,6 +2271,145 @@ export class SupabaseService {
     } catch (error) {
       console.error('Failed to get trending watchlist tokens:', error)
       return []
+    }
+  }
+
+  /**
+   * Debug method to check user tokens and relationships
+   */
+  static async debugUserTokens(walletAddress: string) {
+    try {
+      console.log('🔍 Debug: Starting user token investigation for wallet:', walletAddress)
+      
+      // 1. Check if user exists
+      const user = await this.getUserByWallet(walletAddress)
+      console.log('🔍 Debug: User found:', user)
+      
+      if (!user) {
+        console.log('❌ Debug: No user found for wallet address')
+        return
+      }
+      
+      // 2. Check tokens with this creator_id
+      const { data: tokensByCreatorId, error: error1 } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('creator_id', user.id)
+      
+      console.log('🔍 Debug: Tokens by creator_id:', tokensByCreatorId)
+      
+      // 3. Check if there are any tokens with this wallet as mint_address or other fields
+      const { data: allTokens, error: error2 } = await supabase
+        .from('tokens')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+             console.log('🔍 Debug: Recent tokens in database:', allTokens)
+       
+       // 5. Show detailed token info
+       console.log('🔍 Debug: Token details:')
+       allTokens?.forEach((token, index) => {
+         console.log(`  Token ${index + 1}:`, {
+           id: token.id,
+           name: token.name,
+           symbol: token.symbol,
+           creator_id: token.creator_id,
+           mint_address: token.mint_address,
+           created_at: token.created_at
+         })
+       })
+      
+      // 4. Check users table
+      const { data: allUsers, error: error3 } = await supabase
+        .from('users')
+        .select('*')
+        .limit(5)
+      
+             console.log('🔍 Debug: Recent users in database:', allUsers)
+       
+       // 6. Show detailed user info
+       console.log('🔍 Debug: User details:')
+       allUsers?.forEach((user, index) => {
+         console.log(`  User ${index + 1}:`, {
+           id: user.id,
+           wallet_address: user.wallet_address,
+           username: user.username,
+           tokens_created: user.tokens_created,
+           created_at: user.created_at
+         })
+       })
+      
+      return {
+        user,
+        tokensByCreatorId,
+        allTokens,
+        allUsers
+      }
+    } catch (error) {
+      console.error('❌ Debug: Error during investigation:', error)
+    }
+  }
+
+  /**
+   * Fix duplicate user records and consolidate tokens
+   */
+  static async fixDuplicateUser(correctWalletAddress: string, duplicateUserId: string) {
+    try {
+      console.log('🔧 Fixing duplicate user records...')
+      
+      // Get the correct user (with full wallet address)
+      const correctUser = await this.getUserByWallet(correctWalletAddress)
+      if (!correctUser) {
+        console.error('❌ Correct user not found')
+        return false
+      }
+      
+      console.log('✅ Found correct user:', correctUser.id)
+      
+      // Update all tokens from duplicate user to correct user
+      const { data: updatedTokens, error: updateError } = await supabase
+        .from('tokens')
+        .update({ creator_id: correctUser.id })
+        .eq('creator_id', duplicateUserId)
+        .select()
+      
+      if (updateError) {
+        console.error('❌ Failed to update tokens:', updateError)
+        return false
+      }
+      
+      console.log(`✅ Updated ${updatedTokens?.length || 0} tokens to correct user`)
+      
+      // Update the correct user's token count
+      const tokenCount = updatedTokens?.length || 0
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({ tokens_created: (correctUser.tokens_created || 0) + tokenCount })
+        .eq('id', correctUser.id)
+      
+      if (userUpdateError) {
+        console.error('❌ Failed to update user token count:', userUpdateError)
+      } else {
+        console.log('✅ Updated user token count')
+      }
+      
+      // Optionally delete the duplicate user record
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', duplicateUserId)
+      
+      if (deleteError) {
+        console.error('❌ Failed to delete duplicate user:', deleteError)
+      } else {
+        console.log('✅ Deleted duplicate user record')
+      }
+      
+      return true
+    } catch (error) {
+      console.error('❌ Error fixing duplicate user:', error)
+      return false
     }
   }
 }

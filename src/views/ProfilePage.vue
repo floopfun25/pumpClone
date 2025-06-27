@@ -592,6 +592,9 @@ const loadUserProfile = async () => {
       bio: userData.bio || ''
     }
     
+    // Debug: investigate token relationships
+    await SupabaseService.debugUserTokens(walletAddress)
+    
     // Load user's data in parallel
     const [tokens, watchlist, history, holdings, activity] = await Promise.all([
       SupabaseService.getTokensByCreator(userData.id),
