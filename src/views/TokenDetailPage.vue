@@ -263,11 +263,18 @@
 
               <!-- Action Buttons -->
               <div class="space-y-2">
-                <button class="w-full py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  add to watchlist
-                </button>
-                <button class="w-full py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-                  twitter
+                <button 
+                  @click="toggleWatchlist"
+                  :disabled="!authStore.isAuthenticated"
+                  :class="[
+                    'w-full py-2 text-sm font-medium rounded transition-colors',
+                    isInWatchlist 
+                      ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
+                    !authStore.isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
+                  ]"
+                >
+                  {{ isInWatchlist ? '❤️ remove from watchlist' : '🤍 add to watchlist' }}
                 </button>
               </div>
             </div>
@@ -376,6 +383,10 @@ const priceUnsubscribe = ref<(() => void) | null>(null)
 
 // Trade preview state
 const tradePreview = ref<any>(null)
+
+// Watchlist state
+const isInWatchlist = ref(false)
+const watchlistLoading = ref(false)
 
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
@@ -906,6 +917,96 @@ const calculateTradePreview = () => {
   }
 }
 
+/**
+ * Check if token is in user's watchlist
+ */
+const checkWatchlistStatus = async () => {
+  if (!authStore.isAuthenticated || !authStore.user?.id || !token.value?.id) {
+    isInWatchlist.value = false
+    return
+  }
+
+  try {
+    isInWatchlist.value = await SupabaseService.isTokenInWatchlist(
+      authStore.user.id,
+      token.value.id
+    )
+  } catch (error) {
+    console.error('Failed to check watchlist status:', error)
+    isInWatchlist.value = false
+  }
+}
+
+/**
+ * Toggle token in/out of watchlist
+ */
+const toggleWatchlist = async () => {
+  if (!authStore.isAuthenticated) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Authentication Required',
+      message: 'Please connect your wallet to use watchlist'
+    })
+    return
+  }
+
+  if (!authStore.user?.id || !token.value?.id) {
+    uiStore.showToast({
+      type: 'error',
+      title: 'Error',
+      message: 'Unable to update watchlist at this time'
+    })
+    return
+  }
+
+  watchlistLoading.value = true
+
+  try {
+    if (isInWatchlist.value) {
+      // Remove from watchlist
+      await SupabaseService.removeFromWatchlist(authStore.user.id, token.value.id)
+      isInWatchlist.value = false
+      
+      uiStore.showToast({
+        type: 'success',
+        title: 'Removed from Watchlist',
+        message: `${token.value.name} has been removed from your watchlist`
+      })
+    } else {
+      // Add to watchlist
+      await SupabaseService.addToWatchlist(authStore.user.id, token.value.id)
+      isInWatchlist.value = true
+      
+      uiStore.showToast({
+        type: 'success',
+        title: 'Added to Watchlist',
+        message: `${token.value.name} has been added to your watchlist`
+      })
+    }
+  } catch (error: any) {
+    console.error('Failed to toggle watchlist:', error)
+    
+    let errorMessage = 'Failed to update watchlist'
+    let errorTitle = 'Watchlist Error'
+    
+    if (error.message.includes('already in your watchlist')) {
+      errorMessage = 'Token is already in your watchlist'
+      isInWatchlist.value = true
+    } else if (error.message.includes('not yet available') || error.message.includes('database migration')) {
+      errorTitle = 'Feature Not Available'
+      errorMessage = 'Watchlist feature requires database setup. Please run the SQL migration first.'
+    }
+    
+    uiStore.showToast({
+      type: 'error',
+      title: errorTitle,
+      message: errorMessage
+    })
+  } finally {
+    watchlistLoading.value = false
+  }
+}
+
 onMounted(() => {
   loadTokenData()
 })
@@ -925,7 +1026,13 @@ onUnmounted(() => {
 watch(() => token.value, () => {
   if (token.value) {
     loadBondingCurveData()
+    checkWatchlistStatus()
   }
+})
+
+// Check watchlist status when authentication changes
+watch(() => authStore.isAuthenticated, () => {
+  checkWatchlistStatus()
 })
 
 // Recalculate trade preview when trade type changes

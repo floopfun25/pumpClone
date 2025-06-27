@@ -1997,6 +1997,226 @@ export class SupabaseService {
       return []
     }
   }
+
+  // ===== WATCHLIST FUNCTIONALITY =====
+
+  /**
+   * Check if watchlist table exists
+   */
+  static async checkWatchlistTableExists(): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('user_watchlist')
+        .select('id')
+        .limit(1)
+
+      return !error
+    } catch (error) {
+      console.warn('Watchlist table does not exist:', error)
+      return false
+    }
+  }
+
+  /**
+   * Add token to user's watchlist
+   */
+  static async addToWatchlist(userId: string, tokenId: string) {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        throw new Error('Watchlist feature is not yet available. Please run the database migration.')
+      }
+
+      const { data, error } = await supabase
+        .from('user_watchlist')
+        .insert({
+          user_id: userId,
+          token_id: tokenId
+        })
+        .select()
+        .single()
+
+      if (error) {
+        // If error is due to unique constraint violation, it means already in watchlist
+        if (error.code === '23505') {
+          throw new Error('Token is already in your watchlist')
+        }
+        throw error
+      }
+
+      return data
+    } catch (error) {
+      console.error('Failed to add to watchlist:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Remove token from user's watchlist
+   */
+  static async removeFromWatchlist(userId: string, tokenId: string) {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        throw new Error('Watchlist feature is not yet available. Please run the database migration.')
+      }
+
+      const { error } = await supabase
+        .from('user_watchlist')
+        .delete()
+        .match({
+          user_id: userId,
+          token_id: tokenId
+        })
+
+      if (error) throw error
+
+      return true
+    } catch (error) {
+      console.error('Failed to remove from watchlist:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Check if token is in user's watchlist
+   */
+  static async isTokenInWatchlist(userId: string, tokenId: string): Promise<boolean> {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        console.warn('Watchlist table does not exist yet')
+        return false
+      }
+
+      const { data, error } = await supabase
+        .from('user_watchlist')
+        .select('id')
+        .match({
+          user_id: userId,
+          token_id: tokenId
+        })
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        throw error
+      }
+
+      return !!data
+    } catch (error) {
+      console.error('Failed to check watchlist status:', error)
+      return false
+    }
+  }
+
+  /**
+   * Get user's watchlist with token details
+   */
+  static async getUserWatchlist(userId: string, limit = 50, offset = 0) {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        console.warn('Watchlist table does not exist yet')
+        return []
+      }
+
+      const { data, error } = await supabase
+        .from('user_watchlist')
+        .select(`
+          id,
+          created_at,
+          token:tokens (
+            id,
+            name,
+            symbol,
+            image_url,
+            mint_address,
+            current_price,
+            market_cap,
+            volume_24h,
+            bonding_curve_progress,
+            status,
+            created_at
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (error) throw error
+
+      return data?.map(item => ({
+        watchlistId: item.id,
+        addedAt: item.created_at,
+        ...item.token
+      })) || []
+    } catch (error) {
+      console.error('Failed to get user watchlist:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get watchlist count for user
+   */
+  static async getUserWatchlistCount(userId: string): Promise<number> {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        return 0
+      }
+
+      const { count, error } = await supabase
+        .from('user_watchlist')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      return count || 0
+    } catch (error) {
+      console.error('Failed to get watchlist count:', error)
+      return 0
+    }
+  }
+
+  /**
+   * Get trending tokens from watchlists
+   */
+  static async getTrendingWatchlistTokens(limit = 10) {
+    try {
+      const tableExists = await this.checkWatchlistTableExists()
+      if (!tableExists) {
+        return []
+      }
+
+      const { data, error } = await supabase
+        .from('tokens')
+        .select(`
+          id,
+          name,
+          symbol,
+          image_url,
+          mint_address,
+          current_price,
+          market_cap,
+          volume_24h,
+          bonding_curve_progress,
+          status,
+          created_at
+        `)
+        .gt('watchlist_count', 0)
+        .order('watchlist_count', { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+
+      return data || []
+    } catch (error) {
+      console.error('Failed to get trending watchlist tokens:', error)
+      return []
+    }
+  }
 }
 
 // Export the configured client as default

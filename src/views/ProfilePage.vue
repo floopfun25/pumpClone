@@ -157,6 +157,83 @@
               </div>
             </div>
 
+            <!-- Watchlist Tab -->
+            <div v-else-if="activeTab === 'watchlist'">
+              <div v-if="userWatchlist.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div
+                  v-for="item in userWatchlist"
+                  :key="item.id"
+                  class="bg-trading-elevated rounded-lg border border-binance-border p-4 hover:border-binance-yellow/50 transition-colors cursor-pointer"
+                  @click="navigateToToken(item.mint_address)"
+                >
+                  <!-- Token Header -->
+                  <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full overflow-hidden">
+                      <img 
+                        v-if="item.image_url" 
+                        :src="item.image_url" 
+                        :alt="item.name"
+                        class="w-full h-full object-cover"
+                      />
+                      <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                        {{ item.symbol?.slice(0, 1) }}
+                      </div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="text-white font-medium">{{ item.name }}</div>
+                      <div class="text-binance-gray text-sm">${{ item.symbol }}</div>
+                    </div>
+                    <button 
+                      @click.stop="removeFromWatchlist(item.id)"
+                      class="text-red-400 hover:text-red-300 transition-colors"
+                      title="Remove from watchlist"
+                    >
+                      ❤️
+                    </button>
+                  </div>
+
+                  <!-- Token Stats -->
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                      <span class="text-binance-gray">Price:</span>
+                      <span class="text-white">${{ formatNumber(item.current_price || 0) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-binance-gray">Market Cap:</span>
+                      <span class="text-white">${{ formatNumber(item.market_cap || 0) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-binance-gray">24h Volume:</span>
+                      <span class="text-white">${{ formatNumber(item.volume_24h || 0) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-binance-gray">Progress:</span>
+                      <span class="text-binance-yellow">{{ (item.bonding_curve_progress || 0).toFixed(1) }}%</span>
+                    </div>
+                    <div class="text-xs text-binance-gray">
+                      Added {{ formatDate(item.addedAt) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-else class="text-center py-12">
+                <div class="text-6xl mb-4">🤍</div>
+                <h3 class="text-xl font-semibold text-white mb-2">No Watchlist Items</h3>
+                <p class="text-binance-gray mb-4">
+                  {{ loading ? 'Loading watchlist...' : 'Add tokens to your watchlist to track them here' }}
+                </p>
+                <div v-if="!loading" class="space-y-3">
+                  <router-link to="/search" class="btn-primary inline-block">
+                    🔍 Explore Tokens
+                  </router-link>
+                  <div class="text-xs text-binance-gray">
+                    Note: If you're getting errors, you may need to run the database migration for watchlist functionality.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Trading History Tab -->
             <div v-else-if="activeTab === 'history'">
               <div v-if="tradingHistory.length > 0" class="space-y-3">
@@ -336,6 +413,7 @@ const userTokens = ref<any[]>([])
 const tradingHistory = ref<any[]>([])
 const userHoldings = ref<any[]>([])
 const userActivity = ref<any[]>([])
+const userWatchlist = ref<any[]>([])
 const activeTab = ref('tokens')
 const showEditModal = ref(false)
 const saving = ref(false)
@@ -365,6 +443,12 @@ const tabs = computed(() => [
     label: t('profile.createdTokens'),
     icon: '🎭',
     count: userTokens.value.length
+  },
+  {
+    id: 'watchlist',
+    label: 'Watchlist',
+    icon: '🤍',
+    count: userWatchlist.value.length
   },
   {
     id: 'history',
@@ -509,14 +593,16 @@ const loadUserProfile = async () => {
     }
     
     // Load user's data in parallel
-    const [tokens, history, holdings, activity] = await Promise.all([
+    const [tokens, watchlist, history, holdings, activity] = await Promise.all([
       SupabaseService.getTokensByCreator(userData.id),
+      SupabaseService.getUserWatchlist(userData.id),
       SupabaseService.getUserTradingHistory(userData.id),
       SupabaseService.getUserHoldings(userData.id),
       SupabaseService.getUserActivity(userData.id)
     ])
     
     userTokens.value = tokens || []
+    userWatchlist.value = watchlist || []
     tradingHistory.value = history || []
     userHoldings.value = holdings || []
     userActivity.value = activity || []
@@ -526,6 +612,33 @@ const loadUserProfile = async () => {
     error.value = err instanceof Error ? err.message : t('profile.loadError')
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Remove token from watchlist
+ */
+const removeFromWatchlist = async (tokenId: string) => {
+  if (!user.value?.id) return
+  
+  try {
+    await SupabaseService.removeFromWatchlist(user.value.id, tokenId)
+    
+    // Remove from local state
+    userWatchlist.value = userWatchlist.value.filter(item => item.id !== tokenId)
+    
+    uiStore.showToast({
+      type: 'success',
+      title: 'Removed from Watchlist',
+      message: 'Token has been removed from your watchlist'
+    })
+  } catch (error) {
+    console.error('Failed to remove from watchlist:', error)
+    uiStore.showToast({
+      type: 'error',
+      title: 'Error',
+      message: 'Failed to remove token from watchlist'
+    })
   }
 }
 
