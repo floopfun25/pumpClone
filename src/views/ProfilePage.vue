@@ -434,7 +434,9 @@ const avatarInitials = computed(() => {
 })
 
 const isOwnProfile = computed(() => {
-  return walletStore.walletAddress === route.params.address
+  // Check if this is the user's own profile
+  // Compare the route address with the connected wallet address
+  return walletStore.isConnected && walletStore.walletAddress === route.params.address
 })
 
 const tabs = computed(() => [
@@ -592,8 +594,8 @@ const loadUserProfile = async () => {
       bio: userData.bio || ''
     }
     
-    // Debug: investigate token relationships
-    await SupabaseService.debugUserTokens(walletAddress)
+    // Debug: investigate token relationships (remove this later)
+    // await SupabaseService.debugUserTokens(walletAddress)
     
     // Load user's data in parallel
     const [tokens, watchlist, history, holdings, activity] = await Promise.all([

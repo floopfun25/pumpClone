@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useWalletStore } from './wallet'
 import { SupabaseService, SupabaseAuth } from '@/services/supabase'
 
@@ -25,14 +25,52 @@ export const useAuthStore = defineStore('auth', () => {
   const supabaseUser = ref<any>(null)
   const supabaseSession = ref<any>(null)
 
+  // Initialize wallet store reference
+  const walletStore = useWalletStore()
+
+  // Watch for wallet connection changes
+  watch(
+    () => ({ 
+      connected: walletStore.isConnected, 
+      address: walletStore.walletAddress 
+    }),
+    async (newWallet, oldWallet) => {
+      // If wallet disconnected, clear auth
+      if (!newWallet.connected) {
+        await signOut()
+        return
+      }
+
+      // If wallet connected or address changed, try to initialize user
+      if (newWallet.connected && 
+          (!oldWallet?.connected || newWallet.address !== oldWallet?.address)) {
+        try {
+          await initializeUser()
+        } catch (error) {
+          console.error('Failed to initialize user after wallet change:', error)
+        }
+      }
+    },
+    { immediate: false }
+  )
+
   /**
    * Initialize user session
    * Called on app startup to restore user session
    */
   const initializeUser = async () => {
     try {
-      const walletStore = useWalletStore()
+      isLoading.value = true
+      
+      // If wallet is not connected, clear auth state and return
       if (!walletStore.isConnected || !walletStore.walletAddress) {
+        user.value = null
+        isAuthenticated.value = false
+        return
+      }
+
+      // If already authenticated with the same wallet, no need to reinitialize
+      if (isAuthenticated.value && user.value?.wallet_address === walletStore.walletAddress) {
         return
       }
 
@@ -40,18 +78,34 @@ export const useAuthStore = defineStore('auth', () => {
       const session = await SupabaseAuth.getSession()
       if (session?.user) {
         // Restore user from existing session
-        const walletAddress = SupabaseAuth.getWalletAddressFromUser(session.user)
-        if (walletAddress === walletStore.walletAddress) {
-          const existingUser = await SupabaseService.getUserByWallet(walletAddress)
+        const sessionWalletAddress = SupabaseAuth.getWalletAddressFromUser(session.user)
+        if (sessionWalletAddress === walletStore.walletAddress) {
+          const existingUser = await SupabaseService.getUserByWallet(sessionWalletAddress)
           if (existingUser) {
             user.value = existingUser
             isAuthenticated.value = true
+            supabaseUser.value = session.user
+            supabaseSession.value = session
+            console.log('Auth: User restored from session')
             return
           }
         }
       }
+
+      // If no valid session, try to get user by wallet address
+      const existingUser = await SupabaseService.getUserByWallet(walletStore.walletAddress)
+      if (existingUser) {
+        // Sign in with wallet to create session
+        await signInWithWallet(walletStore.walletAddress)
+        console.log('Auth: User signed in during initialization')
+      }
     } catch (error) {
       console.error('Failed to initialize user:', error)
+      // Don't throw error, just clear auth state
+      user.value = null
+      isAuthenticated.value = false
+    } finally {
+      isLoading.value = false
     }
   }
 

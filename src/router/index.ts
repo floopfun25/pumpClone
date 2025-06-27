@@ -48,8 +48,7 @@ const router = createRouter({
       component: () => import('@/views/ProfilePage.vue'),
       meta: {
         title: 'User Profile - FloppFun',
-        description: 'View user profile, created tokens, and trading history',
-        requiresAuth: true
+        description: 'View user profile, created tokens, and trading history'
       },
       props: true
     },
@@ -129,14 +128,38 @@ router.beforeEach(async (to, from, next) => {
     
     // Check if route requires authentication
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-      // Redirect to home with a message to connect wallet
-      return next({
-        name: 'home',
-        query: { 
-          redirect: to.fullPath,
-          message: 'Please connect your wallet to access this page'
+      // For wallet-based auth, we need to wait a bit for wallet reconnection
+      // This happens on page refresh when wallet tries to auto-reconnect
+      const maxWaitTime = 2000 // 2 seconds max wait
+      const checkInterval = 100 // Check every 100ms
+      let waitTime = 0
+      
+      // Wait for potential wallet reconnection
+      while (waitTime < maxWaitTime && !authStore.isAuthenticated) {
+        await new Promise(resolve => setTimeout(resolve, checkInterval))
+        waitTime += checkInterval
+        
+        // If wallet store shows connected but auth store doesn't, try to initialize
+        const walletStore = (await import('@/stores/wallet')).useWalletStore()
+        if (walletStore.isConnected && !authStore.isAuthenticated) {
+          try {
+            await authStore.initializeUser()
+          } catch (error) {
+            console.warn('Failed to initialize user during navigation:', error)
+          }
         }
-      })
+      }
+      
+      // If still not authenticated after waiting, redirect
+      if (!authStore.isAuthenticated) {
+        return next({
+          name: 'home',
+          query: { 
+            redirect: to.fullPath,
+            message: 'Please connect your wallet to access this page'
+          }
+        })
+      }
     }
     
     // Update document title and meta description
