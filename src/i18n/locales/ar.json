@@ -211,7 +211,28 @@
     "save": "حفظ التغييرات",
     "cancel": "إلغاء",
     "updateSuccess": "تم تحديث الملف الشخصي بنجاح",
-    "updateError": "فشل في تحديث الملف الشخصي"
+    "updateError": "فشل في تحديث الملف الشخصي",
+    "activity": "النشاط",
+    "tradingHistory": "تاريخ التداول",
+    "holdings": "الممتلكات",
+    "watchlist": "قائمة المراقبة",
+    "userNotFound": "المستخدم غير موجود",
+    "loadError": "فشل في تحميل الملف الشخصي",
+    "profileUpdated": "تم تحديث الملف الشخصي",
+    "profileUpdatedDesc": "تم تحديث ملفك الشخصي بنجاح",
+    "profileLinkCopied": "تم نسخ الرابط",
+    "profileLinkCopiedDesc": "تم نسخ رابط الملف الشخصي إلى الحافظة",
+    "activityTypes": {
+      "tokenCreated": "أنشأ الرمز {name}",
+      "trade": "{type} {token}"
+    },
+    "level": {
+      "beginner": "مبتدئ",
+      "intermediate": "متوسط",
+      "advanced": "متقدم",
+      "expert": "خبير",
+      "legendary": "أسطوري"
+    }
   },
   "search": {
     "placeholder": "البحث عن الرموز...",

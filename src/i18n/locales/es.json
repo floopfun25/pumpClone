@@ -213,7 +213,28 @@
     "save": "Guardar Cambios",
     "cancel": "Cancelar",
     "updateSuccess": "Perfil actualizado exitosamente",
-    "updateError": "Error al actualizar el perfil"
+    "updateError": "Error al actualizar el perfil",
+    "activity": "Actividad",
+    "tradingHistory": "Historial de Trading",
+    "holdings": "Tenencias",
+    "watchlist": "Lista de Seguimiento",
+    "userNotFound": "Usuario no encontrado",
+    "loadError": "Error al cargar perfil",
+    "profileUpdated": "Perfil Actualizado",
+    "profileUpdatedDesc": "Tu perfil ha sido actualizado exitosamente",
+    "profileLinkCopied": "Enlace Copiado",
+    "profileLinkCopiedDesc": "El enlace del perfil ha sido copiado al portapapeles",
+    "activityTypes": {
+      "tokenCreated": "Creó el token {name}",
+      "trade": "{type} {token}"
+    },
+    "level": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado",
+      "expert": "Experto",
+      "legendary": "Legendario"
+    }
   },
   "search": {
     "placeholder": "Buscar tokens...",

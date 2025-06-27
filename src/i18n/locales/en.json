@@ -246,7 +246,28 @@
     "save": "Save Changes",
     "cancel": "Cancel",
     "updateSuccess": "Profile updated successfully",
-    "updateError": "Failed to update profile"
+    "updateError": "Failed to update profile",
+    "activity": "Activity",
+    "tradingHistory": "Trading History",
+    "holdings": "Holdings",
+    "watchlist": "Watchlist",
+    "userNotFound": "User not found",
+    "loadError": "Failed to load profile",
+    "profileUpdated": "Profile Updated",
+    "profileUpdatedDesc": "Your profile has been updated successfully",
+    "profileLinkCopied": "Link Copied",
+    "profileLinkCopiedDesc": "Profile link has been copied to clipboard",
+    "activityTypes": {
+      "tokenCreated": "Created token {name}",
+      "trade": "{type} {token}"
+    },
+    "level": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate", 
+      "advanced": "Advanced",
+      "expert": "Expert",
+      "legendary": "Legendary"
+    }
   },
   "search": {
     "placeholder": "Search tokens...",

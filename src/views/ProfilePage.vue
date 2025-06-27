@@ -470,9 +470,9 @@ const getActivityIcon = (type: string): string => {
 const getActivityDescription = (activity: any): string => {
   switch (activity.type) {
     case 'token_created':
-      return t('profile.activity.tokenCreated', { name: activity.token_name })
+      return t('profile.activityTypes.tokenCreated', { name: activity.token_name })
     case 'trade':
-      return t('profile.activity.trade', { type: activity.trade_type, token: activity.token_name })
+      return t('profile.activityTypes.trade', { type: activity.trade_type, token: activity.token_name })
     default:
       return activity.description || 'Unknown activity'
   }
