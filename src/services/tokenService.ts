@@ -379,20 +379,35 @@ class TokenService {
 
       console.log('📝 [IMAGE UPLOAD] Generated file path:', filePath)
 
-      // Upload to Supabase Storage
+      // Convert File to ArrayBuffer to prevent Supabase multipart corruption
+      const arrayBuffer = await file.arrayBuffer()
+      console.log('🔄 [IMAGE UPLOAD] Converted to ArrayBuffer:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        arrayBufferSize: arrayBuffer.byteLength
+      })
+
+      // Upload to Supabase Storage using ArrayBuffer (prevents form boundary corruption)
       const { data, error } = await supabase.storage
         .from('token-assets')
-        .upload(filePath, file, {
+        .upload(filePath, arrayBuffer, {
           cacheControl: '3600',
           upsert: false
         })
       
       if (error) {
         console.error('❌ [IMAGE UPLOAD] Storage upload error:', {
-          error: error.message,
-          details: error
+          message: error.message,
+          details: error,
+          fileInfo: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            path: filePath
+          }
         })
-        throw error
+        throw new Error(`Storage upload failed: ${error.message || 'Unknown storage error'}`)
       }
 
       console.log('✅ [IMAGE UPLOAD] File uploaded successfully:', data)
@@ -411,9 +426,46 @@ class TokenService {
       try {
         const { testImageUrl, analyzeSupabaseUrl } = await import('@/utils/imageDebug')
         analyzeSupabaseUrl(publicUrl.publicUrl)
-        await testImageUrl(publicUrl.publicUrl, 'Newly uploaded token image')
+        const isAccessible = await testImageUrl(publicUrl.publicUrl, 'Newly uploaded token image')
+        
+        if (!isAccessible) {
+          console.warn('⚠️ [IMAGE UPLOAD] Image not accessible via fetch, but continuing...')
+          // Don't throw error - let's see if it works in the UI
+        }
+        
+        // Test image load in Image element
+        const imageTest = new Promise<boolean>((resolve) => {
+          const img = new Image()
+          img.onload = () => {
+            console.log('✅ [IMAGE UPLOAD] Image element verification passed')
+            resolve(true)
+          }
+          img.onerror = (e) => {
+            console.error('❌ [IMAGE UPLOAD] Image element verification failed:', e)
+            resolve(false)
+          }
+          img.src = publicUrl.publicUrl
+          
+          setTimeout(() => {
+            console.warn('⏰ [IMAGE UPLOAD] Image verification timeout')
+            resolve(false)
+          }, 2000)
+        })
+        
+        const imageValid = await imageTest
+        if (imageValid) {
+          console.log('🎉 [IMAGE UPLOAD] All verifications passed!')
+        } else {
+          console.error('💥 [IMAGE UPLOAD] Image verification failed - check if the file is corrupted')
+        }
+        
+        // Debug: Log the final URL for manual testing
+        console.log('🔗 [IMAGE UPLOAD] Manual verification URL:', publicUrl.publicUrl)
+        console.log('📋 [IMAGE UPLOAD] To test: Open this URL in a new browser tab to verify the image displays correctly')
+        
       } catch (testError) {
-        console.warn('⚠️ [IMAGE UPLOAD] URL debug test failed:', testError)
+        console.error('💥 [IMAGE UPLOAD] Upload verification failed:', testError)
+        throw new Error(`Image upload verification failed: ${testError instanceof Error ? testError.message : 'Unknown error'}`)
       }
       
       return publicUrl.publicUrl

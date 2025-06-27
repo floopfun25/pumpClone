@@ -26,6 +26,8 @@
                 :src="token.image_url" 
                 :alt="tokenName"
                 class="w-full h-full object-cover"
+                @load="() => console.log('✅ [TOKEN DETAIL] Small logo loaded successfully:', token.image_url)"
+                @error="(e: Event) => console.error('❌ [TOKEN DETAIL] Small logo failed to load:', token.image_url, e)"
               />
               <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
                 {{ tokenSymbol.slice(0, 1) }}
@@ -223,6 +225,8 @@
                     :src="token.image_url" 
                     :alt="tokenName"
                     class="w-full h-full object-cover"
+                    @load="() => console.log('✅ [TOKEN DETAIL] Large logo loaded successfully:', token.image_url)"
+                    @error="(e: Event) => console.error('❌ [TOKEN DETAIL] Large logo failed to load:', token.image_url, e)"
                   />
                   <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
                     {{ tokenSymbol.slice(0, 1) }}
@@ -705,6 +709,16 @@ const loadTokenData = async () => {
     }
     
     token.value = tokenData
+    
+    // Debug: Log token data to see what image_url we got
+    console.log('🔍 [TOKEN DETAIL] Token data loaded:', {
+      id: tokenData.id,
+      name: tokenData.name,
+      symbol: tokenData.symbol,
+      mint_address: tokenData.mint_address,
+      image_url: tokenData.image_url,
+      metadata_uri: tokenData.metadata_uri
+    })
     
     // Load recent transactions for this token
     const transactions = await SupabaseService.getTokenTransactions(tokenData.id, 10)
