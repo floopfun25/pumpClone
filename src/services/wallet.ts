@@ -7,7 +7,7 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL
 } from '@solana/web3.js'
-import type { Commitment, SendOptions } from '@solana/web3.js'
+import type { Commitment, SendOptions, TransactionSignature } from '@solana/web3.js'
 import { 
   BaseMessageSignerWalletAdapter,
   WalletReadyState,
@@ -23,7 +23,32 @@ import {
 } from '@solana/wallet-adapter-solflare'
 import { solanaConfig } from '@/config'
 import { isMobile } from '@/utils/mobile'
-import { connectMobileWallet, getMobileConnectionInstructions } from '@/utils/walletDeeplink'
+import { 
+  connectMobileWallet, 
+  getMobileConnectionInstructions,
+  generateDappKeyPair,
+  buildConnectUrl,
+  parseConnectResponse,
+  createRedirectUrl,
+  isPhantomResponse,
+  buildDisconnectUrl
+} from '../utils/walletDeeplink'
+import type { WalletConnectionData } from '../utils/walletDeeplink'
+
+// Extend Window interface to include solana property
+declare global {
+  interface Window {
+    solana?: {
+      isPhantom?: boolean
+      publicKey?: PublicKey | null
+      isConnected?: boolean
+      connect?: () => Promise<{ publicKey: PublicKey }>
+      disconnect?: () => Promise<void>
+      signTransaction?: (transaction: Transaction) => Promise<Transaction>
+      signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>
+    }
+  }
+}
 
 // Dynamic import for Mobile Wallet Adapter to avoid SSR issues
 let SolanaMobileWalletAdapter: any = null
@@ -75,6 +100,228 @@ const walletAdapters: WalletAdapter[] = [
     supportsDeeplink: true
   }
 ]
+
+interface MobileWalletState {
+  isConnecting: boolean
+  connectionData: WalletConnectionData | null
+  lastConnectionAttempt: number
+}
+
+const mobileWalletState: MobileWalletState = {
+  isConnecting: false,
+  connectionData: null,
+  lastConnectionAttempt: 0
+}
+
+// Store connection data in sessionStorage for persistence
+const STORAGE_KEY = 'phantom_connection_data'
+
+const saveConnectionData = (data: WalletConnectionData) => {
+  try {
+    // Don't store sensitive keys in sessionStorage, only basic info
+    const safeData = {
+      session: data.session,
+      phantomEncryptionPublicKey: data.phantomEncryptionPublicKey
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
+  } catch (error) {
+    console.warn('Failed to save connection data:', error)
+  }
+}
+
+const loadConnectionData = (): Partial<WalletConnectionData> | null => {
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch (error) {
+    console.warn('Failed to load connection data:', error)
+    return null
+  }
+}
+
+const clearConnectionData = () => {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch (error) {
+    console.warn('Failed to clear connection data:', error)
+  }
+}
+
+// Initialize mobile wallet connection data
+const initializeConnectionData = (): WalletConnectionData => {
+  const stored = loadConnectionData()
+  const dappKeyPair = generateDappKeyPair()
+  
+  return {
+    dappKeyPair,
+    session: stored?.session || null,
+    sharedSecret: null, // Will be regenerated from keys
+    phantomEncryptionPublicKey: stored?.phantomEncryptionPublicKey || null
+  }
+}
+
+// Check for phantom response on page load
+const checkForPhantomResponse = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
+  
+  if (phantomAction === 'connect') {
+    handlePhantomConnectResponse()
+  }
+}
+
+// Handle Phantom connect response
+const handlePhantomConnectResponse = () => {
+  try {
+    const connectionData = mobileWalletState.connectionData
+    if (!connectionData) {
+      console.error('No connection data available')
+      return
+    }
+
+    const { connectData, sharedSecret } = parseConnectResponse(
+      window.location.href,
+      connectionData.dappKeyPair
+    )
+
+    // Update connection data
+    mobileWalletState.connectionData = {
+      ...connectionData,
+      session: connectData.session,
+      sharedSecret
+    }
+
+    // Save to sessionStorage
+    saveConnectionData(mobileWalletState.connectionData)
+
+    // Clear URL params
+    window.history.replaceState({}, document.title, window.location.pathname)
+
+    // Set wallet as connected
+    window.solana = {
+      isPhantom: true,
+      publicKey: new PublicKey(connectData.public_key),
+      isConnected: true,
+      connect: () => Promise.resolve({ publicKey: new PublicKey(connectData.public_key) }),
+      disconnect: () => Promise.resolve(),
+      signTransaction: () => Promise.reject(new Error('Use mobile signing')),
+      signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+    }
+
+    // Trigger connection event
+    window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
+      detail: { publicKey: connectData.public_key }
+    }))
+
+    console.log('✅ Phantom wallet connected successfully!')
+    
+  } catch (error) {
+    console.error('❌ Failed to handle connect response:', error)
+    mobileWalletState.isConnecting = false
+  }
+}
+
+// Initialize on page load
+if (typeof window !== 'undefined') {
+  mobileWalletState.connectionData = initializeConnectionData()
+  checkForPhantomResponse()
+}
+
+export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> => {
+  if (mobileWalletState.isConnecting) {
+    throw new Error('Connection already in progress')
+  }
+
+  // Check if already connected
+  if (window.solana?.isConnected) {
+    return { publicKey: window.solana.publicKey! }
+  }
+
+  try {
+    mobileWalletState.isConnecting = true
+    mobileWalletState.lastConnectionAttempt = Date.now()
+
+    // Generate new connection data if needed
+    if (!mobileWalletState.connectionData) {
+      mobileWalletState.connectionData = initializeConnectionData()
+    }
+
+    // Create redirect URL
+    const redirectUrl = createRedirectUrl('connect')
+    
+    // Build connect URL
+    const connectUrl = buildConnectUrl(
+      mobileWalletState.connectionData.dappKeyPair,
+      redirectUrl,
+      'devnet' // or 'mainnet-beta' based on your needs
+    )
+
+    console.log('🔗 Opening Phantom connect URL:', connectUrl)
+
+    // Open Phantom app
+    window.location.href = connectUrl
+
+    // Return a promise that resolves when connection is complete
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        mobileWalletState.isConnecting = false
+        reject(new Error('Connection timeout'))
+      }, 60000) // 60 second timeout
+
+      const handleConnection = (event: CustomEvent) => {
+        clearTimeout(timeout)
+        mobileWalletState.isConnecting = false
+        window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
+        resolve({ publicKey: new PublicKey(event.detail.publicKey) })
+      }
+
+      window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
+    })
+
+  } catch (error) {
+    mobileWalletState.isConnecting = false
+    console.error('❌ Failed to connect to Phantom:', error)
+    throw error
+  }
+}
+
+export const disconnectPhantomMobile = async (): Promise<void> => {
+  try {
+    const connectionData = mobileWalletState.connectionData
+    if (!connectionData?.session || !connectionData?.sharedSecret) {
+      // Already disconnected
+      return
+    }
+
+    // Build disconnect URL
+    const redirectUrl = createRedirectUrl('disconnect')
+    const disconnectUrl = buildDisconnectUrl(
+      connectionData.dappKeyPair,
+      connectionData.sharedSecret,
+      connectionData.session,
+      redirectUrl
+    )
+
+    // Clear local state
+    mobileWalletState.connectionData = null
+    clearConnectionData()
+
+    // Clear window.solana
+    if (window.solana) {
+      window.solana.isConnected = false
+      window.solana.publicKey = null
+    }
+
+    // Open disconnect URL
+    window.location.href = disconnectUrl
+
+    console.log('✅ Phantom wallet disconnected')
+    
+  } catch (error) {
+    console.error('❌ Failed to disconnect from Phantom:', error)
+    throw error
+  }
+}
 
 class WalletService {
   private connection: Connection
@@ -211,32 +458,53 @@ class WalletService {
   private async connectMobile(walletName?: string): Promise<void> {
     const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
     
-    // Use deep linking as the primary method for mobile connections
+    // Use proper deeplink connection for mobile wallets
     if (walletName) {
       try {
-        console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
-        
-        // Show instructions to user
-        const instructions = getMobileConnectionInstructions(walletName)
-        console.log(instructions)
-        
-        // Use deep linking to open the wallet app
-        await connectMobileWallet(walletName, {
-          dappUrl: window.location.origin,
-          redirectUrl: window.location.href,
-          cluster: 'mainnet-beta'
-        })
-        
-        console.log(`Successfully opened ${walletName} app for connection`)
-        
-        // The actual connection will happen when the user returns from the app
-        // We need to set up a listener for when they return
-        this.setupMobileReturnListener(walletName)
-        
-        return
+        if (walletName === 'Phantom') {
+          console.log('Attempting Phantom mobile connection via proper connect deeplink...')
+          
+          // Use the new connect method with proper encryption
+          const result = await connectPhantomMobile()
+          
+          // Find the wallet adapter for setup
+          const walletAdapter = walletAdapters.find(w => w.name === walletName)?.adapter
+          if (walletAdapter) {
+            this.currentWallet.value = walletAdapter
+            this._publicKey.value = result.publicKey
+            this.handleConnect()
+            
+            // Update balance
+            await this.updateBalance()
+          }
+          
+          console.log('✅ Phantom mobile wallet connected successfully!')
+          return
+          
+        } else {
+          console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
+          
+          // Show instructions to user
+          const instructions = getMobileConnectionInstructions(walletName)
+          console.log(instructions)
+          
+          // Use deep linking to open the wallet app for other wallets
+          await connectMobileWallet(walletName, {
+            dappUrl: window.location.origin,
+            redirectUrl: window.location.href,
+            cluster: 'mainnet-beta'
+          })
+          
+          console.log(`Successfully opened ${walletName} app for connection`)
+          
+          // The actual connection will happen when the user returns from the app
+          this.setupMobileReturnListener(walletName)
+          
+          return
+        }
         
       } catch (error: any) {
-        console.error(`Deep linking failed for ${walletName}:`, error)
+        console.error(`Mobile connection failed for ${walletName}:`, error)
         
         // If deep linking fails and we're on Chrome Android, try MWA as fallback
         if (isChrome && this.mobileWalletAdapter) {
@@ -402,6 +670,14 @@ class WalletService {
     try {
       this._disconnecting.value = true
 
+      // Handle mobile Phantom disconnection
+      if (isMobile() && this.currentWallet.value?.name === 'Phantom') {
+        await disconnectPhantomMobile()
+        this.cleanup()
+        return
+      }
+
+      // Handle regular wallet disconnection
       if (this.currentWallet.value) {
         await this.currentWallet.value.disconnect()
       }

@@ -1,4 +1,12 @@
 import { isMobile, isIOS, isAndroid, getPhantomDownloadUrl } from './mobile'
+import nacl from 'tweetnacl'
+import bs58 from 'bs58'
+import { Buffer } from 'buffer'
+
+// Ensure Buffer is available globally for crypto operations
+if (typeof window !== 'undefined' && !window.Buffer) {
+  (window as any).Buffer = Buffer
+}
 
 /**
  * Wallet deeplink utilities for mobile connections
@@ -8,6 +16,18 @@ export interface DeeplinkOptions {
   dappUrl?: string
   redirectUrl?: string
   cluster?: 'mainnet-beta' | 'devnet' | 'testnet'
+}
+
+export interface WalletConnectionData {
+  dappKeyPair: nacl.BoxKeyPair
+  session: string | null
+  sharedSecret: Uint8Array | null
+  phantomEncryptionPublicKey: string | null
+}
+
+export interface ConnectResponse {
+  public_key: string
+  session: string
 }
 
 /**
@@ -208,4 +228,126 @@ export const connectMobileWallet = async (
     console.error(`Failed to connect to ${walletName} on mobile:`, error)
     throw error
   }
+}
+
+// Generate a new dapp keypair for encryption
+export const generateDappKeyPair = (): nacl.BoxKeyPair => {
+  return nacl.box.keyPair()
+}
+
+// Build the connect deeplink URL
+export const buildConnectUrl = (
+  dappKeyPair: nacl.BoxKeyPair,
+  redirectUrl: string,
+  cluster: string = 'devnet'
+): string => {
+  const params = new URLSearchParams({
+    dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
+    cluster,
+    app_url: window.location.origin,
+    redirect_link: redirectUrl,
+  })
+
+  return `https://phantom.app/ul/v1/connect?${params.toString()}`
+}
+
+// Decrypt payload from Phantom
+export const decryptPayload = (
+  data: string,
+  nonce: string,
+  sharedSecret: Uint8Array
+): any => {
+  const decryptedData = nacl.box.open.after(
+    bs58.decode(data),
+    bs58.decode(nonce),
+    sharedSecret
+  )
+  
+  if (!decryptedData) {
+    throw new Error('Unable to decrypt data')
+  }
+  
+  return JSON.parse(Buffer.from(decryptedData).toString('utf8'))
+}
+
+// Encrypt payload to send to Phantom
+export const encryptPayload = (
+  payload: any,
+  sharedSecret: Uint8Array
+): [Uint8Array, Uint8Array] => {
+  const nonce = nacl.randomBytes(24)
+  const encryptedPayload = nacl.box.after(
+    Buffer.from(JSON.stringify(payload)),
+    nonce,
+    sharedSecret
+  )
+  return [nonce, encryptedPayload]
+}
+
+// Build disconnect URL
+export const buildDisconnectUrl = (
+  dappKeyPair: nacl.BoxKeyPair,
+  sharedSecret: Uint8Array,
+  session: string,
+  redirectUrl: string
+): string => {
+  const payload = { session }
+  const [nonce, encryptedPayload] = encryptPayload(payload, sharedSecret)
+  
+  const params = new URLSearchParams({
+    dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
+    nonce: bs58.encode(nonce),
+    redirect_link: redirectUrl,
+    payload: bs58.encode(encryptedPayload),
+  })
+
+  return `https://phantom.app/ul/v1/disconnect?${params.toString()}`
+}
+
+// Parse connection response from Phantom
+export const parseConnectResponse = (
+  url: string,
+  dappKeyPair: nacl.BoxKeyPair
+): { connectData: ConnectResponse; sharedSecret: Uint8Array } => {
+  const urlObj = new URL(url)
+  const params = urlObj.searchParams
+
+  if (params.get('errorCode')) {
+    throw new Error(params.get('errorMessage') || 'Connection failed')
+  }
+
+  const phantomEncryptionPublicKey = params.get('phantom_encryption_public_key')
+  const data = params.get('data')
+  const nonce = params.get('nonce')
+
+  if (!phantomEncryptionPublicKey || !data || !nonce) {
+    throw new Error('Invalid response from Phantom')
+  }
+
+  // Generate shared secret using Diffie-Hellman
+  const sharedSecret = nacl.box.before(
+    bs58.decode(phantomEncryptionPublicKey),
+    dappKeyPair.secretKey
+  )
+
+  // Decrypt the response data
+  const connectData = decryptPayload(data, nonce, sharedSecret)
+
+  return { connectData, sharedSecret }
+}
+
+// Check if URL is a Phantom response
+export const isPhantomResponse = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.pathname.includes('phantom')
+  } catch {
+    return false
+  }
+}
+
+// Create redirect URL for the current page
+export const createRedirectUrl = (action: string): string => {
+  const baseUrl = window.location.origin
+  return `${baseUrl}?phantom_action=${action}`
 } 
