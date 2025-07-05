@@ -203,17 +203,30 @@ export const handlePhantomConnectResponse = () => {
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
+    const phantomPublicKey = urlParams.get('phantom_encryption_public_key')
+    const nonce = urlParams.get('nonce')
+    const data = urlParams.get('data')
     
     if (phantomAction !== 'connect') {
       console.log('❌ Not a Phantom connect response')
       return
     }
 
+    if (!phantomPublicKey || !nonce || !data) {
+      console.error('❌ Missing required Phantom response parameters')
+      setTimeout(() => {
+        alert('❌ Connection failed: Missing response data from Phantom wallet. Please try connecting again.')
+      }, 100)
+      return
+    }
+
     // Try to get connection data from memory or storage
     let connectionData = mobileWalletState.connectionData
+    
     if (!connectionData) {
       console.log('⚠️ No connection data in memory, trying to load from storage...')
       const savedData = loadConnectionData()
+      
       if (savedData?.dappKeyPair) {
         connectionData = {
           dappKeyPair: savedData.dappKeyPair,
@@ -222,34 +235,36 @@ export const handlePhantomConnectResponse = () => {
           phantomEncryptionPublicKey: savedData.phantomEncryptionPublicKey || null
         }
         mobileWalletState.connectionData = connectionData
+        console.log('✅ Connection data restored from storage')
       }
     }
     
-    if (!connectionData) {
-      console.error('❌ No connection data available - cannot process response')
+    if (!connectionData?.dappKeyPair) {
+      console.error('❌ No dapp keypair available - cannot decrypt response')
+      
       // Initialize new connection data for future attempts
       mobileWalletState.connectionData = initializeConnectionData()
       
       setTimeout(() => {
-        alert('❌ Connection failed. Please try connecting again.')
+        alert('❌ Connection failed: No encryption key found. This may happen if you refresh the page during connection. Please try connecting again.')
       }, 100)
       return
     }
     
-    console.log('✅ Connection data found:', { 
-      hasKeyPair: !!connectionData.dappKeyPair, 
-      hasSession: !!connectionData.session 
-    })
+    console.log('✅ Connection data found')
 
     // Parse the response from Phantom
+    console.log('🔓 Attempting to parse and decrypt response...')
     const { connectData, sharedSecret } = parseConnectResponse(
       window.location.href,
       connectionData.dappKeyPair
     )
     
-    console.log('✅ Parsed connect data:', { 
+    console.log('✅ Successfully parsed connect data:', { 
       publicKey: connectData.public_key,
-      hasSession: !!connectData.session
+      hasSession: !!connectData.session,
+      sessionLength: connectData.session?.length,
+      sharedSecretLength: sharedSecret?.length
     })
 
     // Update connection data with the new session and shared secret
@@ -261,13 +276,15 @@ export const handlePhantomConnectResponse = () => {
 
     // Save to sessionStorage for persistence
     saveConnectionData(mobileWalletState.connectionData)
+    console.log('💾 Updated connection data saved to storage')
 
     // Set wallet as connected in global state
+    const publicKey = new PublicKey(connectData.public_key)
     window.solana = {
       isPhantom: true,
-      publicKey: new PublicKey(connectData.public_key),
+      publicKey,
       isConnected: true,
-      connect: () => Promise.resolve({ publicKey: new PublicKey(connectData.public_key) }),
+      connect: () => Promise.resolve({ publicKey }),
       disconnect: () => Promise.resolve(),
       signTransaction: () => Promise.reject(new Error('Use mobile signing')),
       signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
@@ -279,11 +296,12 @@ export const handlePhantomConnectResponse = () => {
     }))
 
     console.log('✅ Phantom wallet connected successfully!')
-    console.log('Public key:', connectData.public_key)
+    console.log('🔑 Public key:', connectData.public_key)
     
     // Clean up the URL after successful connection
     const cleanUrl = window.location.origin + window.location.pathname
     window.history.replaceState({}, document.title, cleanUrl)
+    console.log('🧹 URL cleaned up')
     
     // Show success message to user
     setTimeout(() => {
@@ -292,16 +310,17 @@ export const handlePhantomConnectResponse = () => {
     
   } catch (error) {
     console.error('❌ Failed to handle connect response:', error)
-    console.error('Error details:', error)
+    
     mobileWalletState.isConnecting = false
     
     // Clear any invalid connection data
     clearConnectionData()
     mobileWalletState.connectionData = null
     
-    // Show error message to user
+    // Show detailed error message to user for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error)
     setTimeout(() => {
-      alert('❌ Failed to connect wallet. Please try again.')
+      alert(`❌ Connection failed: ${errorMessage}\n\nPlease try connecting again. If the problem persists, try refreshing the page first.`)
     }, 100)
   }
 }
