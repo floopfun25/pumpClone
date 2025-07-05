@@ -1,24 +1,24 @@
 <template>
   <div class="enhanced-trading-interface bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
     <!-- Header -->
-    <div class="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div class="bg-gray-50 dark:bg-gray-900 px-6 py-4 md:px-6 md:py-4 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 class="text-xl md:text-lg font-semibold text-gray-900 dark:text-white">
           {{ $t('token.trade') }} {{ tokenSymbol }}
         </h3>
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span class="text-xs text-green-600 dark:text-green-400">Live</span>
+          <span class="text-sm md:text-xs text-green-600 dark:text-green-400">Live</span>
         </div>
       </div>
     </div>
 
     <!-- Trade Type Selector -->
-    <div class="p-6 pb-4">
-      <div class="grid grid-cols-2 gap-2 mb-6">
+    <div class="p-6 md:p-6 p-4 pb-4">
+      <div class="grid grid-cols-2 gap-3 md:gap-2 mb-6">
         <button 
           :class="[
-            'py-3 px-4 rounded-lg font-semibold transition-all duration-200 border-2',
+            'py-4 md:py-3 px-4 rounded-lg font-semibold transition-all duration-200 border-2 text-base md:text-sm',
             tradeType === 'buy' 
               ? 'bg-green-500 border-green-500 text-white shadow-lg' 
               : 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -29,7 +29,7 @@
         </button>
         <button 
           :class="[
-            'py-3 px-4 rounded-lg font-semibold transition-all duration-200 border-2',
+            'py-4 md:py-3 px-4 rounded-lg font-semibold transition-all duration-200 border-2 text-base md:text-sm',
             tradeType === 'sell' 
               ? 'bg-red-500 border-red-500 text-white shadow-lg' 
               : 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -43,16 +43,16 @@
       <!-- Quick Buy Buttons (Buy Mode Only) -->
       <div v-if="tradeType === 'buy'" class="mb-6">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Buy</span>
-          <span class="text-xs text-gray-500 dark:text-gray-400">SOL Amount</span>
+          <span class="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">Quick Buy</span>
+          <span class="text-sm md:text-xs text-gray-500 dark:text-gray-400">SOL Amount</span>
         </div>
-        <div class="grid grid-cols-4 gap-2">
+        <div class="grid grid-cols-4 gap-3 md:gap-2">
           <button 
             v-for="amount in quickBuyAmounts" 
             :key="amount"
             @click="setTradeAmount(amount)"
             :class="[
-              'py-2 px-3 text-sm font-medium rounded-lg border transition-all duration-200',
+              'py-3 md:py-2 px-3 text-sm font-medium rounded-lg border transition-all duration-200',
               parseFloat(tradeAmount) === amount
                 ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-700 dark:text-green-400'
                 : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -66,15 +66,15 @@
       <!-- Quick Sell Buttons (Sell Mode Only) -->
       <div v-if="tradeType === 'sell'" class="mb-6">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Sell</span>
-          <span class="text-xs text-gray-500 dark:text-gray-400">% of Holdings</span>
+          <span class="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">Quick Sell</span>
+          <span class="text-sm md:text-xs text-gray-500 dark:text-gray-400">% of Holdings</span>
         </div>
-        <div class="grid grid-cols-4 gap-2">
+        <div class="grid grid-cols-4 gap-3 md:gap-2">
           <button 
             v-for="percentage in quickSellPercentages" 
             :key="percentage"
             @click="setSellPercentage(percentage)"
-            class="py-2 px-3 text-sm font-medium rounded-lg border bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-200"
+            class="py-3 md:py-2 px-3 text-sm font-medium rounded-lg border bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-200"
           >
             {{ percentage }}%
           </button>
@@ -84,10 +84,10 @@
       <!-- Amount Input -->
       <div class="mb-6">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label class="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">
             {{ tradeType === 'buy' ? 'SOL Amount' : 'Token Amount' }}
           </label>
-          <div v-if="tradeType === 'sell'" class="text-xs text-gray-500 dark:text-gray-400">
+          <div v-if="tradeType === 'sell'" class="text-sm md:text-xs text-gray-500 dark:text-gray-400">
             Balance: {{ formatNumber(tokenBalance) }} {{ tokenSymbol }}
           </div>
         </div>
@@ -97,12 +97,12 @@
             v-model="tradeAmount"
             type="number"
             :placeholder="tradeType === 'buy' ? '0.1' : '1000'"
-            class="w-full px-4 py-3 text-lg font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-4 md:py-3 text-lg font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             :step="tradeType === 'buy' ? '0.001' : '1'"
             :min="0"
             @input="calculateTradePreview"
           />
-          <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
+          <div class="absolute right-4 top-1/2 transform -translate-y-1/2 text-base md:text-sm font-medium text-gray-500 dark:text-gray-400">
             {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
           </div>
         </div>
@@ -111,14 +111,14 @@
       <!-- Trade Preview -->
       <div v-if="tradePreview" class="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Trade Preview</span>
+          <span class="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">Trade Preview</span>
           <div class="flex items-center gap-1">
             <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-            <span class="text-xs text-blue-600 dark:text-blue-400">Live</span>
+            <span class="text-sm md:text-xs text-blue-600 dark:text-blue-400">Live</span>
           </div>
         </div>
         
-        <div class="space-y-2 text-sm">
+        <div class="space-y-2 text-base md:text-sm">
           <div class="flex justify-between">
             <span class="text-gray-600 dark:text-gray-400">
               {{ tradeType === 'buy' ? 'You will receive' : 'You will receive' }}
@@ -160,7 +160,7 @@
         <div v-if="Math.abs(tradePreview.priceImpact) > 5" class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
           <div class="flex items-center gap-2">
             <span class="text-yellow-600 dark:text-yellow-400">⚠️</span>
-            <span class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+            <span class="text-base md:text-sm text-yellow-800 dark:text-yellow-200 font-medium">
               High price impact detected
             </span>
           </div>
@@ -170,23 +170,23 @@
       <!-- Slippage Settings -->
       <div class="mb-6">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Slippage Tolerance</span>
+          <span class="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">Slippage Tolerance</span>
           <button 
             @click="showSlippageSettings = !showSlippageSettings"
-            class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+            class="text-sm md:text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 py-2 px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
           >
             {{ showSlippageSettings ? 'Hide' : 'Show' }}
           </button>
         </div>
         
         <div v-if="showSlippageSettings" class="space-y-3">
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-3 gap-3 md:gap-2">
             <button 
               v-for="preset in slippagePresets" 
               :key="preset"
               @click="slippageTolerance = preset"
               :class="[
-                'py-2 px-3 text-sm font-medium rounded-lg border transition-all duration-200',
+                'py-3 md:py-2 px-3 text-sm font-medium rounded-lg border transition-all duration-200',
                 slippageTolerance === preset
                   ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400'
                   : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -221,11 +221,11 @@
         @click="executeTrade"
         :disabled="!canTrade"
         :class="[
-          'w-full py-4 px-6 font-bold text-lg rounded-lg transition-all duration-200 shadow-lg',
+          'w-full py-5 md:py-4 px-6 font-bold text-lg rounded-lg transition-all duration-200 shadow-lg',
           tradeType === 'buy' 
             ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
             : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white',
-          !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'
+          !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl active:scale-95'
         ]"
       >
         <span v-if="trading" class="flex items-center justify-center gap-2">
@@ -239,7 +239,7 @@
 
       <!-- Trade Info -->
       <div class="mt-4 text-center">
-        <div class="text-xs text-gray-500 dark:text-gray-400">
+        <div class="text-sm md:text-xs text-gray-500 dark:text-gray-400">
           <span>Powered by bonding curve • </span>
           <span>1% platform fee • </span>
           <span>No slippage on curve</span>
@@ -366,8 +366,7 @@ const performTrade = async () => {
   // This would involve:
   // 1. Creating transaction instruction
   // 2. Signing with wallet
-  // 3. Sending to blockchain
-  // 4. Waiting for confirmation
+  // 3. Waiting for confirmation
   
   // Mock implementation for now
   await new Promise(resolve => setTimeout(resolve, 2000))
@@ -440,6 +439,47 @@ onUnmounted(() => {
   max-width: 100%;
 }
 
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  .enhanced-trading-interface {
+    @apply rounded-lg;
+  }
+  
+  /* Better mobile touch targets */
+  button {
+    @apply min-h-[44px];
+  }
+  
+  /* Improved mobile form elements */
+  input[type="number"] {
+    @apply text-lg;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  
+  /* Remove number input arrows on mobile */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Better mobile grid spacing */
+  .grid {
+    @apply gap-3;
+  }
+  
+  /* Improve mobile button interactions */
+  button:active {
+    @apply scale-95;
+  }
+  
+  /* Better mobile preview section */
+  .trade-preview {
+    @apply text-base;
+  }
+}
+
 /* Custom scrollbar for any overflow */
 * {
   scrollbar-width: thin;
@@ -456,11 +496,11 @@ onUnmounted(() => {
 
 *::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.5);
-  border-radius: 3px;
+  border-radius: 20px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.7);
+  background-color: rgba(156, 163, 175, 0.8);
 }
 
 /* Animation for loading states */

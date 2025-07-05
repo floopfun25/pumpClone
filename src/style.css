@@ -259,4 +259,176 @@
   .text-shadow {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
+  
+  /* Mobile-specific utilities */
+  .mobile-touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  .mobile-button {
+    @apply mobile-touch-target active:scale-95 transition-transform duration-150;
+  }
+  
+  .mobile-card {
+    @apply rounded-lg shadow-lg border border-binance-border p-4;
+  }
+  
+  .mobile-input {
+    @apply w-full px-4 py-3 text-base border border-binance-border rounded-lg bg-trading-surface text-white placeholder-binance-gray;
+  }
+  
+  .mobile-grid {
+    @apply grid gap-4;
+  }
+  
+  .mobile-stack {
+    @apply flex flex-col space-y-4;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .text-mobile-xs { font-size: 0.75rem; }
+  .text-mobile-sm { font-size: 0.875rem; }
+  .text-mobile-base { font-size: 1rem; }
+  .text-mobile-lg { font-size: 1.125rem; }
+  .text-mobile-xl { font-size: 1.25rem; }
+}
+
+/* Mobile responsiveness and accessibility */
+@media (max-width: 768px) {
+  /* Improve mobile app container */
+  #app {
+    @apply text-base;
+  }
+  
+  /* Better mobile container spacing */
+  .container {
+    @apply px-4;
+  }
+  
+  /* Mobile-optimized cards */
+  .card {
+    @apply p-4 rounded-lg;
+  }
+  
+  /* Improve mobile input fields */
+  .input-field {
+    @apply py-3 text-base;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  
+  /* Remove number input arrows on mobile */
+  .input-field[type="number"]::-webkit-outer-spin-button,
+  .input-field[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Mobile-optimized token cards */
+  .token-card {
+    @apply p-4 min-h-[120px] active:scale-95 active:bg-trading-elevated/50;
+  }
+  
+  /* Mobile trading cards */
+  .trading-card {
+    @apply active:scale-95 transition-transform duration-150;
+  }
+  
+  /* Mobile buttons */
+  .btn-primary,
+  .btn-secondary {
+    @apply py-3 px-6 text-base min-h-[48px] active:scale-95;
+  }
+  
+  /* Mobile navigation improvements */
+  .nav-binance {
+    @apply backdrop-blur-md;
+  }
+  
+  /* Mobile table improvements */
+  .trading-table {
+    @apply overflow-x-auto;
+  }
+  
+  .trading-table th,
+  .trading-table td {
+    @apply p-3 text-sm;
+  }
+  
+  /* Mobile-specific animations */
+  .mobile-fade-in {
+    animation: mobileSlideUp 0.3s ease-out;
+  }
+  
+  @keyframes mobileSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Mobile modal improvements */
+  .modal {
+    @apply m-4 max-h-[90vh] overflow-y-auto;
+  }
+  
+  /* Mobile grid improvements */
+  .grid-cols-1 {
+    @apply gap-4;
+  }
+  
+  /* Mobile spinner */
+  .spinner {
+    @apply w-6 h-6;
+  }
+}
+
+/* Tablet specific improvements */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .card {
+    @apply p-5;
+  }
+  
+  .container {
+    @apply px-6;
+  }
+}
+
+/* Touch device improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Better touch targets for touch devices */
+  button, 
+  .btn-primary, 
+  .btn-secondary,
+  .token-card,
+  .trading-card {
+    @apply min-h-[44px];
+  }
+  
+  /* Remove hover effects on touch devices */
+  .hover\:scale-105:hover {
+    transform: none;
+  }
+  
+  /* Better touch feedback */
+  button:active,
+  .btn-primary:active,
+  .btn-secondary:active {
+    @apply scale-95 duration-75;
+  }
+}
+
+/* High DPI display improvements */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .text-shadow {
+    text-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.3);
+  }
+  
+  .card {
+    border-width: 0.5px;
+  }
 } 

@@ -22,7 +22,26 @@
           </div>
           
           <!-- Quick Filters -->
-          <div class="flex flex-wrap gap-2 mt-4 md:mt-0">
+          <!-- Mobile Select Dropdown -->
+          <div class="md:hidden mt-4 w-full">
+            <select
+              v-model="activeQuickFilter"
+              @change="setQuickFilter(activeQuickFilter)"
+              class="mobile-filter-select w-full px-4 py-3 bg-trading-elevated border border-binance-border rounded-lg text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow transition-all duration-200"
+            >
+              <option
+                v-for="filter in quickFilters"
+                :key="filter.value"
+                :value="filter.value"
+                class="bg-trading-elevated text-white"
+              >
+                {{ filter.label }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- Desktop Filter Buttons -->
+          <div class="filter-buttons hidden md:flex flex-wrap gap-2 mt-4 md:mt-0">
             <button
               v-for="filter in quickFilters"
               :key="filter.value"
@@ -49,13 +68,13 @@
             </div>
           </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" :class="{ 'opacity-50': loading }">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-3" :class="{ 'opacity-50': loading }">
             <TokenCard
               v-for="token in tokens"
               :key="token.id"
               :token="token"
               @click="handleTokenClick(token)"
-              class="trading-card"
+              class="trading-card mobile-optimized"
             />
           </div>
         </div>
@@ -77,7 +96,7 @@
         </div>
         
         <!-- Page Navigation -->
-        <div v-if="tokens.length > 0 && totalPages > 1" class="flex items-center justify-center mt-8 gap-4">
+        <div v-if="tokens.length > 0 && totalPages > 1" class="pagination-controls flex items-center justify-center mt-8 gap-4">
           <!-- Previous Button -->
           <button 
             @click="goToPrevPage"
@@ -355,6 +374,65 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .mobile-optimized {
+    @apply mb-2;
+  }
+  
+  /* Improve mobile spacing */
+  .container {
+    @apply px-3;
+  }
+  
+  /* Better mobile section headers */
+  .section-header {
+    @apply text-center mb-6;
+  }
+  
+  /* Improve mobile pagination */
+  .pagination-controls {
+    @apply flex-col space-y-3 space-x-0;
+  }
+  
+  .pagination-controls button {
+    @apply w-full min-h-[48px];
+  }
+  
+  /* Mobile filter select dropdown */
+  .mobile-filter-select {
+    @apply min-h-[48px] appearance-none bg-trading-elevated;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+  }
+  
+  .mobile-filter-select:focus {
+    @apply shadow-lg border-binance-yellow;
+  }
+  
+  .mobile-filter-select option {
+    @apply bg-trading-elevated text-white py-2;
+  }
+}
+
+/* Desktop styles remain unchanged */
+@media (min-width: 769px) {
+  .pagination-controls {
+    @apply flex-row space-y-0 space-x-4;
+  }
+  
+  .filter-buttons {
+    @apply flex-row space-y-0 space-x-2;
+  }
+  
+  .filter-buttons button {
+    @apply min-h-[40px] touch-manipulation;
+  }
+}
+
 .trading-card {
   @apply transition-all duration-200 hover:scale-105 hover:shadow-lg;
 }

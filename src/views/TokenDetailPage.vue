@@ -76,15 +76,16 @@
           </div>
         </div>
 
-        <div v-if="!error" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div v-if="!error" class="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-8 gap-4">
           <!-- Left Column: Chart & Comments (2/3 width) -->
-          <div class="lg:col-span-2 space-y-6">
+          <div class="lg:col-span-2 space-y-6 md:space-y-6 space-y-4">
             <!-- Price Chart -->
             <TradingViewChart 
               v-if="token?.id" 
               :token-id="token.id"
               :token-symbol="token.symbol"
               :mint-address="token.mint_address"
+              class="mobile-chart"
             />
 
             <!-- Comments Section -->
@@ -93,18 +94,19 @@
               :token-id="token.id"
               :token-creator="token.creator?.wallet_address"
               @connect-wallet="connectWallet"
+              class="mobile-comments"
             />
           </div>
 
           <!-- Right Sidebar: Trading & Token Info (1/3 width) -->
-          <div class="space-y-4">
+          <div class="space-y-4 mobile-sidebar">
             <!-- Trading Interface - Pump.fun Style -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 md:p-4 mobile-trading-card">
               <!-- Buy/Sell Toggle -->
-              <div class="grid grid-cols-2 gap-1 mb-4">
+              <div class="grid grid-cols-2 gap-2 md:gap-1 mb-4">
                 <button 
                   :class="[
-                    'py-2 px-4 text-sm font-medium rounded-lg transition-colors',
+                    'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
                     tradeType === 'buy' 
                       ? 'bg-green-500 text-white' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -115,7 +117,7 @@
                 </button>
                 <button 
                   :class="[
-                    'py-2 px-4 text-sm font-medium rounded-lg transition-colors',
+                    'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
                     tradeType === 'sell' 
                       ? 'bg-red-500 text-white' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -127,7 +129,7 @@
               </div>
 
               <!-- Balance -->
-              <div class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <div class="text-base md:text-sm text-gray-600 dark:text-gray-400 mb-4">
                 balance: <span class="font-medium text-gray-900 dark:text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
               </div>
 
@@ -138,20 +140,20 @@
                     v-model="tradeAmount"
                     type="number"
                     placeholder="0.00"
-                    class="flex-1 px-3 py-2 bg-transparent text-gray-900 dark:text-white focus:outline-none"
+                    class="flex-1 px-4 py-3 md:py-2 bg-transparent text-gray-900 dark:text-white focus:outline-none text-base md:text-sm"
                     step="0.001"
                     min="0"
                     @input="calculateTradePreview"
                   />
-                  <span class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border-l border-gray-300 dark:border-gray-600">
+                  <span class="px-4 py-3 md:py-2 text-base md:text-sm text-gray-600 dark:text-gray-400 border-l border-gray-300 dark:border-gray-600">
                     {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
                   </span>
                 </div>
               </div>
 
               <!-- Trade Preview -->
-              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
-                <div class="space-y-2 text-sm">
+              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 md:p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
+                <div class="space-y-2 text-base md:text-sm">
                   <div class="flex justify-between">
                     <span class="text-gray-600 dark:text-gray-400">
                       {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
@@ -193,165 +195,54 @@
                   v-for="amount in ['0.1', '0.5', '1', 'max']" 
                   :key="amount"
                   @click="setQuickAmount(amount)"
-                  class="py-2 px-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  class="py-3 md:py-2 px-2 text-sm md:text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
                 </button>
               </div>
 
-              <!-- Place Trade Button -->
-              <button 
+              <!-- Trade Button -->
+              <button
                 @click="executeTrade"
                 :disabled="!canTrade"
+                class="w-full py-4 md:py-3 px-4 font-semibold text-lg md:text-base rounded-lg transition-all duration-200 active:scale-95"
                 :class="[
-                  'w-full py-3 px-4 font-medium rounded-lg transition-colors',
                   tradeType === 'buy' 
-                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    ? 'bg-green-500 hover:bg-green-600 text-white' 
                     : 'bg-red-500 hover:bg-red-600 text-white',
-                  !canTrade ? 'opacity-50 cursor-not-allowed' : ''
+                  !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
                 ]"
               >
-                place trade
+                {{ tradeType === 'buy' ? 'Buy' : 'Sell' }} {{ tokenSymbol }}
               </button>
             </div>
 
             <!-- Token Info Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <!-- Token Logo & Name -->
-              <div class="flex items-center gap-3 mb-4">
-                <div class="w-8 h-8 rounded-full overflow-hidden">
-                  <img 
-                    v-if="token?.image_url" 
-                    :src="token.image_url" 
-                    :alt="tokenName"
-                    class="w-full h-full object-cover"
-                    @load="() => console.log('✅ [TOKEN DETAIL] Large logo loaded successfully:', token.image_url)"
-                    @error="(e: Event) => console.error('❌ [TOKEN DETAIL] Large logo failed to load:', token.image_url, e)"
-                  />
-                  <div v-else class="w-full h-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
-                    {{ tokenSymbol.slice(0, 1) }}
-                  </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 md:p-4 mobile-info-card">
+              <h3 class="text-lg md:text-base font-semibold text-gray-900 dark:text-white mb-4">Token Info</h3>
+              <div class="space-y-3 md:space-y-2 text-base md:text-sm">
+                                 <div class="flex justify-between">
+                   <span class="text-gray-600 dark:text-gray-400">Price:</span>
+                   <span class="font-medium text-gray-900 dark:text-white">${{ currentPrice?.toFixed(8) || '0.00000000' }}</span>
+                 </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Market Cap:</span>
+                  <span class="font-medium text-gray-900 dark:text-white">{{ formattedMarketCap }}</span>
                 </div>
-                <span class="font-medium text-gray-900 dark:text-white">
-                  {{ tokenName.toLowerCase() }} ({{ tokenSymbol }})
-                </span>
-              </div>
-
-              <!-- Bonding Curve Progress -->
-              <div class="mb-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  bonding curve progress: {{ progressPercentage.toFixed(0) }}%
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Holders:</span>
+                  <span class="font-medium text-gray-900 dark:text-white">{{ token?.holder_count || 0 }}</span>
                 </div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  {{ bondingProgress?.solRaised?.toFixed(2) || '0.00' }} / {{ bondingProgress?.graduationThreshold || '85' }} SOL raised
-                </div>
-                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div 
-                    class="h-full bg-green-500 rounded-full transition-all duration-500"
-                    :style="{ width: `${progressPercentage}%` }"
-                  ></div>
-                </div>
-              </div>
-
-              <!-- Graduation Status -->
-              <div v-if="progressPercentage >= 100 || bondingCurveState?.isGraduated" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div class="flex items-center gap-2 text-sm">
-                  <span class="text-blue-600 dark:text-blue-400">🎉</span>
-                  <span class="text-blue-800 dark:text-blue-200">
-                    {{ bondingCurveState?.isGraduated ? 'Token has graduated!' : 'Ready for graduation!' }}
-                    PumpSwap pool seeded! View on PumpSwap
-                  </span>
-                  <a href="#" class="text-blue-600 dark:text-blue-400 hover:underline">here</a>
-                </div>
-              </div>
-
-              <!-- Action Buttons -->
-              <div class="space-y-2">
-                <button 
-                  @click="toggleWatchlist"
-                  :disabled="!authStore.isAuthenticated"
-                  :class="[
-                    'w-full py-2 text-sm font-medium rounded transition-colors',
-                    isInWatchlist 
-                      ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
-                    !authStore.isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''
-                  ]"
-                >
-                  {{ isInWatchlist ? '❤️ remove from watchlist' : '🤍 add to watchlist' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Contract Address -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">contract address:</div>
-              <div class="flex items-center gap-2">
-                <code class="text-xs font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                  {{ formatContractAddress(token?.mint_address || '') }}
-                </code>
-                <button 
-                  @click="copyToClipboard(token?.mint_address || '')"
-                  class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  copy
-                </button>
-              </div>
-            </div>
-
-            <!-- External Trading -->
-            <!-- TODO: Implement MEXC trading integration
-                 - Add click handler to redirect to MEXC trading page
-                 - Check if token is actually listed on MEXC before showing button
-                 - Handle cases where token is not available on external exchanges
-            -->
-            <!--
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <button class="w-full py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors flex items-center justify-center gap-2">
-                <span>📊</span>
-                trade on MEXC
-              </button>
-            </div>
-            -->
-
-            <!-- Top Holders -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <div class="flex items-center justify-between mb-4">
-                <span class="text-sm font-medium text-gray-900 dark:text-white">top holders</span>
-                <!-- TODO: Implement bubble map generation
-                     - Create visual bubble chart showing holder distribution
-                     - Color code by holding size
-                     - Interactive hover tooltips with holder details
-                <!--
-                <button class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                  generate bubble map
-                </button>
-                -->
-              </div>
-              
-              <div v-if="topHolders.length > 0" class="space-y-2">
-                <div 
-                  v-for="(holder, index) in topHolders" 
-                  :key="holder.fullAddress || holder.address"
-                  class="flex items-center justify-between text-sm"
-                >
-                  <div class="flex items-center gap-2">
-                    <span class="text-gray-500 dark:text-gray-400">{{ index + 1 }}.</span>
-                    <div class="flex flex-col">
-                      <code class="text-xs font-mono text-gray-900 dark:text-white">{{ holder.address }}</code>
-                      <span v-if="holder.username" class="text-xs text-gray-500 dark:text-gray-400">{{ holder.username }}</span>
-                    </div>
-                  </div>
-                  <span class="text-gray-600 dark:text-gray-400">{{ holder.percentage }}%</span>
-                </div>
-              </div>
-              
-              <!-- Empty state when no holders -->
-              <div v-else class="text-center py-6">
-                <div class="text-gray-400 dark:text-gray-500 text-sm">
-                  <div class="mb-2">👥</div>
-                  <p>No holders yet</p>
-                  <p class="text-xs mt-1">Be the first to buy this token!</p>
+                <div v-if="token?.website" class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Website:</span>
+                  <a 
+                    :href="token.website" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Visit
+                  </a>
                 </div>
               </div>
             </div>
@@ -363,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, watchEffect, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
@@ -1092,4 +983,80 @@ watch(() => tradeType.value, () => {
 watch(() => bondingCurveState.value, () => {
   calculateTradePreview()
 })
-</script> 
+
+// Component cleanup will be handled by Vue's lifecycle
+</script>
+
+<style scoped>
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  .mobile-chart {
+    @apply rounded-lg;
+    min-height: 300px;
+  }
+  
+  .mobile-comments {
+    @apply rounded-lg;
+  }
+  
+  .mobile-sidebar {
+    @apply order-first lg:order-last;
+  }
+  
+  .mobile-trading-card {
+    @apply sticky top-20 z-10 shadow-lg;
+  }
+  
+  .mobile-info-card {
+    @apply mt-4;
+  }
+  
+  /* Improve mobile grid layout */
+  .grid {
+    @apply gap-4;
+  }
+  
+  /* Better mobile button interactions */
+  button:active {
+    @apply scale-95;
+  }
+  
+  /* Improve mobile touch targets */
+  button {
+    @apply min-h-[44px];
+  }
+  
+  /* Better mobile form elements */
+  input[type="number"] {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  /* Mobile-optimized header */
+  .token-header {
+    @apply flex-col space-y-2 space-x-0 text-center;
+  }
+  
+  /* Better mobile spacing */
+  .container {
+    @apply px-3;
+  }
+}
+
+/* Desktop styles remain unchanged */
+@media (min-width: 769px) {
+  .mobile-sidebar {
+    @apply order-last;
+  }
+  
+  .mobile-trading-card {
+    @apply static shadow-none;
+  }
+}
+</style> 

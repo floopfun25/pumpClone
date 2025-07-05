@@ -4,6 +4,17 @@
     <!-- Navigation Header -->
     <Navbar />
     
+    <!-- Mobile Create Token Button - Persistent across all pages -->
+    <div v-if="isMobile && uiStore.isSidebarCollapsed" class="mobile-create-button-container">
+      <router-link 
+        to="/create" 
+        class="mobile-create-button"
+      >
+        <span class="text-lg">🚀</span>
+        <span class="font-bold">{{ t('navigation.create') }}</span>
+      </router-link>
+    </div>
+    
     <!-- Sidebar -->
     <Sidebar />
     
@@ -30,6 +41,7 @@ import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
+import { useTypedI18n } from '@/i18n'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -38,10 +50,11 @@ import ToastContainer from '@/components/common/ToastContainer.vue'
 import LoadingOverlay from '@/components/common/LoadingOverlay.vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
 
-// Initialize stores
+// Initialize stores and composables
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
+const { t } = useTypedI18n()
 
 // Reactive window width for responsive behavior
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
@@ -146,6 +159,29 @@ main, footer {
 @media (max-width: 768px) {
   main, footer {
     margin-left: 0 !important;
+  }
+  
+  /* Mobile Create Button */
+  .mobile-create-button-container {
+    @apply fixed top-16 left-0 right-0 z-40 px-4 py-3 bg-binance-dark/95 backdrop-blur-lg border-b border-binance-border;
+  }
+  
+  .mobile-create-button {
+    @apply w-full flex items-center justify-center space-x-2 px-4 py-3 bg-binance-yellow hover:bg-primary-600 text-binance-dark font-semibold rounded-lg transition-all duration-200 shadow-lg;
+    @apply active:scale-95 min-h-[48px];
+  }
+  
+  .mobile-create-button:hover {
+    @apply shadow-xl;
+  }
+  
+  /* Adjust main content to account for mobile button */
+  main {
+    @apply pt-24 !important;
+  }
+  
+  footer {
+    @apply pb-4;
   }
 }
 </style> 
