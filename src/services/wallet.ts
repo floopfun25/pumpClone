@@ -329,8 +329,18 @@ export const handlePhantomConnectResponse = () => {
 
 // Initialize on page load
 if (typeof window !== 'undefined') {
-  mobileWalletState.connectionData = initializeConnectionData()
-  checkForPhantomResponse()
+  // Check if this is a Phantom response first
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
+  
+  if (phantomAction === 'connect') {
+    // If this is a Phantom response, don't initialize new connection data
+    // Let the response handler load the stored data instead
+    checkForPhantomResponse()
+  } else {
+    // Only initialize connection data if we're not processing a response
+    mobileWalletState.connectionData = initializeConnectionData()
+  }
 }
 
 export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> => {
