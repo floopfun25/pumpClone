@@ -328,16 +328,15 @@ export const handlePhantomConnectResponse = () => {
         signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
       }
 
-      // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
-      // Instead of accessing private properties, we'll trigger a proper connection
+      // Update wallet service state properly
       try {
-        // Call connectPhantomMobile programmatically to update the service state
         const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
         if (phantomAdapter && walletService) {
-          // Manually trigger the service's handleConnect method
-          walletService['_publicKey'].value = publicKey
-          walletService['currentWallet'].value = phantomAdapter
-          walletService['_connecting'].value = false
+          // Set the adapter's public key through its internal state
+          (phantomAdapter as any)._publicKey = publicKey
+          
+          // Trigger proper connection flow
+          walletService.handleMobileWalletReturn()
           
           // Update balance after a short delay
           setTimeout(async () => {
@@ -1001,11 +1000,35 @@ class WalletService {
     return false
   }
 
-  // Legacy mobile wallet return handling (no longer needed)
+  // Handle mobile wallet return
   async handleMobileWalletReturn(): Promise<void> {
-    // This is no longer needed with proper MWA integration
-    console.log('Legacy mobile wallet return handling - no longer needed with MWA')
-    return
+    try {
+      // Check if we have a connected wallet adapter
+      if (!this.currentWallet.value) {
+        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
+        if (!phantomAdapter) {
+          throw new Error('No wallet adapter available')
+        }
+        this.currentWallet.value = phantomAdapter
+      }
+
+      // Update public key from window.solana (set by mobile connection handler)
+      if (window.solana?.publicKey) {
+        this._publicKey.value = window.solana.publicKey
+      }
+
+      // Trigger connect handler to update state
+      this.handleConnect()
+
+      // Update balance
+      await this.updateBalance()
+
+      console.log('Mobile wallet return handled successfully')
+    } catch (error) {
+      console.error('Failed to handle mobile wallet return:', error)
+      this.cleanup()
+      throw error
+    }
   }
 
   // Setup wallet event listeners

@@ -122,6 +122,15 @@ onMounted(async () => {
     // Setup auth listener
     authStore.setupAuthListener()
     
+    // Check for mobile wallet return before initializing wallet
+    const urlParams = new URLSearchParams(window.location.search)
+    const isPhantomReturn = urlParams.get('phantom_action') === 'connect'
+    
+    if (isPhantomReturn) {
+      console.log('Detected Phantom mobile return, handling connection...')
+      await walletStore.handleMobileWalletReturn()
+    }
+    
     // Initialize wallet
     await walletStore.initializeWallet()
     
