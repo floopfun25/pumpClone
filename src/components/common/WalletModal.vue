@@ -33,7 +33,10 @@
         <div v-if="connecting" class="text-center py-8">
           <div class="spinner w-10 h-10 md:w-8 md:h-8 mx-auto mb-4"></div>
           <p class="text-gray-600 dark:text-gray-400 text-base md:text-sm">
-            {{ isMobileDevice ? t('messages.info.processing') : t('wallet.connecting') }}
+            {{ isMobileDevice ? t('wallet.openingApp') : t('wallet.connecting') }}
+          </p>
+          <p v-if="isMobileDevice && selectedWallet" class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {{ t('wallet.approveInApp', { walletName: selectedWallet }) }}
           </p>
         </div>
         
@@ -173,6 +176,7 @@ const uiStore = useUIStore()
 // State
 const connecting = ref(false)
 const error = ref<string | null>(null)
+const selectedWallet = ref<string | null>(null)
 
 // Computed
 const isMobileDevice = computed(() => isMobile())
@@ -204,6 +208,7 @@ const closeModal = () => {
 const connectWallet = async (walletName: string) => {
   connecting.value = true
   error.value = null
+  selectedWallet.value = walletName
   
   try {
     await walletStore.connectWallet(walletName)
@@ -220,6 +225,7 @@ const connectWallet = async (walletName: string) => {
     })
   } finally {
     connecting.value = false
+    selectedWallet.value = null
   }
 }
 

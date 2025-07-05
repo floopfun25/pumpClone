@@ -27,7 +27,9 @@
     "addressCopied": "Address copied!",
     "selectWallet": "Select Wallet",
     "noWallet": "No wallet detected",
-    "installWallet": "Install {wallet} to continue"
+    "installWallet": "Install {wallet} to continue",
+    "openingApp": "Opening wallet app...",
+    "approveInApp": "Please approve the connection in the {walletName} app"
   },
   "token": {
     "create": "Create Token",

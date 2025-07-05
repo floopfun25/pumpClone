@@ -23,6 +23,7 @@ import {
 } from '@solana/wallet-adapter-solflare'
 import { solanaConfig } from '@/config'
 import { isMobile } from '@/utils/mobile'
+import { connectMobileWallet, getMobileConnectionInstructions } from '@/utils/walletDeeplink'
 
 // Dynamic import for Mobile Wallet Adapter to avoid SSR issues
 let SolanaMobileWalletAdapter: any = null
@@ -167,15 +168,9 @@ class WalletService {
     const mobile = isMobile()
     
     if (mobile) {
-      // On mobile Chrome (Android), all wallets are potentially available via MWA
-      const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
-      if (isChrome) {
-        console.log('Mobile Chrome detected: showing all wallets (MWA compatible)')
-        return walletAdapters
-      } else {
-        console.log('Mobile non-Chrome browser: limited wallet support')
-        return []
-      }
+      // On mobile, all wallets are potentially available via deep linking
+      console.log('Mobile detected: showing all wallets (deep linking compatible)')
+      return walletAdapters
     }
     
     // Desktop behavior - check for browser extensions
@@ -216,12 +211,56 @@ class WalletService {
   private async connectMobile(walletName?: string): Promise<void> {
     const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
     
-    if (!isChrome) {
-      throw new WalletConnectionError(
-        'Mobile wallet connections are only supported in Chrome on Android. Please use Chrome browser or install the wallet app directly.'
-      )
+    // Use deep linking as the primary method for mobile connections
+    if (walletName) {
+      try {
+        console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
+        
+        // Show instructions to user
+        const instructions = getMobileConnectionInstructions(walletName)
+        console.log(instructions)
+        
+        // Use deep linking to open the wallet app
+        await connectMobileWallet(walletName, {
+          dappUrl: window.location.origin,
+          redirectUrl: window.location.href,
+          cluster: 'mainnet-beta'
+        })
+        
+        console.log(`Successfully opened ${walletName} app for connection`)
+        
+        // The actual connection will happen when the user returns from the app
+        // We need to set up a listener for when they return
+        this.setupMobileReturnListener(walletName)
+        
+        return
+        
+      } catch (error: any) {
+        console.error(`Deep linking failed for ${walletName}:`, error)
+        
+        // If deep linking fails and we're on Chrome Android, try MWA as fallback
+        if (isChrome && this.mobileWalletAdapter) {
+          console.log('Falling back to Mobile Wallet Adapter...')
+          return this.connectViaMWA()
+        }
+        
+        throw new WalletConnectionError(
+          `Unable to connect to ${walletName}. Please make sure the ${walletName} app is installed on your device.`
+        )
+      }
     }
+    
+    // Fallback to MWA for Chrome Android if no specific wallet is requested
+    if (isChrome) {
+      return this.connectViaMWA()
+    }
+    
+    throw new WalletConnectionError(
+      'Mobile wallet connections require a compatible wallet app. Please install Phantom or Solflare from your app store.'
+    )
+  }
 
+  private async connectViaMWA(): Promise<void> {
     if (!this.mobileWalletAdapter) {
       await this.initializeMobileWalletAdapter()
       
@@ -263,6 +302,57 @@ class WalletService {
         `Mobile wallet connection failed: ${error?.message || 'Unknown error'}`
       )
     }
+  }
+
+  private setupMobileReturnListener(walletName: string): void {
+    // Listen for when the user returns from the wallet app
+    const handleVisibilityChange = async () => {
+      if (document.hidden === false) {
+        console.log(`User returned from ${walletName} app, attempting to complete connection...`)
+        
+        // Remove the listener
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        
+        // Try to connect using the standard adapter now that user has approved in the app
+        try {
+          // Find the wallet adapter
+          const wallet = walletAdapters.find(w => w.name === walletName)
+          if (!wallet) {
+            throw new Error(`Wallet ${walletName} not found`)
+          }
+          
+          // Set up event listeners
+          this.setupWalletListeners(wallet.adapter)
+          
+          // The wallet should now be ready to connect
+          await wallet.adapter.connect()
+          
+          this.currentWallet.value = wallet.adapter
+          this._publicKey.value = wallet.adapter.publicKey
+          
+          console.log(`Mobile wallet ${walletName} connected successfully!`)
+          
+          // Update balance
+          await this.updateBalance()
+          
+        } catch (error: any) {
+          console.error(`Failed to complete mobile connection for ${walletName}:`, error)
+          
+          // Show user-friendly error message
+          throw new WalletConnectionError(
+            `Connection to ${walletName} was not completed. Please try again and make sure to approve the connection in the ${walletName} app.`
+          )
+        }
+      }
+    }
+    
+    // Listen for page becoming visible again
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // Also set up a timeout to clean up the listener
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }, 60000) // Clean up after 1 minute
   }
 
   // Desktop connection using standard wallet adapters
