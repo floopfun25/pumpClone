@@ -1,84 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FloppFun - Redirecting...</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: #0c0c0c;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-    .loading {
-      text-align: center;
-    }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #333;
-      border-top: 4px solid #f0b90b;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .text {
-      font-size: 18px;
-      opacity: 0.8;
-    }
-    .subtext {
-      font-size: 14px;
-      opacity: 0.6;
-      margin-top: 10px;
-    }
-  </style>
-  <script>
-    // GitHub Pages SPA routing hack
-    // This script takes the current URL and redirects to the root with the path as a query parameter
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FloppFun - Create & Trade Meme Tokens</title>
+    <meta name="description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
     
-    // Store the path and search parameters
-    var pathSegmentsToKeep = 0; // Change to 1 for GitHub project pages (e.g., username.github.io/repo-name)
-    var l = window.location;
+    <!-- Open Graph meta tags for social media sharing -->
+    <meta property="og:title" content="FloppFun - Create & Trade Meme Tokens" />
+    <meta property="og:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://floopfun25.github.io/pumpClone/" />
     
-    // For GitHub pages, we need to preserve the query string and hash
-    var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + 
-      '/?/' + 
-      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-      l.hash;
+    <!-- Twitter meta tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FloppFun - Create & Trade Meme Tokens" />
+    <meta name="twitter:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
     
-    // Redirect to the root page with the encoded path
-    window.location.replace(redirect);
-  </script>
-</head>
-<body>
-  <div class="loading">
-    <div class="spinner"></div>
-    <div class="text">Redirecting...</div>
-    <div class="subtext">Please wait while we redirect you to the app</div>
-  </div>
-  
-  <!-- Additional content to ensure file is > 512 bytes for IE compatibility -->
-  <!-- This is a requirement for GitHub Pages custom 404 handling -->
-  <!-- Without this, Internet Explorer will show its own 404 page instead -->
-  <!-- of serving this custom 404.html file. The file must be at least 512 bytes -->
-  <!-- for IE to properly display it. This comment serves as padding to meet -->
-  <!-- that requirement while explaining the technical necessity. -->
-  <!-- GitHub Pages SPA routing requires this workaround because GitHub Pages -->
-  <!-- doesn't natively support single-page application routing. -->
-  <!-- This solution uses the 404.html file to capture unknown routes -->
-  <!-- and redirect them to the main index.html file with the path -->
-  <!-- preserved as query parameters that can be parsed by the app. -->
-</body>
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Critical browser polyfills and environment setup -->
+    <script>
+      // Global and process polyfills (must be first)
+      if (typeof global === 'undefined') {
+        window.global = window;
+      }
+      
+      if (typeof process === 'undefined') {
+        window.process = { 
+          env: { NODE_ENV: 'production' },
+          browser: true,
+          nextTick: function(fn) { setTimeout(fn, 0); }
+        };
+      }
+      
+      // Ensure WebCrypto is available (critical for Supabase)
+      if (!window.crypto || !window.crypto.subtle) {
+        console.error('❌ WebCrypto API not available - this will cause Supabase failures');
+        window.crypto = window.crypto || {};
+        window.crypto.subtle = {
+          digest: function() {
+            throw new Error('WebCrypto not available in this context. Supabase requires HTTPS.');
+          }
+        };
+      }
+      
+      // Buffer polyfill for Solana
+      if (typeof Buffer === 'undefined') {
+        try {
+          window.Buffer = require('buffer').Buffer;
+        } catch (e) {
+          window.Buffer = {
+            from: function(data) { return new Uint8Array(data); },
+            isBuffer: function() { return false; }
+          };
+        }
+      }
+    </script>
+    
+    <!-- CDN Supabase to bypass bundling issues -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      // Make Supabase globally available for our app
+      if (window.supabase && window.supabase.createClient) {
+        window.__SUPABASE_CDN__ = window.supabase;
+      } else {
+        console.warn('⚠️ Supabase CDN failed to load');
+      }
+    </script>
+    
+    <!-- Authentication Script (htaccess-like protection) -->
+    <script src="/auth.js"></script>
+  </head>
+  <body class="font-sans bg-binance-dark dark:bg-binance-dark">
+    <!-- Main Vue.js application mount point -->
+    <div id="app"></div>
+    
+    <!-- Application entry script -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html> 
