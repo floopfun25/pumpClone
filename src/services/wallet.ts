@@ -351,8 +351,8 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     console.log('🔗 Opening Phantom connect URL:', connectUrl)
     console.log('📱 Redirect URL:', redirectUrl)
 
-    // Open Phantom app
-    window.location.href = connectUrl
+    // Open Phantom app - use replace() to avoid opening new tab
+    window.location.replace(connectUrl)
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
@@ -405,8 +405,8 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
       window.solana.publicKey = null
     }
 
-    // Open disconnect URL
-    window.location.href = disconnectUrl
+    // Open disconnect URL - use replace() to avoid opening new tab
+    window.location.replace(disconnectUrl)
 
     console.log('✅ Phantom wallet disconnected')
     

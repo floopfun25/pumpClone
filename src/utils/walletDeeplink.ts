@@ -348,7 +348,16 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  // Always redirect to home page for wallet responses to ensure proper handling
-  const baseUrl = window.location.origin
+  // For GitHub Pages project sites, we need to include the repository path
+  // Extract the base path from the current location
+  const currentPath = window.location.pathname
+  
+  // For GitHub Pages project sites, the path starts with /repositoryname/
+  // We need to extract just the repository part
+  const pathParts = currentPath.split('/').filter(part => part.length > 0)
+  const basePath = pathParts.length > 0 ? `/${pathParts[0]}/` : '/'
+  
+  const baseUrl = window.location.origin + basePath
+  
   return `${baseUrl}?phantom_action=${action}`
 } 
