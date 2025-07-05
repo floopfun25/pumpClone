@@ -32,6 +32,14 @@
     
     <!-- Loading Overlay for app-wide loading states -->
     <LoadingOverlay v-if="isLoading" />
+    
+    <!-- Debug Modal for mobile-friendly debugging -->
+    <DebugModal 
+      :is-visible="debugState.isVisible" 
+      :debug-text="debugState.debugText" 
+      :title="debugState.title"
+      @close="hideDebugModal" 
+    />
   </div>
 </template>
 
@@ -42,6 +50,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { useTypedI18n } from '@/i18n'
+import { useDebugService } from '@/services/debugService'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -49,12 +58,14 @@ import Footer from '@/components/layout/Footer.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import LoadingOverlay from '@/components/common/LoadingOverlay.vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
+import DebugModal from '@/components/common/DebugModal.vue'
 
 // Initialize stores and composables
 const authStore = useAuthStore()
 const walletStore = useWalletStore()
 const uiStore = useUIStore()
 const { t } = useTypedI18n()
+const { debugState, hideDebugModal } = useDebugService()
 
 // Reactive window width for responsive behavior
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)

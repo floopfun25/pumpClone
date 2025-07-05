@@ -36,6 +36,7 @@ import {
 import type { WalletConnectionData } from '../utils/walletDeeplink'
 import * as bs58 from 'bs58'
 import * as nacl from 'tweetnacl'
+import { showDebug } from '@/services/debugService'
 
 // Extend Window interface to include solana property
 declare global {
@@ -245,16 +246,16 @@ export const handlePhantomConnectResponse = () => {
     debugInfo += `  errorMessage: ${errorMessage}\n`
     
     // Show debug info in modal
-    alert(debugInfo)
+    showDebug(debugInfo)
     
     if (phantomAction !== 'connect') {
-      alert('❌ Not a Phantom connect response')
+      showDebug('❌ Not a Phantom connect response')
       return
     }
     
     // Check for errors first
     if (errorCode) {
-      alert(`❌ Phantom returned error: ${errorCode} - ${errorMessage}`)
+      showDebug(`❌ Phantom returned error: ${errorCode} - ${errorMessage}`)
       return
     }
 
@@ -264,7 +265,7 @@ export const handlePhantomConnectResponse = () => {
       missingParams += `  nonce: ${!!nonce}\n`
       missingParams += `  data: ${!!data}\n`
       
-      alert(missingParams)
+      showDebug(missingParams)
       return
     }
 
@@ -272,7 +273,7 @@ export const handlePhantomConnectResponse = () => {
     let connectionData = mobileWalletState.connectionData
     
     if (!connectionData) {
-      alert('⚠️ No connection data in memory, trying to load from storage...')
+      showDebug('⚠️ No connection data in memory, trying to load from storage...')
       const savedData = loadConnectionData()
       
       if (savedData?.dappKeyPair) {
@@ -283,12 +284,12 @@ export const handlePhantomConnectResponse = () => {
           phantomEncryptionPublicKey: savedData.phantomEncryptionPublicKey || null
         }
         mobileWalletState.connectionData = connectionData
-        alert('✅ Connection data restored from storage')
+        showDebug('✅ Connection data restored from storage')
       }
     }
     
     if (!connectionData?.dappKeyPair) {
-      alert('❌ No dapp keypair available - cannot decrypt response. This may happen if you refresh the page during connection. Please try connecting again.')
+      showDebug('❌ No dapp keypair available - cannot decrypt response. This may happen if you refresh the page during connection. Please try connecting again.')
       
       // Initialize new connection data for future attempts
       mobileWalletState.connectionData = initializeConnectionData()
@@ -299,10 +300,10 @@ export const handlePhantomConnectResponse = () => {
     keyPairInfo += `  PublicKey length: ${connectionData.dappKeyPair.publicKey.length}\n`
     keyPairInfo += `  SecretKey length: ${connectionData.dappKeyPair.secretKey.length}\n`
     keyPairInfo += `  PublicKey (first 8 chars): ${bs58.encode(connectionData.dappKeyPair.publicKey).substring(0, 8)}...\n`
-    alert(keyPairInfo)
+    showDebug(keyPairInfo)
 
     // Parse the response from Phantom
-    alert('🔓 Attempting to parse and decrypt response...')
+    showDebug('🔓 Attempting to parse and decrypt response...')
     
     try {
       const { connectData, sharedSecret } = parseConnectResponse(
@@ -315,7 +316,7 @@ export const handlePhantomConnectResponse = () => {
       successInfo += `  hasSession: ${!!connectData.session}\n`
       successInfo += `  sessionLength: ${connectData.session?.length}\n`
       successInfo += `  sharedSecretLength: ${sharedSecret?.length}\n`
-      alert(successInfo)
+      showDebug(successInfo)
 
       // Update connection data with the new session and shared secret
       mobileWalletState.connectionData = {
@@ -326,7 +327,7 @@ export const handlePhantomConnectResponse = () => {
 
       // Save to sessionStorage for persistence
       saveConnectionData(mobileWalletState.connectionData)
-      alert('💾 Updated connection data saved to storage')
+      showDebug('💾 Updated connection data saved to storage')
 
       // Set wallet as connected in global state
       const publicKey = new PublicKey(connectData.public_key)
@@ -345,7 +346,7 @@ export const handlePhantomConnectResponse = () => {
         detail: { publicKey: connectData.public_key }
       }))
 
-      alert(`✅ Phantom wallet connected successfully!\n🔑 Public key: ${connectData.public_key}`)
+      showDebug(`✅ Phantom wallet connected successfully!\n🔑 Public key: ${connectData.public_key}`)
       
       // Clean up the URL after successful connection
       const cleanUrl = window.location.origin + window.location.pathname
@@ -397,7 +398,7 @@ export const handlePhantomConnectResponse = () => {
         errorInfo += `❌ Debug decryption also failed: ${debugError instanceof Error ? debugError.message : String(debugError)}\n`
       }
       
-      alert(errorInfo)
+      showDebug(errorInfo)
       throw decryptError
     }
     
@@ -410,7 +411,7 @@ export const handlePhantomConnectResponse = () => {
     
     // Show detailed error message to user for debugging
     const errorMessage = error instanceof Error ? error.message : String(error)
-    alert(`❌ Connection failed: ${errorMessage}\n\nPlease try connecting again. If the problem persists, try refreshing the page first.`)
+    showDebug(`❌ Connection failed: ${errorMessage}\n\nPlease try connecting again. If the problem persists, try refreshing the page first.`)
   }
 }
 
