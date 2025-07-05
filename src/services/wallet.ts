@@ -50,6 +50,8 @@ declare global {
       disconnect?: () => Promise<void>
       signTransaction?: (transaction: Transaction) => Promise<Transaction>
       signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>
+      signMessage?: (message: Uint8Array) => Promise<Uint8Array>
+      prepareTransaction?: (transaction: Transaction) => Promise<Transaction>
     }
   }
 }
@@ -314,7 +316,7 @@ export const handlePhantomConnectResponse = () => {
       console.log('✅ Phantom wallet connected successfully!')
       console.log('📝 Public key:', connectData.public_key)
       
-      // Create PublicKey object
+      // Create PublicKey object from the public key string
       const publicKey = new PublicKey(connectData.public_key)
       
       // Set window.solana for compatibility
@@ -326,28 +328,28 @@ export const handlePhantomConnectResponse = () => {
         disconnect: () => Promise.resolve(),
         signTransaction: () => Promise.reject(new Error('Use mobile signing')),
         signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+        signMessage: () => Promise.reject(new Error('Use mobile signing')),
+        prepareTransaction: () => Promise.reject(new Error('Use mobile signing')),
       }
 
       // Update wallet service state properly
       try {
         const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
         if (phantomAdapter && walletService) {
-          // Set the adapter's public key through its internal state
-          (phantomAdapter as any)._publicKey = publicKey
+          // Set up the adapter's internal state
+          const adapter = phantomAdapter as any;
+          adapter._publicKey = publicKey;
+          adapter._connected = true;
+          adapter._readyState = WalletReadyState.Installed;
           
-          // Trigger proper connection flow
+          // Update wallet service state
           walletService.handleMobileWalletReturn()
-          
-          // Update balance after a short delay
-          setTimeout(async () => {
-            try {
-              await walletService.updateBalance()
-            } catch (error) {
-              console.warn('Failed to update balance:', error)
-            }
-          }, 1000)
-          
-          console.log('🔄 Wallet service state updated')
+            .then(() => {
+              console.log('🔄 Wallet service state updated')
+            })
+            .catch((error) => {
+              console.warn('Failed to update wallet state:', error)
+            })
         }
       } catch (serviceError) {
         console.warn('Failed to update wallet service:', serviceError)
@@ -1003,27 +1005,78 @@ class WalletService {
   // Handle mobile wallet return
   async handleMobileWalletReturn(): Promise<void> {
     try {
+      console.log('Handling mobile wallet return...')
+
+      // Wait briefly for window.solana to be available
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // Check if we have a connected wallet adapter
       if (!this.currentWallet.value) {
         const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
         if (!phantomAdapter) {
           throw new Error('No wallet adapter available')
         }
+        
+        // Set up the adapter
         this.currentWallet.value = phantomAdapter
+        
+        // Set up event listeners
+        this.setupWalletListeners(phantomAdapter)
       }
 
-      // Update public key from window.solana (set by mobile connection handler)
-      if (window.solana?.publicKey) {
-        this._publicKey.value = window.solana.publicKey
+      // Ensure window.solana is available
+      if (!window.solana) {
+        throw new Error('window.solana not available after mobile return')
       }
 
-      // Trigger connect handler to update state
-      this.handleConnect()
+      // Wait for Phantom to initialize
+      let retries = 0
+      while (!window.solana.isPhantom && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        retries++
+      }
 
-      // Update balance
-      await this.updateBalance()
+      if (!window.solana.isPhantom) {
+        throw new Error('Phantom not initialized after waiting')
+      }
 
-      console.log('Mobile wallet return handled successfully')
+      // Update public key from window.solana
+      const solanaPublicKey = window.solana.publicKey
+      if (solanaPublicKey instanceof PublicKey) {
+        // Update internal state
+        this._publicKey.value = solanaPublicKey
+        
+        // Set the adapter's public key and connection state
+        if (this.currentWallet.value) {
+          const adapter = this.currentWallet.value as any;
+          adapter._publicKey = solanaPublicKey;
+          adapter._connected = true;
+          adapter._readyState = WalletReadyState.Installed;
+        }
+
+        // Update window.solana connection state
+        window.solana.isConnected = true
+
+        // Trigger connect handler to update state
+        this.handleConnect()
+
+        // Update balance
+        await this.updateBalance()
+
+        // Dispatch a custom event for components to react to
+        const publicKeyString = solanaPublicKey.toBase58()
+        window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
+          detail: { publicKey: publicKeyString }
+        }))
+
+        console.log('Mobile wallet return handled successfully:', {
+          publicKey: publicKeyString,
+          isConnected: Boolean(window.solana.isConnected),
+          adapterConnected: Boolean(this.currentWallet.value?.connected)
+        })
+      } else {
+        throw new Error('No valid public key available after mobile return')
+      }
     } catch (error) {
       console.error('Failed to handle mobile wallet return:', error)
       this.cleanup()
@@ -1031,22 +1084,33 @@ class WalletService {
     }
   }
 
+  // Handle wallet connect event
+  private handleConnect(): void {
+    if (!this.currentWallet.value) {
+      console.warn('No wallet adapter available')
+      return
+    }
+
+    // Update public key
+    this._publicKey.value = this.currentWallet.value.publicKey
+    
+    // Save wallet name for auto-reconnect (only on desktop)
+    if (!isMobile()) {
+      localStorage.setItem('walletName', this.currentWallet.value.name || 'unknown')
+    }
+    
+    // Update balance
+    this.updateBalance()
+      .catch(error => {
+        console.warn('Failed to update balance:', error)
+      })
+  }
+
   // Setup wallet event listeners
   private setupWalletListeners(wallet: BaseMessageSignerWalletAdapter): void {
     wallet.on('connect', this.handleConnect.bind(this))
     wallet.on('disconnect', this.handleDisconnect.bind(this))
     wallet.on('error', this.handleError.bind(this))
-  }
-
-  // Handle wallet connect event
-  private handleConnect(): void {
-    if (this.currentWallet.value) {
-      this._publicKey.value = this.currentWallet.value.publicKey
-      if (!isMobile()) {
-        localStorage.setItem('walletName', this.currentWallet.value.name || 'unknown')
-      }
-      this.updateBalance()
-    }
   }
 
   // Handle wallet disconnect event
@@ -1083,7 +1147,7 @@ class WalletService {
   }
 }
 
-// Export wallet service instance
+// Initialize wallet service singleton
 export const walletService = new WalletService()
 
 // Export utility functions
