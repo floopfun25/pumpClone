@@ -174,7 +174,9 @@ const clearConnectionData = () => {
 // Initialize mobile wallet connection data
 const initializeConnectionData = (): WalletConnectionData => {
   const stored = loadConnectionData()
-  const dappKeyPair = generateDappKeyPair()
+  
+  // Reuse stored keypair if it exists, otherwise generate a new one
+  const dappKeyPair = stored?.dappKeyPair || generateDappKeyPair()
   
   return {
     dappKeyPair,
@@ -345,8 +347,10 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
 
-    // Always generate fresh connection data for new connection attempts
-    mobileWalletState.connectionData = initializeConnectionData()
+    // Reuse existing connection data if available, otherwise initialize new
+    if (!mobileWalletState.connectionData) {
+      mobileWalletState.connectionData = initializeConnectionData()
+    }
     
     // IMPORTANT: Save connection data to sessionStorage before opening Phantom
     // This ensures the data is available when user returns from Phantom app
