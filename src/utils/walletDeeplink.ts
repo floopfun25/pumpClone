@@ -260,30 +260,11 @@ export const buildConnectUrl = (
   redirectUrl: string,
   cluster: string = 'devnet'
 ): string => {
-  // Get the full current URL
-  const currentUrl = window.location.href
-  const url = new URL(currentUrl)
-  
-  // For GitHub Pages project sites, we need to preserve the full path
-  const pathParts = url.pathname.split('/').filter(part => part.length > 0)
-  
-  // Reconstruct the base URL including any repository path
-  let appUrl = url.origin
-  if (pathParts.length > 0) {
-    // Add repository name if it exists
-    appUrl += `/${pathParts[0]}`
-  }
-
   const params = new URLSearchParams({
     dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
     cluster,
-    app_url: appUrl,
+    app_url: window.location.origin,
     redirect_link: redirectUrl,
-  })
-
-  console.log('Building connect URL with params:', {
-    app_url: appUrl,
-    redirect_link: redirectUrl
   })
 
   return `https://phantom.app/ul/v1/connect?${params.toString()}`
@@ -486,53 +467,24 @@ export const parseConnectResponse = (
 export const isPhantomResponse = (url: string): boolean => {
   try {
     const urlObj = new URL(url)
-    const params = urlObj.searchParams
-    
-    // Check for phantom_action=connect parameter
-    const isPhantomAction = params.get('phantom_action') === 'connect'
-    
-    // Check for required Phantom response parameters
-    const hasPhantomKey = params.has('phantom_encryption_public_key')
-    const hasData = params.has('data')
-    const hasNonce = params.has('nonce')
-    
-    // Log the check results
-    console.log('Checking Phantom response:', {
-      url,
-      isPhantomAction,
-      hasPhantomKey,
-      hasData,
-      hasNonce
-    })
-    
-    // Return true if we have either an error response or a valid connect response
-    return (
-      isPhantomAction && 
-      (
-        params.has('errorCode') || 
-        (hasPhantomKey && hasData && hasNonce)
-      )
-    )
-  } catch (error) {
-    console.error('Error checking Phantom response:', error)
+    return urlObj.pathname.includes('phantom')
+  } catch {
     return false
   }
 }
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  // Get the full current URL
-  const currentUrl = window.location.href
+  // For GitHub Pages project sites, we need to include the repository path
+  // Extract the base path from the current location
+  const currentPath = window.location.pathname
   
-  // Parse the current URL
-  const url = new URL(currentUrl)
+  // For GitHub Pages project sites, the path starts with /repositoryname/
+  // We need to extract just the repository part
+  const pathParts = currentPath.split('/').filter(part => part.length > 0)
+  const basePath = pathParts.length > 0 ? `/${pathParts[0]}/` : '/'
   
-  // Keep the full original pathname to preserve all path segments
-  const fullPath = url.pathname
+  const baseUrl = window.location.origin + basePath
   
-  // Create the redirect URL with the original full path
-  const redirectUrl = `${url.origin}${fullPath}?phantom_action=${action}`
-  
-  console.log('Created redirect URL:', redirectUrl)
-  return redirectUrl
+  return `${baseUrl}?phantom_action=${action}`
 }

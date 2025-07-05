@@ -206,88 +206,213 @@ const checkForPhantomResponse = () => {
 export const handlePhantomConnectResponse = () => {
   try {
     // Check if this is actually a Phantom response
-    if (!isPhantomResponse(window.location.href)) {
+    const urlParams = new URLSearchParams(window.location.search)
+    const phantomAction = urlParams.get('phantom_action')
+    
+    if (phantomAction !== 'connect') {
       return
     }
-
-    const urlParams = new URLSearchParams(window.location.search)
+    
+    // Check for various possible parameter names that Phantom might use
+    const possibleKeys = [
+      'phantom_encryption_public_key',
+      'phantomEncryptionPublicKey', 
+      'phantom_public_key',
+      'publicKey',
+      'public_key'
+    ]
+    
+    let phantomPublicKey = null
+    let actualKeyName = null
+    
+    for (const key of possibleKeys) {
+      const value = urlParams.get(key)
+      if (value) {
+        phantomPublicKey = value
+        actualKeyName = key
+        break
+      }
+    }
+    
+    const nonce = urlParams.get('nonce')
+    const data = urlParams.get('data')
     const errorCode = urlParams.get('errorCode')
     const errorMessage = urlParams.get('errorMessage')
-    const uiStore = useUIStore()
     
     // Check for errors first
     if (errorCode) {
       console.error('Phantom returned error:', errorCode, '-', errorMessage)
-      uiStore.showToast({
-        type: 'error',
-        title: 'Connection Failed',
-        message: `Connection failed: ${errorMessage || 'Unknown error'}`
-      })
       throw new Error(`Phantom error: ${errorCode} - ${errorMessage}`)
     }
 
-    // Load stored connection data
-    const connectionData = loadConnectionData()
+    if (!phantomPublicKey || !nonce || !data) {
+      console.error('Missing required Phantom response parameters:', {
+        phantomPublicKey: !!phantomPublicKey,
+        nonce: !!nonce,
+        data: !!data
+      })
+      throw new Error('Missing required parameters from Phantom response')
+    }
+
+    // Try to get connection data from memory or storage
+    let connectionData = mobileWalletState.connectionData
+    
+    if (!connectionData) {
+      console.log('No connection data in memory, trying to load from storage...')
+      const savedData = loadConnectionData()
+      
+      if (savedData?.dappKeyPair) {
+        connectionData = {
+          dappKeyPair: savedData.dappKeyPair,
+          session: savedData.session || null,
+          sharedSecret: savedData.sharedSecret || null,
+          phantomEncryptionPublicKey: savedData.phantomEncryptionPublicKey || null
+        }
+        mobileWalletState.connectionData = connectionData
+        console.log('✅ Connection data restored from storage')
+      } else {
+        console.error('No connection data found in storage')
+        throw new Error('No connection data available')
+      }
+    }
+    
     if (!connectionData?.dappKeyPair) {
-      console.error('No connection data found')
-      uiStore.showToast({
-        type: 'error',
-        title: 'Connection Failed',
-        message: 'Connection failed: No connection data found'
-      })
-      throw new Error('No connection data found')
+      console.error('No dapp keypair available')
+      throw new Error('No dapp keypair available - cannot decrypt response')
     }
-
+    
+    console.log('🔓 Attempting to decrypt Phantom response...')
+    
+    // Manual decryption process
     try {
-      // Parse and decrypt the response
-      const { connectData, sharedSecret } = parseConnectResponse(
-        window.location.href,
-        connectionData.dappKeyPair
+      // Decode the Phantom public key
+      const decodedPhantomKey = bs58.decode(phantomPublicKey)
+      
+      // Generate shared secret
+      const sharedSecret = nacl.box.before(
+        decodedPhantomKey,
+        connectionData.dappKeyPair.secretKey
       )
+      
+      // Decode data and nonce
+      const decodedData = bs58.decode(data)
+      const decodedNonce = bs58.decode(nonce)
+      
+      // Try to decrypt
+      const decryptedData = nacl.box.open.after(
+        decodedData,
+        decodedNonce,
+        sharedSecret
+      )
+      
+      if (!decryptedData) {
+        throw new Error('Unable to decrypt data')
+      }
+      
+      // Success!
+      const connectData = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
+      console.log('✅ Phantom wallet connected successfully!')
+      console.log('📝 Public key:', connectData.public_key)
+      
+      // Create PublicKey object
+      const publicKey = new PublicKey(connectData.public_key)
+      
+      // Set window.solana for compatibility
+      window.solana = {
+        isPhantom: true,
+        publicKey,
+        isConnected: true,
+        connect: () => Promise.resolve({ publicKey }),
+        disconnect: () => Promise.resolve(),
+        signTransaction: () => Promise.reject(new Error('Use mobile signing')),
+        signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+      }
 
-      // Update connection data with new info
-      const updatedData = {
-        dappKeyPair: connectionData.dappKeyPair,
+      // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
+      // Instead of accessing private properties, we'll trigger a proper connection
+      try {
+        // Call connectPhantomMobile programmatically to update the service state
+        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
+        if (phantomAdapter && walletService) {
+          // Manually trigger the service's handleConnect method
+          walletService['_publicKey'].value = publicKey
+          walletService['currentWallet'].value = phantomAdapter
+          walletService['_connecting'].value = false
+          
+          // Update balance after a short delay
+          setTimeout(async () => {
+            try {
+              await walletService.updateBalance()
+            } catch (error) {
+              console.warn('Failed to update balance:', error)
+            }
+          }, 1000)
+          
+          console.log('🔄 Wallet service state updated')
+        }
+      } catch (serviceError) {
+        console.warn('Failed to update wallet service:', serviceError)
+      }
+
+      // Update connection data with session
+      mobileWalletState.connectionData = {
+        ...connectionData,
         session: connectData.session,
-        sharedSecret,
-        phantomEncryptionPublicKey: connectData.public_key
-      } as WalletConnectionData
+        sharedSecret
+      }
 
-      // Save the updated connection data
-      saveConnectionData(updatedData)
+      // Save updated connection data
+      saveConnectionData(mobileWalletState.connectionData)
 
-      // Show success message
-      uiStore.showToast({
-        type: 'success',
-        title: 'Success',
-        message: 'Successfully connected to Phantom!'
-      })
-
-      // Update wallet state using the public method
-      walletService.updatePhantomConnectionState(new PublicKey(connectData.public_key))
-
-      // Clean up URL parameters
-      const cleanUrl = window.location.href.split('?')[0]
+      // Trigger connection event for the app to listen to
+      window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
+        detail: { publicKey: connectData.public_key }
+      }))
+      
+      // Show success toast notification
+      try {
+        const uiStore = useUIStore()
+        uiStore.showToast({
+          type: 'success',
+          title: 'Wallet Connected!',
+          message: `Phantom wallet connected successfully. Address: ${formatWalletAddress(connectData.public_key)}`,
+          duration: 5000
+        })
+      } catch (toastError) {
+        console.warn('Failed to show success toast:', toastError)
+      }
+      
+      console.log('🎉 Mobile wallet connection completed successfully!')
+      
+      // Clean up the URL
+      const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, document.title, cleanUrl)
-
-    } catch (error) {
-      console.error('Failed to parse Phantom response:', error)
+      
+    } catch (decryptError) {
+      console.error('Decryption failed:', decryptError)
+      throw decryptError
+    }
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Phantom connection failed:', errorMessage)
+    
+    mobileWalletState.isConnecting = false
+    clearConnectionData()
+    mobileWalletState.connectionData = null
+    
+    // Show error toast
+    try {
+      const uiStore = useUIStore()
       uiStore.showToast({
         type: 'error',
         title: 'Connection Failed',
-        message: 'Failed to complete connection. Please try again.'
+        message: errorMessage,
+        duration: 8000
       })
-      throw error
+    } catch (toastError) {
+      console.warn('Failed to show error toast:', toastError)
     }
-
-  } catch (error) {
-    console.error('Error handling Phantom connect response:', error)
-    useUIStore().showToast({
-      type: 'error',
-      title: 'Connection Failed',
-      message: 'Connection failed. Please try again.'
-    })
-    throw error
   }
 }
 
@@ -931,16 +1056,6 @@ class WalletService {
       publicKey: this.publicKey,
       wallet: this.wallet as any,
       balance: this.balance
-    }
-  }
-
-  // Public method to update phantom connection state
-  updatePhantomConnectionState(publicKey: PublicKey): void {
-    const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
-    if (phantomAdapter) {
-      this.currentWallet.value = phantomAdapter
-      this._publicKey.value = publicKey
-      this.updateBalance().catch(console.error)
     }
   }
 }
