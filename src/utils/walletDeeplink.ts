@@ -348,6 +348,6 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  const baseUrl = window.location.origin
+  const baseUrl = window.location.origin + window.location.pathname
   return `${baseUrl}?phantom_action=${action}`
 } 

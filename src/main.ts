@@ -16,6 +16,9 @@ import { createPinia } from 'pinia'
 // Main app creation function
 async function createVueApp() {
   try {
+    // Check for Phantom wallet response before creating the app
+    handlePhantomResponse()
+    
     // Create the Vue app
     const app = createApp(App)
     
@@ -79,6 +82,34 @@ async function createVueApp() {
           </div>
         </div>
       `
+    }
+  }
+}
+
+// Handle Phantom wallet response
+function handlePhantomResponse() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
+  
+  if (phantomAction === 'connect') {
+    console.log('🔗 Phantom connect response detected')
+    
+    try {
+      // Import and execute the response handler
+      import('./services/wallet').then(({ handlePhantomConnectResponse }) => {
+        handlePhantomConnectResponse()
+        
+        // Clean up URL after handling
+        const cleanUrl = window.location.origin + window.location.pathname
+        window.history.replaceState({}, document.title, cleanUrl)
+        
+        console.log('✅ Phantom response handled successfully')
+      }).catch(error => {
+        console.error('❌ Failed to handle Phantom response:', error)
+      })
+      
+    } catch (error) {
+      console.error('❌ Error processing Phantom response:', error)
     }
   }
 }

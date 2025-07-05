@@ -171,18 +171,28 @@ const checkForPhantomResponse = () => {
 }
 
 // Handle Phantom connect response
-const handlePhantomConnectResponse = () => {
+export const handlePhantomConnectResponse = () => {
   try {
+    console.log('🔄 Processing Phantom connect response...')
+    console.log('Current URL:', window.location.href)
+    
     const connectionData = mobileWalletState.connectionData
     if (!connectionData) {
-      console.error('No connection data available')
+      console.error('❌ No connection data available')
       return
     }
+    
+    console.log('✅ Connection data found:', connectionData)
 
     const { connectData, sharedSecret } = parseConnectResponse(
       window.location.href,
       connectionData.dappKeyPair
     )
+    
+    console.log('✅ Parsed connect data:', { 
+      publicKey: connectData.public_key,
+      hasSession: !!connectData.session
+    })
 
     // Update connection data
     mobileWalletState.connectionData = {
@@ -193,9 +203,6 @@ const handlePhantomConnectResponse = () => {
 
     // Save to sessionStorage
     saveConnectionData(mobileWalletState.connectionData)
-
-    // Clear URL params
-    window.history.replaceState({}, document.title, window.location.pathname)
 
     // Set wallet as connected
     window.solana = {
@@ -214,10 +221,22 @@ const handlePhantomConnectResponse = () => {
     }))
 
     console.log('✅ Phantom wallet connected successfully!')
+    console.log('Public key:', connectData.public_key)
+    
+    // Show success message to user
+    setTimeout(() => {
+      alert('✅ Phantom wallet connected successfully!')
+    }, 100)
     
   } catch (error) {
     console.error('❌ Failed to handle connect response:', error)
+    console.error('Error details:', error)
     mobileWalletState.isConnecting = false
+    
+    // Show error message to user
+    setTimeout(() => {
+      alert('❌ Failed to connect wallet. Please try again.')
+    }, 100)
   }
 }
 
