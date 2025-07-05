@@ -1,6 +1,6 @@
 <template>
   <!-- Token Detail Page -->
-  <div class="min-h-screen bg-gray-50 dark:bg-pump-dark">
+  <div class="min-h-screen bg-binance-dark">
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center items-center min-h-screen">
       <div class="spinner w-12 h-12"></div>
@@ -12,12 +12,12 @@
         <!-- Error State -->
         <div v-if="error" class="text-center py-12">
           <div class="text-6xl mb-4">❌</div>
-          <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{{ error }}</h2>
+          <h2 class="text-2xl font-semibold text-white mb-2">{{ error }}</h2>
           <router-link to="/" class="btn-primary">{{ $t('common.back') }}</router-link>
         </div>
 
-        <!-- Token Header - Pump.fun Style -->
-        <div v-else class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-8">
+        <!-- Token Header - Binance Style -->
+        <div v-else class="bg-binance-card rounded-xl shadow-sm border border-binance-border p-4 mb-8">
           <div class="flex items-center gap-3 text-sm flex-wrap">
             <!-- Token Logo (small, inline with text) -->
             <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
@@ -35,42 +35,42 @@
             </div>
 
             <!-- Token Name & Symbol -->
-            <span class="font-medium text-gray-900 dark:text-white">
+            <span class="font-medium text-white">
               {{ tokenName }} ({{ tokenSymbol }})
             </span>
 
-            <span class="text-gray-400">|</span>
+            <span class="text-binance-gray">|</span>
 
             <!-- Creator with link -->
             <router-link 
               v-if="token?.creator" 
               :to="`/profile/${token.creator.wallet_address}`"
-              class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+              class="text-binance-blue hover:text-blue-300 font-medium transition-colors"
             >
               {{ token.creator.username || formatWalletAddress(token.creator.wallet_address) }}
             </router-link>
-            <span v-else class="text-gray-500">Unknown Creator</span>
+            <span v-else class="text-binance-gray">Unknown Creator</span>
 
-            <span class="text-gray-400">|</span>
+            <span class="text-binance-gray">|</span>
 
             <!-- Time ago -->
-            <span class="text-gray-600 dark:text-gray-400">
+            <span class="text-binance-gray">
               {{ formatTimeAgo(token?.created_at) }}
             </span>
 
-            <span class="text-gray-400">|</span>
+            <span class="text-binance-gray">|</span>
 
             <!-- Market Cap -->
-            <span class="text-gray-900 dark:text-white">
-              <span class="text-gray-600 dark:text-gray-400">market cap:</span>
+            <span class="text-white">
+              <span class="text-binance-gray">market cap:</span>
               <span class="font-semibold ml-1">{{ formattedMarketCap }}</span>
             </span>
 
-            <span class="text-gray-400">|</span>
+            <span class="text-binance-gray">|</span>
 
             <!-- Replies Count -->
-            <span class="text-gray-900 dark:text-white">
-              <span class="text-gray-600 dark:text-gray-400">replies:</span>
+            <span class="text-white">
+              <span class="text-binance-gray">replies:</span>
               <span class="font-semibold ml-1">{{ commentsCount }}</span>
             </span>
           </div>
@@ -88,6 +88,126 @@
               class="mobile-chart"
             />
 
+            <!-- Mobile Trading Interface - Show under chart on mobile only -->
+            <div class="lg:hidden mobile-trading-section">
+              <!-- Trading Interface - Binance Style -->
+              <div class="bg-binance-card rounded-xl border border-binance-border p-6 mobile-trading-card">
+                <!-- Buy/Sell Toggle -->
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                  <button 
+                    :class="[
+                      'py-3 px-4 text-base font-medium rounded-lg transition-colors',
+                      tradeType === 'buy' 
+                        ? 'bg-binance-green text-white' 
+                        : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
+                    ]"
+                    @click="tradeType = 'buy'"
+                  >
+                    buy
+                  </button>
+                  <button 
+                    :class="[
+                      'py-3 px-4 text-base font-medium rounded-lg transition-colors',
+                      tradeType === 'sell' 
+                        ? 'bg-binance-red text-white' 
+                        : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
+                    ]"
+                    @click="tradeType = 'sell'"
+                  >
+                    sell
+                  </button>
+                </div>
+
+                <!-- Balance -->
+                <div class="text-base text-binance-gray mb-4">
+                  balance: <span class="font-medium text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
+                </div>
+
+                <!-- Amount Input -->
+                <div class="mb-4">
+                  <div class="flex items-center border border-binance-border rounded-lg bg-trading-elevated">
+                    <input
+                      v-model="tradeAmount"
+                      type="number"
+                      placeholder="0.00"
+                      class="flex-1 px-4 py-3 bg-transparent text-white focus:outline-none text-base"
+                      step="0.001"
+                      min="0"
+                      @input="calculateTradePreview"
+                    />
+                    <span class="px-4 py-3 text-base text-binance-gray border-l border-binance-border">
+                      {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Trade Preview -->
+                <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 bg-trading-elevated rounded-lg border border-binance-border">
+                  <div class="space-y-2 text-base">
+                    <div class="flex justify-between">
+                      <span class="text-binance-gray">
+                        {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
+                      </span>
+                      <span class="font-medium text-white">
+                        {{ tradeType === 'buy' 
+                          ? `${tradePreview.tokensReceived.toFixed(6)} ${tokenSymbol}`
+                          : `${Math.abs(tradePreview.solSpent).toFixed(6)} SOL`
+                        }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-binance-gray">Price impact:</span>
+                      <span :class="[
+                        'font-medium',
+                        Math.abs(tradePreview.priceImpact) > 5 ? 'text-binance-red' : 'text-white'
+                      ]">
+                        {{ tradePreview.priceImpact.toFixed(2) }}%
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-binance-gray">New price:</span>
+                      <span class="font-medium text-white">
+                        {{ tradePreview.newPrice.toFixed(9) }} SOL
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-binance-gray">Platform fee:</span>
+                      <span class="font-medium text-white">
+                        {{ tradePreview.platformFee.toFixed(6) }} SOL
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Quick Amount Buttons -->
+                <div class="grid grid-cols-4 gap-2 mb-4">
+                  <button 
+                    v-for="amount in ['0.1', '0.5', '1', 'max']" 
+                    :key="amount"
+                    @click="setQuickAmount(amount)"
+                    class="py-3 px-2 text-sm bg-trading-elevated text-binance-gray border border-binance-border rounded hover:bg-trading-surface hover:text-white transition-colors"
+                  >
+                    {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
+                  </button>
+                </div>
+
+                <!-- Trade Button -->
+                <button
+                  @click="executeTrade"
+                  :disabled="!canTrade"
+                  class="w-full py-4 px-4 font-semibold text-lg rounded-lg transition-all duration-200 active:scale-95"
+                  :class="[
+                    tradeType === 'buy' 
+                      ? 'bg-binance-green hover:bg-trading-buy text-white' 
+                      : 'bg-binance-red hover:bg-trading-sell text-white',
+                    !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
+                  ]"
+                >
+                  {{ tradeType === 'buy' ? 'Buy' : 'Sell' }} {{ tokenSymbol }}
+                </button>
+              </div>
+            </div>
+
             <!-- Comments Section -->
             <TokenComments
               v-if="token?.id"
@@ -98,18 +218,18 @@
             />
           </div>
 
-          <!-- Right Sidebar: Trading & Token Info (1/3 width) -->
-          <div class="space-y-4 mobile-sidebar">
-            <!-- Trading Interface - Pump.fun Style -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 md:p-4 mobile-trading-card">
+          <!-- Right Sidebar: Trading & Token Info (1/3 width) - Desktop Only -->
+          <div class="hidden lg:block space-y-4 mobile-sidebar">
+            <!-- Trading Interface - Binance Style -->
+            <div class="bg-binance-card rounded-xl border border-binance-border p-6 md:p-4 mobile-trading-card">
               <!-- Buy/Sell Toggle -->
               <div class="grid grid-cols-2 gap-2 md:gap-1 mb-4">
                 <button 
                   :class="[
                     'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
                     tradeType === 'buy' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      ? 'bg-binance-green text-white' 
+                      : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
                   ]"
                   @click="tradeType = 'buy'"
                 >
@@ -119,8 +239,8 @@
                   :class="[
                     'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
                     tradeType === 'sell' 
-                      ? 'bg-red-500 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      ? 'bg-binance-red text-white' 
+                      : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
                   ]"
                   @click="tradeType = 'sell'"
                 >
@@ -129,36 +249,36 @@
               </div>
 
               <!-- Balance -->
-              <div class="text-base md:text-sm text-gray-600 dark:text-gray-400 mb-4">
-                balance: <span class="font-medium text-gray-900 dark:text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
+              <div class="text-base md:text-sm text-binance-gray mb-4">
+                balance: <span class="font-medium text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
               </div>
 
               <!-- Amount Input -->
               <div class="mb-4">
-                <div class="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
+                <div class="flex items-center border border-binance-border rounded-lg bg-trading-elevated">
                   <input
                     v-model="tradeAmount"
                     type="number"
                     placeholder="0.00"
-                    class="flex-1 px-4 py-3 md:py-2 bg-transparent text-gray-900 dark:text-white focus:outline-none text-base md:text-sm"
+                    class="flex-1 px-4 py-3 md:py-2 bg-transparent text-white focus:outline-none text-base md:text-sm"
                     step="0.001"
                     min="0"
                     @input="calculateTradePreview"
                   />
-                  <span class="px-4 py-3 md:py-2 text-base md:text-sm text-gray-600 dark:text-gray-400 border-l border-gray-300 dark:border-gray-600">
+                  <span class="px-4 py-3 md:py-2 text-base md:text-sm text-binance-gray border-l border-binance-border">
                     {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
                   </span>
                 </div>
               </div>
 
               <!-- Trade Preview -->
-              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 md:p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
+              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 md:p-3 bg-trading-elevated rounded-lg border border-binance-border">
                 <div class="space-y-2 text-base md:text-sm">
                   <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">
+                    <span class="text-binance-gray">
                       {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
                     </span>
-                    <span class="font-medium text-gray-900 dark:text-white">
+                    <span class="font-medium text-white">
                       {{ tradeType === 'buy' 
                         ? `${tradePreview.tokensReceived.toFixed(6)} ${tokenSymbol}`
                         : `${Math.abs(tradePreview.solSpent).toFixed(6)} SOL`
@@ -166,23 +286,23 @@
                     </span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">Price impact:</span>
+                    <span class="text-binance-gray">Price impact:</span>
                     <span :class="[
                       'font-medium',
-                      Math.abs(tradePreview.priceImpact) > 5 ? 'text-red-500' : 'text-gray-900 dark:text-white'
+                      Math.abs(tradePreview.priceImpact) > 5 ? 'text-binance-red' : 'text-white'
                     ]">
                       {{ tradePreview.priceImpact.toFixed(2) }}%
                     </span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">New price:</span>
-                    <span class="font-medium text-gray-900 dark:text-white">
+                    <span class="text-binance-gray">New price:</span>
+                    <span class="font-medium text-white">
                       {{ tradePreview.newPrice.toFixed(9) }} SOL
                     </span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">Platform fee:</span>
-                    <span class="font-medium text-gray-900 dark:text-white">
+                    <span class="text-binance-gray">Platform fee:</span>
+                    <span class="font-medium text-white">
                       {{ tradePreview.platformFee.toFixed(6) }} SOL
                     </span>
                   </div>
@@ -195,7 +315,7 @@
                   v-for="amount in ['0.1', '0.5', '1', 'max']" 
                   :key="amount"
                   @click="setQuickAmount(amount)"
-                  class="py-3 md:py-2 px-2 text-sm md:text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  class="py-3 md:py-2 px-2 text-sm md:text-xs bg-trading-elevated text-binance-gray border border-binance-border rounded hover:bg-trading-surface hover:text-white transition-colors"
                 >
                   {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
                 </button>
@@ -208,8 +328,8 @@
                 class="w-full py-4 md:py-3 px-4 font-semibold text-lg md:text-base rounded-lg transition-all duration-200 active:scale-95"
                 :class="[
                   tradeType === 'buy' 
-                    ? 'bg-green-500 hover:bg-green-600 text-white' 
-                    : 'bg-red-500 hover:bg-red-600 text-white',
+                    ? 'bg-binance-green hover:bg-trading-buy text-white' 
+                    : 'bg-binance-red hover:bg-trading-sell text-white',
                   !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
                 ]"
               >
@@ -218,28 +338,28 @@
             </div>
 
             <!-- Token Info Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 md:p-4 mobile-info-card">
-              <h3 class="text-lg md:text-base font-semibold text-gray-900 dark:text-white mb-4">Token Info</h3>
+            <div class="bg-binance-card rounded-xl border border-binance-border p-6 md:p-4 mobile-info-card">
+              <h3 class="text-lg md:text-base font-semibold text-white mb-4">Token Info</h3>
               <div class="space-y-3 md:space-y-2 text-base md:text-sm">
                                  <div class="flex justify-between">
-                   <span class="text-gray-600 dark:text-gray-400">Price:</span>
-                   <span class="font-medium text-gray-900 dark:text-white">${{ currentPrice?.toFixed(8) || '0.00000000' }}</span>
+                   <span class="text-binance-gray">Price:</span>
+                   <span class="font-medium text-white">${{ currentPrice?.toFixed(8) || '0.00000000' }}</span>
                  </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Market Cap:</span>
-                  <span class="font-medium text-gray-900 dark:text-white">{{ formattedMarketCap }}</span>
+                  <span class="text-binance-gray">Market Cap:</span>
+                  <span class="font-medium text-white">{{ formattedMarketCap }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Holders:</span>
-                  <span class="font-medium text-gray-900 dark:text-white">{{ token?.holder_count || 0 }}</span>
+                  <span class="text-binance-gray">Holders:</span>
+                  <span class="font-medium text-white">{{ token?.holder_count || 0 }}</span>
                 </div>
                 <div v-if="token?.website" class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Website:</span>
+                  <span class="text-binance-gray">Website:</span>
                   <a 
                     :href="token.website" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    class="text-blue-600 dark:text-blue-400 hover:underline"
+                    class="text-binance-blue hover:underline"
                   >
                     Visit
                   </a>
@@ -817,9 +937,9 @@ const setQuickAmount = (amount: string) => {
  */
 const currentPrice = computed(() => {
   if (bondingCurveState.value?.currentPrice) {
-    return bondingCurveState.value.currentPrice.toFixed(9)
+    return Number(bondingCurveState.value.currentPrice)
   }
-  return token.value?.current_price?.toFixed(9) || '0.000000000'
+  return Number(token.value?.current_price) || 0
 })
 
 /**
@@ -990,6 +1110,11 @@ watch(() => bondingCurveState.value, () => {
 <style scoped>
 /* Mobile-specific optimizations */
 @media (max-width: 768px) {
+  /* Fix mobile content spacing to account for mobile create button */
+  .container {
+    @apply px-3 pt-4;
+  }
+  
   .mobile-chart {
     @apply rounded-lg;
     min-height: 300px;
@@ -999,12 +1124,13 @@ watch(() => bondingCurveState.value, () => {
     @apply rounded-lg;
   }
   
-  .mobile-sidebar {
-    @apply order-first lg:order-last;
+  .mobile-trading-section {
+    @apply order-none;
   }
   
   .mobile-trading-card {
-    @apply sticky top-20 z-10 shadow-lg;
+    @apply shadow-lg;
+    /* No sticky positioning needed since it's now in the flow */
   }
   
   .mobile-info-card {
@@ -1043,20 +1169,34 @@ watch(() => bondingCurveState.value, () => {
     @apply flex-col space-y-2 space-x-0 text-center;
   }
   
-  /* Better mobile spacing */
-  .container {
-    @apply px-3;
+  /* Mobile responsive header text */
+  .token-header .flex {
+    @apply flex-col space-y-2 space-x-0 text-center;
+  }
+  
+  /* Better mobile text sizing */
+  .token-header span {
+    @apply text-sm;
+  }
+  
+  /* Improve mobile touch interactions */
+  .mobile-trading-card button {
+    @apply min-h-[48px];
+  }
+  
+  .mobile-trading-card input {
+    @apply min-h-[48px];
   }
 }
 
 /* Desktop styles remain unchanged */
 @media (min-width: 769px) {
-  .mobile-sidebar {
-    @apply order-last;
+  .mobile-trading-section {
+    @apply hidden;
   }
   
   .mobile-trading-card {
-    @apply static shadow-none;
+    @apply static shadow-none z-10;
   }
 }
 </style> 
