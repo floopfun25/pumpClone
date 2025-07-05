@@ -116,7 +116,7 @@ const mobileWalletState: MobileWalletState = {
   lastConnectionAttempt: 0
 }
 
-// Store connection data in sessionStorage for persistence
+// Store connection data in localStorage for persistence
 const STORAGE_KEY = 'phantom_connection_data'
 
 const saveConnectionData = (data: WalletConnectionData) => {
@@ -131,16 +131,27 @@ const saveConnectionData = (data: WalletConnectionData) => {
         secretKey: bs58.encode(data.dappKeyPair.secretKey)
       } : null
     }
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
-    console.log('💾 Saved connection data to sessionStorage')
+    
+    // Use localStorage instead of sessionStorage for better mobile persistence
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
+    
+    // Add debugging to confirm what was saved
+    alert(`💾 SAVED CONNECTION DATA:\nKey: ${STORAGE_KEY}\nHas keypair: ${!!data.dappKeyPair}\nData size: ${JSON.stringify(safeData).length} chars`)
+    
+    console.log('💾 Saved connection data to localStorage')
   } catch (error) {
+    alert(`❌ FAILED TO SAVE CONNECTION DATA: ${error}`)
     console.warn('Failed to save connection data:', error)
   }
 }
 
 const loadConnectionData = (): Partial<WalletConnectionData> | null => {
   try {
-    const stored = sessionStorage.getItem(STORAGE_KEY)
+    // Check localStorage first
+    const stored = localStorage.getItem(STORAGE_KEY)
+    
+    alert(`📂 LOADING CONNECTION DATA:\nKey: ${STORAGE_KEY}\nStored data exists: ${!!stored}\nData: ${stored ? stored.substring(0, 100) + '...' : 'null'}`)
+    
     if (!stored) return null
     
     const data = JSON.parse(stored)
@@ -153,13 +164,16 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
       }
     }
     
-    console.log('📂 Loaded connection data from sessionStorage:', {
+    alert(`✅ LOADED CONNECTION DATA:\nHas session: ${!!data.session}\nHas keypair: ${!!data.dappKeyPair}\nKeypair public key: ${data.dappKeyPair ? bs58.encode(data.dappKeyPair.publicKey) : 'none'}`)
+    
+    console.log('📂 Loaded connection data from localStorage:', {
       hasSession: !!data.session,
       hasKeyPair: !!data.dappKeyPair
     })
     
     return data
   } catch (error) {
+    alert(`❌ FAILED TO LOAD CONNECTION DATA: ${error}`)
     console.warn('Failed to load connection data:', error)
     return null
   }
@@ -167,8 +181,10 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
 
 const clearConnectionData = () => {
   try {
-    sessionStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(STORAGE_KEY)
+    alert('🗑️ CONNECTION DATA CLEARED')
   } catch (error) {
+    alert(`❌ FAILED TO CLEAR CONNECTION DATA: ${error}`)
     console.warn('Failed to clear connection data:', error)
   }
 }
@@ -204,6 +220,10 @@ export const handlePhantomConnectResponse = () => {
   const currentUrl = window.location.href
   console.log('🔥 PHANTOM RESPONSE HANDLER CALLED:', currentUrl)
   
+  // Check what's in localStorage right now
+  const currentStorage = localStorage.getItem(STORAGE_KEY)
+  alert(`🔍 CURRENT LOCALSTORAGE:\nKey: ${STORAGE_KEY}\nExists: ${!!currentStorage}\nData: ${currentStorage ? currentStorage.substring(0, 100) + '...' : 'null'}`)
+  
   // Add visible debug info to the page
   const debugDiv = document.createElement('div')
   debugDiv.style.cssText = `
@@ -219,11 +239,11 @@ export const handlePhantomConnectResponse = () => {
     max-height: 200px;
     overflow: auto;
   `
-  debugDiv.innerHTML = `<strong>DEBUG:</strong> Phantom response handler called<br>URL: ${currentUrl}`
+  debugDiv.innerHTML = `<strong>DEBUG:</strong> Phantom response handler called<br>URL: ${currentUrl}<br>localStorage exists: ${!!currentStorage}`
   document.body.appendChild(debugDiv)
   
   // Also try alert as backup
-  alert(`🔥 PHANTOM HANDLER CALLED\nURL: ${currentUrl}`)
+  alert(`🔥 PHANTOM HANDLER CALLED\nURL: ${currentUrl}\nLocalStorage exists: ${!!currentStorage}`)
 
   try {
     // Check if this is actually a Phantom response
@@ -319,6 +339,8 @@ export const handlePhantomConnectResponse = () => {
         }
         mobileWalletState.connectionData = connectionData
         alert('✅ Connection data restored from storage')
+      } else {
+        alert('❌ No connection data found in storage!')
       }
     }
     
@@ -452,11 +474,11 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       mobileWalletState.connectionData = initializeConnectionData()
     }
     
-    // IMPORTANT: Save connection data to sessionStorage before opening Phantom
+    // IMPORTANT: Save connection data to localStorage before opening Phantom
     // This ensures the data is available when user returns from Phantom app
     saveConnectionData(mobileWalletState.connectionData)
     
-    console.log('💾 Connection data saved to storage:', {
+    console.log('💾 Connection data saved to localStorage:', {
       hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
       publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
     })
