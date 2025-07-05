@@ -26,42 +26,59 @@
       border-top: 4px solid #f0b90b;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
+      margin: 0 auto 20px;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    .text {
+      font-size: 18px;
+      opacity: 0.8;
+    }
+    .subtext {
+      font-size: 14px;
+      opacity: 0.6;
+      margin-top: 10px;
+    }
   </style>
+  <script>
+    // GitHub Pages SPA routing hack
+    // This script takes the current URL and redirects to the root with the path as a query parameter
+    
+    // Store the path and search parameters
+    var pathSegmentsToKeep = 0; // Change to 1 for GitHub project pages (e.g., username.github.io/repo-name)
+    var l = window.location;
+    
+    // For GitHub pages, we need to preserve the query string and hash
+    var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + 
+      '/?/' + 
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash;
+    
+    // Redirect to the root page with the encoded path
+    window.location.replace(redirect);
+  </script>
 </head>
 <body>
   <div class="loading">
     <div class="spinner"></div>
-    <p>Redirecting...</p>
+    <div class="text">Redirecting...</div>
+    <div class="subtext">Please wait while we redirect you to the app</div>
   </div>
-
-  <script>
-    // GitHub Pages 404 handling for SPA
-    // This redirects any unknown URL back to the main app with query parameters preserved
-    
-    const currentUrl = window.location.href;
-    const baseUrl = window.location.origin;
-    const pathname = window.location.pathname;
-    const search = window.location.search;
-    
-    console.log('404 handler - Current URL:', currentUrl);
-    console.log('404 handler - Search params:', search);
-    
-    // If this is a Phantom wallet response, redirect to root with the query parameters
-    if (search.includes('phantom_action=connect')) {
-      console.log('🔗 Phantom response detected in 404, redirecting to root...');
-      const redirectUrl = baseUrl + '/' + search;
-      window.location.replace(redirectUrl);
-    } else {
-      // For other 404s, just redirect to root
-      console.log('Regular 404, redirecting to root...');
-      window.location.replace(baseUrl + '/');
-    }
-  </script>
+  
+  <!-- Additional content to ensure file is > 512 bytes for IE compatibility -->
+  <!-- This is a requirement for GitHub Pages custom 404 handling -->
+  <!-- Without this, Internet Explorer will show its own 404 page instead -->
+  <!-- of serving this custom 404.html file. The file must be at least 512 bytes -->
+  <!-- for IE to properly display it. This comment serves as padding to meet -->
+  <!-- that requirement while explaining the technical necessity. -->
+  <!-- GitHub Pages SPA routing requires this workaround because GitHub Pages -->
+  <!-- doesn't natively support single-page application routing. -->
+  <!-- This solution uses the 404.html file to capture unknown routes -->
+  <!-- and redirect them to the main index.html file with the path -->
+  <!-- preserved as query parameters that can be parsed by the app. -->
 </body>
 </html> 

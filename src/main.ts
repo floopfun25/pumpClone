@@ -17,7 +17,13 @@ import { createPinia } from 'pinia'
 async function createVueApp() {
   try {
     // Check for Phantom wallet response before creating the app
-    handlePhantomResponse()
+    // Import handlePhantomConnectResponse from wallet service
+    try {
+      const { handlePhantomConnectResponse } = await import('./services/wallet')
+      handlePhantomConnectResponse()
+    } catch (error) {
+      console.log('Phantom response handler not available:', error)
+    }
     
     // Create the Vue app
     const app = createApp(App)
