@@ -200,17 +200,14 @@ const checkForPhantomResponse = () => {
 // Handle Phantom connect response
 export const handlePhantomConnectResponse = () => {
   try {
-    console.log('🔄 Processing Phantom connect response...')
-    console.log('Current URL:', window.location.href)
-    
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
     
-    // LOG ALL URL PARAMETERS FOR DEBUGGING
-    console.log('🔍 ALL URL PARAMETERS:')
+    // SHOW ALL URL PARAMETERS IN MODAL FOR DEBUGGING
+    let debugInfo = '🔍 ALL URL PARAMETERS:\n'
     for (const [key, value] of urlParams.entries()) {
-      console.log(`  ${key}: ${value}`)
+      debugInfo += `  ${key}: ${value}\n`
     }
     
     // Check for various possible parameter names that Phantom might use
@@ -239,37 +236,35 @@ export const handlePhantomConnectResponse = () => {
     const errorCode = urlParams.get('errorCode')
     const errorMessage = urlParams.get('errorMessage')
     
-    console.log('🔍 EXTRACTED PARAMETERS:')
-    console.log(`  phantomAction: ${phantomAction}`)
-    console.log(`  phantomPublicKey (${actualKeyName}): ${phantomPublicKey}`)
-    console.log(`  nonce: ${nonce}`)
-    console.log(`  data: ${data}`)
-    console.log(`  errorCode: ${errorCode}`)
-    console.log(`  errorMessage: ${errorMessage}`)
+    debugInfo += '\n🔍 EXTRACTED PARAMETERS:\n'
+    debugInfo += `  phantomAction: ${phantomAction}\n`
+    debugInfo += `  phantomPublicKey (${actualKeyName}): ${phantomPublicKey}\n`
+    debugInfo += `  nonce: ${nonce}\n`
+    debugInfo += `  data: ${data}\n`
+    debugInfo += `  errorCode: ${errorCode}\n`
+    debugInfo += `  errorMessage: ${errorMessage}\n`
+    
+    // Show debug info in modal
+    alert(debugInfo)
     
     if (phantomAction !== 'connect') {
-      console.log('❌ Not a Phantom connect response')
+      alert('❌ Not a Phantom connect response')
       return
     }
     
     // Check for errors first
     if (errorCode) {
-      console.error('❌ Phantom returned error:', errorCode, errorMessage)
-      setTimeout(() => {
-        alert(`❌ Phantom connection failed: ${errorMessage || errorCode}`)
-      }, 100)
+      alert(`❌ Phantom returned error: ${errorCode} - ${errorMessage}`)
       return
     }
 
     if (!phantomPublicKey || !nonce || !data) {
-      console.error('❌ Missing required Phantom response parameters')
-      console.error('  phantomPublicKey:', !!phantomPublicKey)
-      console.error('  nonce:', !!nonce)
-      console.error('  data:', !!data)
+      let missingParams = '❌ Missing required Phantom response parameters:\n'
+      missingParams += `  phantomPublicKey: ${!!phantomPublicKey}\n`
+      missingParams += `  nonce: ${!!nonce}\n`
+      missingParams += `  data: ${!!data}\n`
       
-      setTimeout(() => {
-        alert('❌ Connection failed: Missing response data from Phantom wallet. Please try connecting again.')
-      }, 100)
+      alert(missingParams)
       return
     }
 
@@ -277,7 +272,7 @@ export const handlePhantomConnectResponse = () => {
     let connectionData = mobileWalletState.connectionData
     
     if (!connectionData) {
-      console.log('⚠️ No connection data in memory, trying to load from storage...')
+      alert('⚠️ No connection data in memory, trying to load from storage...')
       const savedData = loadConnectionData()
       
       if (savedData?.dappKeyPair) {
@@ -288,30 +283,26 @@ export const handlePhantomConnectResponse = () => {
           phantomEncryptionPublicKey: savedData.phantomEncryptionPublicKey || null
         }
         mobileWalletState.connectionData = connectionData
-        console.log('✅ Connection data restored from storage')
+        alert('✅ Connection data restored from storage')
       }
     }
     
     if (!connectionData?.dappKeyPair) {
-      console.error('❌ No dapp keypair available - cannot decrypt response')
+      alert('❌ No dapp keypair available - cannot decrypt response. This may happen if you refresh the page during connection. Please try connecting again.')
       
       // Initialize new connection data for future attempts
       mobileWalletState.connectionData = initializeConnectionData()
-      
-      setTimeout(() => {
-        alert('❌ Connection failed: No encryption key found. This may happen if you refresh the page during connection. Please try connecting again.')
-      }, 100)
       return
     }
     
-    console.log('✅ Connection data found')
-    console.log('🔑 DappKeyPair details:')
-    console.log(`  PublicKey length: ${connectionData.dappKeyPair.publicKey.length}`)
-    console.log(`  SecretKey length: ${connectionData.dappKeyPair.secretKey.length}`)
-    console.log(`  PublicKey (first 8 chars): ${bs58.encode(connectionData.dappKeyPair.publicKey).substring(0, 8)}...`)
+    let keyPairInfo = '✅ Connection data found\n🔑 DappKeyPair details:\n'
+    keyPairInfo += `  PublicKey length: ${connectionData.dappKeyPair.publicKey.length}\n`
+    keyPairInfo += `  SecretKey length: ${connectionData.dappKeyPair.secretKey.length}\n`
+    keyPairInfo += `  PublicKey (first 8 chars): ${bs58.encode(connectionData.dappKeyPair.publicKey).substring(0, 8)}...\n`
+    alert(keyPairInfo)
 
     // Parse the response from Phantom
-    console.log('🔓 Attempting to parse and decrypt response...')
+    alert('🔓 Attempting to parse and decrypt response...')
     
     try {
       const { connectData, sharedSecret } = parseConnectResponse(
@@ -319,12 +310,12 @@ export const handlePhantomConnectResponse = () => {
         connectionData.dappKeyPair
       )
       
-      console.log('✅ Successfully parsed connect data:', { 
-        publicKey: connectData.public_key,
-        hasSession: !!connectData.session,
-        sessionLength: connectData.session?.length,
-        sharedSecretLength: sharedSecret?.length
-      })
+      let successInfo = '✅ Successfully parsed connect data:\n'
+      successInfo += `  publicKey: ${connectData.public_key}\n`
+      successInfo += `  hasSession: ${!!connectData.session}\n`
+      successInfo += `  sessionLength: ${connectData.session?.length}\n`
+      successInfo += `  sharedSecretLength: ${sharedSecret?.length}\n`
+      alert(successInfo)
 
       // Update connection data with the new session and shared secret
       mobileWalletState.connectionData = {
@@ -335,7 +326,7 @@ export const handlePhantomConnectResponse = () => {
 
       // Save to sessionStorage for persistence
       saveConnectionData(mobileWalletState.connectionData)
-      console.log('💾 Updated connection data saved to storage')
+      alert('💾 Updated connection data saved to storage')
 
       // Set wallet as connected in global state
       const publicKey = new PublicKey(connectData.public_key)
@@ -354,45 +345,37 @@ export const handlePhantomConnectResponse = () => {
         detail: { publicKey: connectData.public_key }
       }))
 
-      console.log('✅ Phantom wallet connected successfully!')
-      console.log('🔑 Public key:', connectData.public_key)
+      alert(`✅ Phantom wallet connected successfully!\n🔑 Public key: ${connectData.public_key}`)
       
       // Clean up the URL after successful connection
       const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, document.title, cleanUrl)
-      console.log('🧹 URL cleaned up')
-      
-      // Show success message to user
-      setTimeout(() => {
-        alert('✅ Phantom wallet connected successfully!')
-      }, 100)
       
     } catch (decryptError) {
-      console.error('❌ Decryption failed:', decryptError)
-      
-      // Log more details about the decryption failure
-      console.log('🔍 DECRYPTION DEBUG INFO:')
-      console.log(`  Raw data parameter: ${data}`)
-      console.log(`  Raw nonce parameter: ${nonce}`)
-      console.log(`  Raw phantom public key: ${phantomPublicKey}`)
+      let errorInfo = '❌ Decryption failed:\n'
+      errorInfo += `Error: ${decryptError instanceof Error ? decryptError.message : String(decryptError)}\n\n`
+      errorInfo += '🔍 DECRYPTION DEBUG INFO:\n'
+      errorInfo += `  Raw data parameter: ${data}\n`
+      errorInfo += `  Raw nonce parameter: ${nonce}\n`
+      errorInfo += `  Raw phantom public key: ${phantomPublicKey}\n`
       
       try {
         // Try to decode each parameter separately to see where the issue is
         const decodedData = bs58.decode(data)
-        console.log(`  Decoded data length: ${decodedData.length}`)
+        errorInfo += `  Decoded data length: ${decodedData.length}\n`
         
         const decodedNonce = bs58.decode(nonce)
-        console.log(`  Decoded nonce length: ${decodedNonce.length}`)
+        errorInfo += `  Decoded nonce length: ${decodedNonce.length}\n`
         
         const decodedPhantomKey = bs58.decode(phantomPublicKey)
-        console.log(`  Decoded phantom key length: ${decodedPhantomKey.length}`)
+        errorInfo += `  Decoded phantom key length: ${decodedPhantomKey.length}\n`
         
         // Try to compute shared secret
         const sharedSecret = nacl.box.before(
           decodedPhantomKey,
           connectionData.dappKeyPair.secretKey
         )
-        console.log(`  Shared secret length: ${sharedSecret.length}`)
+        errorInfo += `  Shared secret length: ${sharedSecret.length}\n`
         
         // Try to decrypt
         const decryptedData = nacl.box.open.after(
@@ -402,24 +385,23 @@ export const handlePhantomConnectResponse = () => {
         )
         
         if (decryptedData) {
-          console.log('🎉 Manual decryption succeeded!')
-          console.log(`  Decrypted data length: ${decryptedData.length}`)
+          errorInfo += '🎉 Manual decryption succeeded!\n'
+          errorInfo += `  Decrypted data length: ${decryptedData.length}\n`
           const parsed = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
-          console.log('  Parsed data:', parsed)
+          errorInfo += `  Parsed data: ${JSON.stringify(parsed)}\n`
         } else {
-          console.log('❌ Manual decryption also failed')
+          errorInfo += '❌ Manual decryption also failed\n'
         }
         
       } catch (debugError) {
-        console.error('❌ Debug decryption also failed:', debugError)
+        errorInfo += `❌ Debug decryption also failed: ${debugError instanceof Error ? debugError.message : String(debugError)}\n`
       }
       
+      alert(errorInfo)
       throw decryptError
     }
     
   } catch (error) {
-    console.error('❌ Failed to handle connect response:', error)
-    
     mobileWalletState.isConnecting = false
     
     // Clear any invalid connection data
@@ -428,9 +410,7 @@ export const handlePhantomConnectResponse = () => {
     
     // Show detailed error message to user for debugging
     const errorMessage = error instanceof Error ? error.message : String(error)
-    setTimeout(() => {
-      alert(`❌ Connection failed: ${errorMessage}\n\nPlease try connecting again. If the problem persists, try refreshing the page first.`)
-    }, 100)
+    alert(`❌ Connection failed: ${errorMessage}\n\nPlease try connecting again. If the problem persists, try refreshing the page first.`)
   }
 }
 
