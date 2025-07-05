@@ -35,6 +35,7 @@ import {
 } from '../utils/walletDeeplink'
 import type { WalletConnectionData } from '../utils/walletDeeplink'
 import * as bs58 from 'bs58'
+import * as nacl from 'tweetnacl'
 
 // Extend Window interface to include solana property
 declare global {
@@ -205,17 +206,67 @@ export const handlePhantomConnectResponse = () => {
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
-    const phantomPublicKey = urlParams.get('phantom_encryption_public_key')
+    
+    // LOG ALL URL PARAMETERS FOR DEBUGGING
+    console.log('🔍 ALL URL PARAMETERS:')
+    for (const [key, value] of urlParams.entries()) {
+      console.log(`  ${key}: ${value}`)
+    }
+    
+    // Check for various possible parameter names that Phantom might use
+    const possibleKeys = [
+      'phantom_encryption_public_key',
+      'phantomEncryptionPublicKey', 
+      'phantom_public_key',
+      'publicKey',
+      'public_key'
+    ]
+    
+    let phantomPublicKey = null
+    let actualKeyName = null
+    
+    for (const key of possibleKeys) {
+      const value = urlParams.get(key)
+      if (value) {
+        phantomPublicKey = value
+        actualKeyName = key
+        break
+      }
+    }
+    
     const nonce = urlParams.get('nonce')
     const data = urlParams.get('data')
+    const errorCode = urlParams.get('errorCode')
+    const errorMessage = urlParams.get('errorMessage')
+    
+    console.log('🔍 EXTRACTED PARAMETERS:')
+    console.log(`  phantomAction: ${phantomAction}`)
+    console.log(`  phantomPublicKey (${actualKeyName}): ${phantomPublicKey}`)
+    console.log(`  nonce: ${nonce}`)
+    console.log(`  data: ${data}`)
+    console.log(`  errorCode: ${errorCode}`)
+    console.log(`  errorMessage: ${errorMessage}`)
     
     if (phantomAction !== 'connect') {
       console.log('❌ Not a Phantom connect response')
       return
     }
+    
+    // Check for errors first
+    if (errorCode) {
+      console.error('❌ Phantom returned error:', errorCode, errorMessage)
+      setTimeout(() => {
+        alert(`❌ Phantom connection failed: ${errorMessage || errorCode}`)
+      }, 100)
+      return
+    }
 
     if (!phantomPublicKey || !nonce || !data) {
       console.error('❌ Missing required Phantom response parameters')
+      console.error('  phantomPublicKey:', !!phantomPublicKey)
+      console.error('  nonce:', !!nonce)
+      console.error('  data:', !!data)
+      
       setTimeout(() => {
         alert('❌ Connection failed: Missing response data from Phantom wallet. Please try connecting again.')
       }, 100)
@@ -254,61 +305,117 @@ export const handlePhantomConnectResponse = () => {
     }
     
     console.log('✅ Connection data found')
+    console.log('🔑 DappKeyPair details:')
+    console.log(`  PublicKey length: ${connectionData.dappKeyPair.publicKey.length}`)
+    console.log(`  SecretKey length: ${connectionData.dappKeyPair.secretKey.length}`)
+    console.log(`  PublicKey (first 8 chars): ${bs58.encode(connectionData.dappKeyPair.publicKey).substring(0, 8)}...`)
 
     // Parse the response from Phantom
     console.log('🔓 Attempting to parse and decrypt response...')
-    const { connectData, sharedSecret } = parseConnectResponse(
-      window.location.href,
-      connectionData.dappKeyPair
-    )
     
-    console.log('✅ Successfully parsed connect data:', { 
-      publicKey: connectData.public_key,
-      hasSession: !!connectData.session,
-      sessionLength: connectData.session?.length,
-      sharedSecretLength: sharedSecret?.length
-    })
+    try {
+      const { connectData, sharedSecret } = parseConnectResponse(
+        window.location.href,
+        connectionData.dappKeyPair
+      )
+      
+      console.log('✅ Successfully parsed connect data:', { 
+        publicKey: connectData.public_key,
+        hasSession: !!connectData.session,
+        sessionLength: connectData.session?.length,
+        sharedSecretLength: sharedSecret?.length
+      })
 
-    // Update connection data with the new session and shared secret
-    mobileWalletState.connectionData = {
-      ...connectionData,
-      session: connectData.session,
-      sharedSecret
+      // Update connection data with the new session and shared secret
+      mobileWalletState.connectionData = {
+        ...connectionData,
+        session: connectData.session,
+        sharedSecret
+      }
+
+      // Save to sessionStorage for persistence
+      saveConnectionData(mobileWalletState.connectionData)
+      console.log('💾 Updated connection data saved to storage')
+
+      // Set wallet as connected in global state
+      const publicKey = new PublicKey(connectData.public_key)
+      window.solana = {
+        isPhantom: true,
+        publicKey,
+        isConnected: true,
+        connect: () => Promise.resolve({ publicKey }),
+        disconnect: () => Promise.resolve(),
+        signTransaction: () => Promise.reject(new Error('Use mobile signing')),
+        signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+      }
+
+      // Trigger connection event for the app to listen to
+      window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
+        detail: { publicKey: connectData.public_key }
+      }))
+
+      console.log('✅ Phantom wallet connected successfully!')
+      console.log('🔑 Public key:', connectData.public_key)
+      
+      // Clean up the URL after successful connection
+      const cleanUrl = window.location.origin + window.location.pathname
+      window.history.replaceState({}, document.title, cleanUrl)
+      console.log('🧹 URL cleaned up')
+      
+      // Show success message to user
+      setTimeout(() => {
+        alert('✅ Phantom wallet connected successfully!')
+      }, 100)
+      
+    } catch (decryptError) {
+      console.error('❌ Decryption failed:', decryptError)
+      
+      // Log more details about the decryption failure
+      console.log('🔍 DECRYPTION DEBUG INFO:')
+      console.log(`  Raw data parameter: ${data}`)
+      console.log(`  Raw nonce parameter: ${nonce}`)
+      console.log(`  Raw phantom public key: ${phantomPublicKey}`)
+      
+      try {
+        // Try to decode each parameter separately to see where the issue is
+        const decodedData = bs58.decode(data)
+        console.log(`  Decoded data length: ${decodedData.length}`)
+        
+        const decodedNonce = bs58.decode(nonce)
+        console.log(`  Decoded nonce length: ${decodedNonce.length}`)
+        
+        const decodedPhantomKey = bs58.decode(phantomPublicKey)
+        console.log(`  Decoded phantom key length: ${decodedPhantomKey.length}`)
+        
+        // Try to compute shared secret
+        const sharedSecret = nacl.box.before(
+          decodedPhantomKey,
+          connectionData.dappKeyPair.secretKey
+        )
+        console.log(`  Shared secret length: ${sharedSecret.length}`)
+        
+        // Try to decrypt
+        const decryptedData = nacl.box.open.after(
+          decodedData,
+          decodedNonce,
+          sharedSecret
+        )
+        
+        if (decryptedData) {
+          console.log('🎉 Manual decryption succeeded!')
+          console.log(`  Decrypted data length: ${decryptedData.length}`)
+          const parsed = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
+          console.log('  Parsed data:', parsed)
+        } else {
+          console.log('❌ Manual decryption also failed')
+        }
+        
+      } catch (debugError) {
+        console.error('❌ Debug decryption also failed:', debugError)
+      }
+      
+      throw decryptError
     }
-
-    // Save to sessionStorage for persistence
-    saveConnectionData(mobileWalletState.connectionData)
-    console.log('💾 Updated connection data saved to storage')
-
-    // Set wallet as connected in global state
-    const publicKey = new PublicKey(connectData.public_key)
-    window.solana = {
-      isPhantom: true,
-      publicKey,
-      isConnected: true,
-      connect: () => Promise.resolve({ publicKey }),
-      disconnect: () => Promise.resolve(),
-      signTransaction: () => Promise.reject(new Error('Use mobile signing')),
-      signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
-    }
-
-    // Trigger connection event for the app to listen to
-    window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
-      detail: { publicKey: connectData.public_key }
-    }))
-
-    console.log('✅ Phantom wallet connected successfully!')
-    console.log('🔑 Public key:', connectData.public_key)
-    
-    // Clean up the URL after successful connection
-    const cleanUrl = window.location.origin + window.location.pathname
-    window.history.replaceState({}, document.title, cleanUrl)
-    console.log('🧹 URL cleaned up')
-    
-    // Show success message to user
-    setTimeout(() => {
-      alert('✅ Phantom wallet connected successfully!')
-    }, 100)
     
   } catch (error) {
     console.error('❌ Failed to handle connect response:', error)
