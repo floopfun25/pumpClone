@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
@@ -211,6 +211,20 @@ const connectWallet = async (walletName: string) => {
   selectedWallet.value = walletName
   
   try {
+    // Check if already connected
+    if (walletStore.isConnected) {
+      closeModal()
+      return
+    }
+
+    // For mobile Phantom, we need special handling
+    if (isMobileDevice.value && walletName === 'Phantom') {
+      await walletStore.connectWallet(walletName)
+      // Don't close modal yet - it will be handled when we return from Phantom
+      return
+    }
+
+    // For other wallets
     await walletStore.connectWallet(walletName)
     emit('connected', walletName)
     closeModal()
@@ -224,10 +238,31 @@ const connectWallet = async (walletName: string) => {
       message: error.value
     })
   } finally {
-    connecting.value = false
-    selectedWallet.value = null
+    // Only reset connecting state if we're not waiting for Phantom mobile return
+    if (!(isMobileDevice.value && selectedWallet.value === 'Phantom')) {
+      connecting.value = false
+      selectedWallet.value = null
+    }
   }
 }
+
+// Watch for connection state changes
+watch(() => walletStore.isConnected, (newValue) => {
+  if (newValue) {
+    // Successfully connected
+    connecting.value = false
+    selectedWallet.value = null
+    emit('connected', walletStore.wallet?.name || '')
+    closeModal()
+    
+    // Show success toast
+    uiStore.showToast({
+      type: 'success',
+      title: '✅ Wallet Connected',
+      message: 'Successfully connected to wallet!'
+    })
+  }
+})
 
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement

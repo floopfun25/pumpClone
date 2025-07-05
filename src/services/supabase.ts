@@ -408,17 +408,42 @@ export class SupabaseService {
    */
   static async upsertUser(userData: Database['public']['Tables']['users']['Insert']) {
     try {
-      const { data, error } = await supabase
+      // First check if user exists
+      const { data: existingUser } = await supabase
         .from('users')
-        .upsert(userData, {
-          onConflict: 'wallet_address',
-          ignoreDuplicates: false
-        })
-        .select()
+        .select('*')
+        .eq('wallet_address', userData.wallet_address)
         .single()
-      
-      if (error) throw error
-      return data
+
+      if (existingUser) {
+        // If user exists, only update non-critical fields
+        const { data, error } = await supabase
+          .from('users')
+          .update({
+            username: userData.username,
+            avatar_url: userData.avatar_url,
+            bio: userData.bio,
+            twitter_handle: userData.twitter_handle,
+            telegram_handle: userData.telegram_handle,
+            updated_at: new Date().toISOString()
+          })
+          .eq('wallet_address', userData.wallet_address)
+          .select()
+          .single()
+        
+        if (error) throw error
+        return data
+      } else {
+        // If user doesn't exist, create new
+        const { data, error } = await supabase
+          .from('users')
+          .insert(userData)
+          .select()
+          .single()
+        
+        if (error) throw error
+        return data
+      }
     } catch (error) {
       console.error('Failed to upsert user:', error)
       return null
