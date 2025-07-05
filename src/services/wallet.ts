@@ -37,6 +37,7 @@ import type { WalletConnectionData } from '../utils/walletDeeplink'
 import * as bs58 from 'bs58'
 import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
+import { useUIStore } from '@/stores/ui'
 
 // Extend Window interface to include solana property
 declare global {
@@ -313,8 +314,10 @@ export const handlePhantomConnectResponse = () => {
       console.log('✅ Phantom wallet connected successfully!')
       console.log('📝 Public key:', connectData.public_key)
       
-      // Continue with connection setup...
+      // Create PublicKey object
       const publicKey = new PublicKey(connectData.public_key)
+      
+      // Set window.solana for compatibility
       window.solana = {
         isPhantom: true,
         publicKey,
@@ -323,6 +326,32 @@ export const handlePhantomConnectResponse = () => {
         disconnect: () => Promise.resolve(),
         signTransaction: () => Promise.reject(new Error('Use mobile signing')),
         signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+      }
+
+      // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
+      // Instead of accessing private properties, we'll trigger a proper connection
+      try {
+        // Call connectPhantomMobile programmatically to update the service state
+        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
+        if (phantomAdapter && walletService) {
+          // Manually trigger the service's handleConnect method
+          walletService['_publicKey'].value = publicKey
+          walletService['currentWallet'].value = phantomAdapter
+          walletService['_connecting'].value = false
+          
+          // Update balance after a short delay
+          setTimeout(async () => {
+            try {
+              await walletService.updateBalance()
+            } catch (error) {
+              console.warn('Failed to update balance:', error)
+            }
+          }, 1000)
+          
+          console.log('🔄 Wallet service state updated')
+        }
+      } catch (serviceError) {
+        console.warn('Failed to update wallet service:', serviceError)
       }
 
       // Update connection data with session
@@ -340,6 +369,21 @@ export const handlePhantomConnectResponse = () => {
         detail: { publicKey: connectData.public_key }
       }))
       
+      // Show success toast notification
+      try {
+        const uiStore = useUIStore()
+        uiStore.showToast({
+          type: 'success',
+          title: 'Wallet Connected!',
+          message: `Phantom wallet connected successfully. Address: ${formatWalletAddress(connectData.public_key)}`,
+          duration: 5000
+        })
+      } catch (toastError) {
+        console.warn('Failed to show success toast:', toastError)
+      }
+      
+      console.log('🎉 Mobile wallet connection completed successfully!')
+      
       // Clean up the URL
       const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, document.title, cleanUrl)
@@ -356,6 +400,19 @@ export const handlePhantomConnectResponse = () => {
     mobileWalletState.isConnecting = false
     clearConnectionData()
     mobileWalletState.connectionData = null
+    
+    // Show error toast
+    try {
+      const uiStore = useUIStore()
+      uiStore.showToast({
+        type: 'error',
+        title: 'Connection Failed',
+        message: errorMessage,
+        duration: 8000
+      })
+    } catch (toastError) {
+      console.warn('Failed to show error toast:', toastError)
+    }
   }
 }
 
