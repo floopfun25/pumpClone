@@ -524,22 +524,14 @@ export const createRedirectUrl = (action: string): string => {
   // Get the full current URL
   const currentUrl = window.location.href
   
-  // Parse the current URL to extract base parts
+  // Parse the current URL
   const url = new URL(currentUrl)
   
-  // For GitHub Pages project sites, we need to preserve the full path
-  // e.g., https://username.github.io/repository/
-  const pathParts = url.pathname.split('/').filter(part => part.length > 0)
+  // Keep the full original pathname to preserve all path segments
+  const fullPath = url.pathname
   
-  // Reconstruct the base URL including any repository path
-  let baseUrl = url.origin
-  if (pathParts.length > 0) {
-    // Add repository name if it exists
-    baseUrl += `/${pathParts[0]}`
-  }
-  
-  // Create the full redirect URL with the action parameter
-  const redirectUrl = `${baseUrl}?phantom_action=${action}`
+  // Create the redirect URL with the original full path
+  const redirectUrl = `${url.origin}${fullPath}?phantom_action=${action}`
   
   console.log('Created redirect URL:', redirectUrl)
   return redirectUrl
