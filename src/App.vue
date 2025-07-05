@@ -111,6 +111,14 @@ onMounted(async () => {
     // Initialize sidebar state
     uiStore.initializeSidebar()
     
+    // Setup global debug function for utility files
+    if (typeof window !== 'undefined') {
+      (window as any).globalShowDebug = (message: string) => {
+        const { showDebugModal } = useDebugService()
+        showDebugModal(message)
+      }
+    }
+    
     // Setup auth listener
     authStore.setupAuthListener()
     
