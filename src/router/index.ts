@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 // Define route types for better type safety
@@ -9,8 +9,12 @@ export interface RouteParams {
 
 // Create router instance with route definitions
 const router = createRouter({
-  // Use HTML5 history mode for clean URLs
+  // Use HTML5 history mode for clean URLs (current approach)
   history: createWebHistory(import.meta.env.BASE_URL),
+  
+  // Alternative: Use hash routing for GitHub Pages (more reliable)
+  // Uncomment the line below and comment out the line above if wallet redirects still fail
+  // history: createWebHashHistory(import.meta.env.BASE_URL),
   
   routes: [
     {

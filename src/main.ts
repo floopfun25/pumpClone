@@ -13,18 +13,34 @@ import { i18n } from './i18n'
 // Stores
 import { createPinia } from 'pinia'
 
+// Handle Phantom wallet response immediately on page load
+function handlePhantomResponse() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
+  
+  if (phantomAction === 'connect') {
+    console.log('🔗 Phantom connect response detected in main.ts')
+    
+    // Import and handle the response immediately
+    import('./services/wallet').then(({ handlePhantomConnectResponse }) => {
+      try {
+        handlePhantomConnectResponse()
+        console.log('✅ Phantom response handled in main.ts')
+      } catch (error) {
+        console.error('❌ Failed to handle Phantom response in main.ts:', error)
+      }
+    }).catch(error => {
+      console.error('❌ Failed to import wallet service in main.ts:', error)
+    })
+  }
+}
+
+// Call this immediately when the script loads
+handlePhantomResponse()
+
 // Main app creation function
 async function createVueApp() {
   try {
-    // Check for Phantom wallet response before creating the app
-    // Import handlePhantomConnectResponse from wallet service
-    try {
-      const { handlePhantomConnectResponse } = await import('./services/wallet')
-      handlePhantomConnectResponse()
-    } catch (error) {
-      console.log('Phantom response handler not available:', error)
-    }
-    
     // Create the Vue app
     const app = createApp(App)
     
@@ -88,34 +104,6 @@ async function createVueApp() {
           </div>
         </div>
       `
-    }
-  }
-}
-
-// Handle Phantom wallet response
-function handlePhantomResponse() {
-  const urlParams = new URLSearchParams(window.location.search)
-  const phantomAction = urlParams.get('phantom_action')
-  
-  if (phantomAction === 'connect') {
-    console.log('🔗 Phantom connect response detected')
-    
-    try {
-      // Import and execute the response handler
-      import('./services/wallet').then(({ handlePhantomConnectResponse }) => {
-        handlePhantomConnectResponse()
-        
-        // Clean up URL after handling
-        const cleanUrl = window.location.origin + window.location.pathname
-        window.history.replaceState({}, document.title, cleanUrl)
-        
-        console.log('✅ Phantom response handled successfully')
-      }).catch(error => {
-        console.error('❌ Failed to handle Phantom response:', error)
-      })
-      
-    } catch (error) {
-      console.error('❌ Error processing Phantom response:', error)
     }
   }
 }

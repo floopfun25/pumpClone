@@ -348,6 +348,7 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  const baseUrl = window.location.origin + window.location.pathname
+  // Always redirect to home page for wallet responses to ensure proper handling
+  const baseUrl = window.location.origin
   return `${baseUrl}?phantom_action=${action}`
 } 

@@ -34,6 +34,7 @@ import {
   buildDisconnectUrl
 } from '../utils/walletDeeplink'
 import type { WalletConnectionData } from '../utils/walletDeeplink'
+import * as bs58 from 'bs58'
 
 // Extend Window interface to include solana property
 declare global {
@@ -118,12 +119,18 @@ const STORAGE_KEY = 'phantom_connection_data'
 
 const saveConnectionData = (data: WalletConnectionData) => {
   try {
-    // Don't store sensitive keys in sessionStorage, only basic info
+    // We need to save the keypair for decrypting Phantom responses
+    // Store it as base58 encoded strings for JSON serialization
     const safeData = {
       session: data.session,
-      phantomEncryptionPublicKey: data.phantomEncryptionPublicKey
+      phantomEncryptionPublicKey: data.phantomEncryptionPublicKey,
+      dappKeyPair: data.dappKeyPair ? {
+        publicKey: bs58.encode(data.dappKeyPair.publicKey),
+        secretKey: bs58.encode(data.dappKeyPair.secretKey)
+      } : null
     }
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
+    console.log('💾 Saved connection data to sessionStorage')
   } catch (error) {
     console.warn('Failed to save connection data:', error)
   }
@@ -132,7 +139,24 @@ const saveConnectionData = (data: WalletConnectionData) => {
 const loadConnectionData = (): Partial<WalletConnectionData> | null => {
   try {
     const stored = sessionStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : null
+    if (!stored) return null
+    
+    const data = JSON.parse(stored)
+    
+    // Reconstruct the keypair from stored base58 strings
+    if (data.dappKeyPair) {
+      data.dappKeyPair = {
+        publicKey: bs58.decode(data.dappKeyPair.publicKey),
+        secretKey: bs58.decode(data.dappKeyPair.secretKey)
+      }
+    }
+    
+    console.log('📂 Loaded connection data from sessionStorage:', {
+      hasSession: !!data.session,
+      hasKeyPair: !!data.dappKeyPair
+    })
+    
+    return data
   } catch (error) {
     console.warn('Failed to load connection data:', error)
     return null
@@ -176,14 +200,48 @@ export const handlePhantomConnectResponse = () => {
     console.log('🔄 Processing Phantom connect response...')
     console.log('Current URL:', window.location.href)
     
-    const connectionData = mobileWalletState.connectionData
+    // Check if this is actually a Phantom response
+    const urlParams = new URLSearchParams(window.location.search)
+    const phantomAction = urlParams.get('phantom_action')
+    
+    if (phantomAction !== 'connect') {
+      console.log('❌ Not a Phantom connect response')
+      return
+    }
+
+    // Try to get connection data from memory or storage
+    let connectionData = mobileWalletState.connectionData
     if (!connectionData) {
-      console.error('❌ No connection data available')
+      console.log('⚠️ No connection data in memory, trying to load from storage...')
+      const savedData = loadConnectionData()
+      if (savedData?.dappKeyPair) {
+        connectionData = {
+          dappKeyPair: savedData.dappKeyPair,
+          session: savedData.session || null,
+          sharedSecret: savedData.sharedSecret || null,
+          phantomEncryptionPublicKey: savedData.phantomEncryptionPublicKey || null
+        }
+        mobileWalletState.connectionData = connectionData
+      }
+    }
+    
+    if (!connectionData) {
+      console.error('❌ No connection data available - cannot process response')
+      // Initialize new connection data for future attempts
+      mobileWalletState.connectionData = initializeConnectionData()
+      
+      setTimeout(() => {
+        alert('❌ Connection failed. Please try connecting again.')
+      }, 100)
       return
     }
     
-    console.log('✅ Connection data found:', connectionData)
+    console.log('✅ Connection data found:', { 
+      hasKeyPair: !!connectionData.dappKeyPair, 
+      hasSession: !!connectionData.session 
+    })
 
+    // Parse the response from Phantom
     const { connectData, sharedSecret } = parseConnectResponse(
       window.location.href,
       connectionData.dappKeyPair
@@ -194,17 +252,17 @@ export const handlePhantomConnectResponse = () => {
       hasSession: !!connectData.session
     })
 
-    // Update connection data
+    // Update connection data with the new session and shared secret
     mobileWalletState.connectionData = {
       ...connectionData,
       session: connectData.session,
       sharedSecret
     }
 
-    // Save to sessionStorage
+    // Save to sessionStorage for persistence
     saveConnectionData(mobileWalletState.connectionData)
 
-    // Set wallet as connected
+    // Set wallet as connected in global state
     window.solana = {
       isPhantom: true,
       publicKey: new PublicKey(connectData.public_key),
@@ -215,13 +273,17 @@ export const handlePhantomConnectResponse = () => {
       signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
     }
 
-    // Trigger connection event
+    // Trigger connection event for the app to listen to
     window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
       detail: { publicKey: connectData.public_key }
     }))
 
     console.log('✅ Phantom wallet connected successfully!')
     console.log('Public key:', connectData.public_key)
+    
+    // Clean up the URL after successful connection
+    const cleanUrl = window.location.origin + window.location.pathname
+    window.history.replaceState({}, document.title, cleanUrl)
     
     // Show success message to user
     setTimeout(() => {
@@ -232,6 +294,10 @@ export const handlePhantomConnectResponse = () => {
     console.error('❌ Failed to handle connect response:', error)
     console.error('Error details:', error)
     mobileWalletState.isConnecting = false
+    
+    // Clear any invalid connection data
+    clearConnectionData()
+    mobileWalletState.connectionData = null
     
     // Show error message to user
     setTimeout(() => {
@@ -260,12 +326,19 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
 
-    // Generate new connection data if needed
-    if (!mobileWalletState.connectionData) {
-      mobileWalletState.connectionData = initializeConnectionData()
-    }
+    // Always generate fresh connection data for new connection attempts
+    mobileWalletState.connectionData = initializeConnectionData()
+    
+    // IMPORTANT: Save connection data to sessionStorage before opening Phantom
+    // This ensures the data is available when user returns from Phantom app
+    saveConnectionData(mobileWalletState.connectionData)
+    
+    console.log('💾 Connection data saved to storage:', {
+      hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
+      publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
+    })
 
-    // Create redirect URL
+    // Create redirect URL (will now go to home page)
     const redirectUrl = createRedirectUrl('connect')
     
     // Build connect URL
@@ -276,6 +349,7 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     )
 
     console.log('🔗 Opening Phantom connect URL:', connectUrl)
+    console.log('📱 Redirect URL:', redirectUrl)
 
     // Open Phantom app
     window.location.href = connectUrl
