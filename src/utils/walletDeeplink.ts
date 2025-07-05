@@ -2,6 +2,7 @@ import { isMobile, isIOS, isAndroid, getPhantomDownloadUrl } from './mobile'
 import nacl from 'tweetnacl'
 import bs58 from 'bs58'
 import { Buffer } from 'buffer'
+import { showDebug } from '@/services/debugService'
 
 // Ensure Buffer is available globally for crypto operations
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -309,10 +310,23 @@ export const parseConnectResponse = (
   url: string,
   dappKeyPair: nacl.BoxKeyPair
 ): { connectData: ConnectResponse; sharedSecret: Uint8Array } => {
+  let debugInfo = '🔍 PARSE CONNECT RESPONSE DEBUG:\n'
+  debugInfo += `URL: ${url}\n\n`
+  
   const urlObj = new URL(url)
   const params = urlObj.searchParams
 
+  debugInfo += '📋 ALL URL SEARCH PARAMS:\n'
+  for (const [key, value] of params.entries()) {
+    debugInfo += `  ${key}: ${value}\n`
+  }
+  debugInfo += '\n'
+
   if (params.get('errorCode')) {
+    debugInfo += `❌ ERROR FROM PHANTOM:\n`
+    debugInfo += `  errorCode: ${params.get('errorCode')}\n`
+    debugInfo += `  errorMessage: ${params.get('errorMessage')}\n`
+    showDebug(debugInfo)
     throw new Error(params.get('errorMessage') || 'Connection failed')
   }
 
@@ -320,20 +334,81 @@ export const parseConnectResponse = (
   const data = params.get('data')
   const nonce = params.get('nonce')
 
+  debugInfo += '🔑 EXTRACTED PARAMETERS:\n'
+  debugInfo += `  phantomEncryptionPublicKey: ${phantomEncryptionPublicKey}\n`
+  debugInfo += `  data: ${data}\n`
+  debugInfo += `  nonce: ${nonce}\n\n`
+
   if (!phantomEncryptionPublicKey || !data || !nonce) {
+    debugInfo += '❌ MISSING REQUIRED PARAMETERS:\n'
+    debugInfo += `  phantomEncryptionPublicKey exists: ${!!phantomEncryptionPublicKey}\n`
+    debugInfo += `  data exists: ${!!data}\n`
+    debugInfo += `  nonce exists: ${!!nonce}\n`
+    showDebug(debugInfo)
     throw new Error('Invalid response from Phantom')
   }
 
-  // Generate shared secret using Diffie-Hellman
-  const sharedSecret = nacl.box.before(
-    bs58.decode(phantomEncryptionPublicKey),
-    dappKeyPair.secretKey
-  )
+  try {
+    // Generate shared secret using Diffie-Hellman
+    debugInfo += '🔐 GENERATING SHARED SECRET:\n'
+    debugInfo += `  dappKeyPair.secretKey length: ${dappKeyPair.secretKey.length}\n`
+    
+    const decodedPhantomKey = bs58.decode(phantomEncryptionPublicKey)
+    debugInfo += `  decoded phantom key length: ${decodedPhantomKey.length}\n`
+    
+    const sharedSecret = nacl.box.before(
+      decodedPhantomKey,
+      dappKeyPair.secretKey
+    )
+    debugInfo += `  shared secret length: ${sharedSecret.length}\n\n`
 
-  // Decrypt the response data
-  const connectData = decryptPayload(data, nonce, sharedSecret)
-
-  return { connectData, sharedSecret }
+    // Decrypt the response data
+    debugInfo += '🔓 ATTEMPTING DECRYPTION:\n'
+    debugInfo += `  data to decode: ${data}\n`
+    debugInfo += `  nonce to decode: ${nonce}\n`
+    
+    const decodedData = bs58.decode(data)
+    const decodedNonce = bs58.decode(nonce)
+    
+    debugInfo += `  decoded data length: ${decodedData.length}\n`
+    debugInfo += `  decoded nonce length: ${decodedNonce.length}\n\n`
+    
+    const decryptedData = nacl.box.open.after(
+      decodedData,
+      decodedNonce,
+      sharedSecret
+    )
+    
+    if (!decryptedData) {
+      debugInfo += '❌ DECRYPTION FAILED:\n'
+      debugInfo += `  nacl.box.open.after returned: ${decryptedData}\n`
+      debugInfo += `  This means the shared secret, nonce, or data is incorrect\n`
+      
+      // Try to provide more diagnostic info
+      debugInfo += '\n🔍 DIAGNOSTIC INFO:\n'
+      debugInfo += `  Shared secret (first 8 bytes): ${Array.from(sharedSecret.slice(0, 8)).join(',')}\n`
+      debugInfo += `  Nonce (first 8 bytes): ${Array.from(decodedNonce.slice(0, 8)).join(',')}\n`
+      debugInfo += `  Data (first 8 bytes): ${Array.from(decodedData.slice(0, 8)).join(',')}\n`
+      
+      showDebug(debugInfo)
+      throw new Error('Unable to decrypt data')
+    }
+    
+    debugInfo += '✅ DECRYPTION SUCCESSFUL:\n'
+    debugInfo += `  decrypted data length: ${decryptedData.length}\n`
+    
+    const connectData = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
+    debugInfo += `  parsed JSON: ${JSON.stringify(connectData, null, 2)}\n`
+    
+    showDebug(debugInfo)
+    return { connectData, sharedSecret }
+    
+  } catch (error) {
+    debugInfo += `\n❌ ERROR DURING PARSING:\n`
+    debugInfo += `  Error: ${error instanceof Error ? error.message : String(error)}\n`
+    showDebug(debugInfo)
+    throw error
+  }
 }
 
 // Check if URL is a Phantom response
