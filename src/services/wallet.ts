@@ -196,20 +196,8 @@ const initializeConnectionData = (): WalletConnectionData => {
 
 // Check for phantom response on page load
 const checkForPhantomResponse = () => {
-  // Check both hash and query parameters
-  let phantomAction = null
-  
-  // Check hash for phantom_action
-  if (window.location.hash) {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    phantomAction = hashParams.get('phantom_action')
-  }
-  
-  // Fallback to query parameters
-  if (!phantomAction) {
-    const urlParams = new URLSearchParams(window.location.search)
-    phantomAction = urlParams.get('phantom_action')
-  }
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
   
   if (phantomAction === 'connect') {
     handlePhantomConnectResponse()
@@ -221,20 +209,8 @@ export const handlePhantomConnectResponse = () => {
   const uiStore = useUIStore()
   try {
     // Check if this is actually a Phantom response
-    // First check hash-based parameters (new approach)
-    let phantomAction = null
-    
-    // Check hash for phantom_action
-    if (window.location.hash) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      phantomAction = hashParams.get('phantom_action')
-    }
-    
-    // Fallback to query parameters (old approach)
-    if (!phantomAction) {
-      const urlParams = new URLSearchParams(window.location.search)
-      phantomAction = urlParams.get('phantom_action')
-    }
+    const urlParams = new URLSearchParams(window.location.search)
+    const phantomAction = urlParams.get('phantom_action')
     
     if (phantomAction !== 'connect') {
       return
@@ -248,7 +224,6 @@ export const handlePhantomConnectResponse = () => {
     })
     
     // Check for various possible parameter names that Phantom might use
-    // Check both hash and query parameters
     const possibleKeys = [
       'phantom_encryption_public_key',
       'phantomEncryptionPublicKey', 
@@ -259,48 +234,20 @@ export const handlePhantomConnectResponse = () => {
     
     let phantomPublicKey = null
     let actualKeyName = null
-    let nonce = null
-    let data = null
-    let errorCode = null
-    let errorMessage = null
     
-    // First check hash parameters
-    if (window.location.hash) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      
-      for (const key of possibleKeys) {
-        const value = hashParams.get(key)
-        if (value) {
-          phantomPublicKey = value
-          actualKeyName = key
-          break
-        }
+    for (const key of possibleKeys) {
+      const value = urlParams.get(key)
+      if (value) {
+        phantomPublicKey = value
+        actualKeyName = key
+        break
       }
-      
-      nonce = hashParams.get('nonce')
-      data = hashParams.get('data')
-      errorCode = hashParams.get('errorCode')
-      errorMessage = hashParams.get('errorMessage')
     }
     
-    // If not found in hash, check query parameters
-    if (!phantomPublicKey) {
-      const urlParams = new URLSearchParams(window.location.search)
-      
-      for (const key of possibleKeys) {
-        const value = urlParams.get(key)
-        if (value) {
-          phantomPublicKey = value
-          actualKeyName = key
-          break
-        }
-      }
-      
-      if (!nonce) nonce = urlParams.get('nonce')
-      if (!data) data = urlParams.get('data')
-      if (!errorCode) errorCode = urlParams.get('errorCode')
-      if (!errorMessage) errorMessage = urlParams.get('errorMessage')
-    }
+    const nonce = urlParams.get('nonce')
+    const data = urlParams.get('data')
+    const errorCode = urlParams.get('errorCode')
+    const errorMessage = urlParams.get('errorMessage')
     
     // Check for errors first
     if (errorCode) {
@@ -456,7 +403,6 @@ export const handlePhantomConnectResponse = () => {
       }))
       
       // Clean up the URL and stay on same page
-      // Remove both hash and query parameters
       const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, document.title, cleanUrl)
       
@@ -489,20 +435,8 @@ export const handlePhantomConnectResponse = () => {
 // Initialize on page load
 if (typeof window !== 'undefined') {
   // Check if this is a Phantom response first
-  // Check both hash and query parameters
-  let phantomAction = null
-  
-  // Check hash for phantom_action
-  if (window.location.hash) {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    phantomAction = hashParams.get('phantom_action')
-  }
-  
-  // Fallback to query parameters
-  if (!phantomAction) {
-    const urlParams = new URLSearchParams(window.location.search)
-    phantomAction = urlParams.get('phantom_action')
-  }
+  const urlParams = new URLSearchParams(window.location.search)
+  const phantomAction = urlParams.get('phantom_action')
   
   if (phantomAction === 'connect') {
     // If this is a Phantom response, don't initialize new connection data
@@ -532,126 +466,59 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       duration: 3000
     })
 
-    // For mobile, let's try using the Mobile Wallet Adapter approach
-    // This is specifically designed for mobile connections and should handle tab issues better
-    
-    // Check if we're on Chrome Android (MWA only works on Chrome Android)
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
-    
-    if (isChrome) {
-      // Use Mobile Wallet Adapter for Chrome Android
-      console.log('Using Mobile Wallet Adapter for Chrome Android')
-      
-      // Dynamically import the Mobile Wallet Adapter
-      const { 
-        SolanaMobileWalletAdapter,
-        createDefaultAddressSelector,
-        createDefaultAuthorizationResultCache,
-        createDefaultWalletNotFoundHandler 
-      } = await import('@solana-mobile/wallet-adapter-mobile')
-      
-      const mobileWalletAdapter = new SolanaMobileWalletAdapter({
-        addressSelector: createDefaultAddressSelector(),
-        appIdentity: {
-          name: 'Pump Clone',
-          uri: window.location.origin,
-          icon: `${window.location.origin}/favicon.ico`,
-        },
-        authorizationResultCache: createDefaultAuthorizationResultCache(),
-        cluster: 'devnet',
-        onWalletNotFound: createDefaultWalletNotFoundHandler(),
-      })
-
-      // Set up event listeners
-      mobileWalletAdapter.on('connect', () => {
-        console.log('Mobile wallet connected via MWA')
-      })
-
-      mobileWalletAdapter.on('disconnect', () => {
-        console.log('Mobile wallet disconnected via MWA')
-      })
-
-      // Attempt connection via MWA
-      await mobileWalletAdapter.connect()
-
-      // Get the public key
-      const publicKey = mobileWalletAdapter.publicKey
-      if (!publicKey) {
-        throw new Error('No public key received from mobile wallet')
-      }
-
-      // Update wallet service state
-      const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
-      if (phantomAdapter && walletService) {
-        const adapter = phantomAdapter as any;
-        adapter._publicKey = publicKey;
-        adapter._connected = true;
-        adapter._readyState = WalletReadyState.Installed;
-        
-        // Update wallet service state
-        walletService.handleMobileWalletReturn()
-          .then(() => {
-            uiStore.showToast({
-              type: 'success',
-              title: 'Connected!',
-              message: `Wallet connected: ${formatWalletAddress(publicKey.toBase58())}`,
-              duration: 5000
-            })
-          })
-          .catch((error) => {
-            uiStore.showToast({
-              type: 'error',
-              title: 'State Update Failed',
-              message: 'Connected but failed to update state',
-              duration: 5000
-            })
-          })
-      }
-
-      return { publicKey }
-      
-    } else {
-      // For non-Chrome Android, use the simplified deeplink approach
-      console.log('Using simplified deeplink approach for non-Chrome Android')
-      
-      // Use a simple deeplink that opens Phantom without expecting a redirect back
-      const phantomDeeplink = `https://phantom.app/ul/v1/browse/${encodeURIComponent(window.location.origin)}?ref=${encodeURIComponent(window.location.href)}&cluster=devnet`
-
-      // Show debug info to user
-      uiStore.showToast({
-        type: 'info',
-        title: 'Debug Info',
-        message: 'Opening Phantom... Please approve the connection and return to this tab.',
-        duration: 5000
-      })
-
-      // Use a simple approach that should work better on mobile
-      // This opens Phantom in the same context without expecting a redirect
-      window.location.href = phantomDeeplink
-
-      // Return a promise that resolves when connection is complete
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          mobileWalletState.isConnecting = false
-          uiStore.showToast({
-            type: 'error',
-            title: 'Connection Failed',
-            message: 'Connection timed out. Please try again.',
-            duration: 5000
-          })
-          reject(new Error('Connection timeout'))
-        }, 60000)
-
-        const handleConnection = (event: CustomEvent) => {
-          clearTimeout(timeout)
-          mobileWalletState.isConnecting = false
-          window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
-          resolve({ publicKey: new PublicKey(event.detail.publicKey) })
-        }
-
-        window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
-      })
+    // Reuse existing connection data if available, otherwise initialize new
+    if (!mobileWalletState.connectionData) {
+      mobileWalletState.connectionData = initializeConnectionData()
     }
+    
+    // Save connection data to localStorage before opening Phantom
+    saveConnectionData(mobileWalletState.connectionData)
+
+    // Create redirect URL that keeps us on the same page
+    const currentUrl = new URL(window.location.href)
+    currentUrl.searchParams.delete('phantom_action')
+    const redirectUrl = createRedirectUrl('connect')
+    
+    // Build connect URL
+    const connectUrl = buildConnectUrl(
+      mobileWalletState.connectionData.dappKeyPair,
+      redirectUrl,
+      'devnet'
+    )
+
+    // Show debug info to user
+    uiStore.showToast({
+      type: 'info',
+      title: 'Debug Info',
+      message: 'Opening Phantom... If nothing happens, please check if Phantom app is installed.',
+      duration: 5000
+    })
+
+    // Use window.location.replace to stay in same tab
+    window.location.replace(connectUrl)
+
+    // Return a promise that resolves when connection is complete
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        mobileWalletState.isConnecting = false
+        uiStore.showToast({
+          type: 'error',
+          title: 'Connection Failed',
+          message: 'Connection timed out. Please try again.',
+          duration: 5000
+        })
+        reject(new Error('Connection timeout'))
+      }, 60000)
+
+      const handleConnection = (event: CustomEvent) => {
+        clearTimeout(timeout)
+        mobileWalletState.isConnecting = false
+        window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
+        resolve({ publicKey: new PublicKey(event.detail.publicKey) })
+      }
+
+      window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
+    })
 
   } catch (error) {
     mobileWalletState.isConnecting = false
@@ -1172,11 +1039,8 @@ class WalletService {
     try {
       console.log('Handling mobile wallet return...')
 
-      // For the simplified approach, we need to detect when user returns from Phantom
-      // and then prompt them to connect manually or check if they're already connected
-      
-      // Wait briefly for any potential state changes
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Wait briefly for window.solana to be available
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       // Check if we have a connected wallet adapter
       if (!this.currentWallet.value) {
@@ -1192,18 +1056,59 @@ class WalletService {
         this.setupWalletListeners(phantomAdapter)
       }
 
-      // For the simplified approach, we'll show a message to the user
-      // asking them to manually connect or check their connection status
-      const uiStore = useUIStore()
-      uiStore.showToast({
-        type: 'info',
-        title: 'Connection Status',
-        message: 'Please check if Phantom is connected. If not, try connecting again.',
-        duration: 5000
-      })
+      // Ensure window.solana is available
+      if (!window.solana) {
+        throw new Error('window.solana not available after mobile return')
+      }
 
-      console.log('Mobile wallet return handled - user should check connection status')
-      
+      // Wait for Phantom to initialize
+      let retries = 0
+      while (!window.solana.isPhantom && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        retries++
+      }
+
+      if (!window.solana.isPhantom) {
+        throw new Error('Phantom not initialized after waiting')
+      }
+
+      // Update public key from window.solana
+      const solanaPublicKey = window.solana.publicKey
+      if (solanaPublicKey instanceof PublicKey) {
+        // Update internal state
+        this._publicKey.value = solanaPublicKey
+        
+        // Set the adapter's public key and connection state
+        if (this.currentWallet.value) {
+          const adapter = this.currentWallet.value as any;
+          adapter._publicKey = solanaPublicKey;
+          adapter._connected = true;
+          adapter._readyState = WalletReadyState.Installed;
+        }
+
+        // Update window.solana connection state
+        window.solana.isConnected = true
+
+        // Trigger connect handler to update state
+        this.handleConnect()
+
+        // Update balance
+        await this.updateBalance()
+
+        // Dispatch a custom event for components to react to
+        const publicKeyString = solanaPublicKey.toBase58()
+        window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
+          detail: { publicKey: publicKeyString }
+        }))
+
+        console.log('Mobile wallet return handled successfully:', {
+          publicKey: publicKeyString,
+          isConnected: Boolean(window.solana.isConnected),
+          adapterConnected: Boolean(this.currentWallet.value?.connected)
+        })
+      } else {
+        throw new Error('No valid public key available after mobile return')
+      }
     } catch (error) {
       console.error('Failed to handle mobile wallet return:', error)
       this.cleanup()
