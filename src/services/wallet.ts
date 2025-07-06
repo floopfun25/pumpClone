@@ -196,8 +196,20 @@ const initializeConnectionData = (): WalletConnectionData => {
 
 // Check for phantom response on page load
 const checkForPhantomResponse = () => {
-  const urlParams = new URLSearchParams(window.location.search)
-  const phantomAction = urlParams.get('phantom_action')
+  // Check both hash and query parameters
+  let phantomAction = null
+  
+  // Check hash for phantom_action
+  if (window.location.hash) {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    phantomAction = hashParams.get('phantom_action')
+  }
+  
+  // Fallback to query parameters
+  if (!phantomAction) {
+    const urlParams = new URLSearchParams(window.location.search)
+    phantomAction = urlParams.get('phantom_action')
+  }
   
   if (phantomAction === 'connect') {
     handlePhantomConnectResponse()
@@ -209,8 +221,20 @@ export const handlePhantomConnectResponse = () => {
   const uiStore = useUIStore()
   try {
     // Check if this is actually a Phantom response
-    const urlParams = new URLSearchParams(window.location.search)
-    const phantomAction = urlParams.get('phantom_action')
+    // First check hash-based parameters (new approach)
+    let phantomAction = null
+    
+    // Check hash for phantom_action
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      phantomAction = hashParams.get('phantom_action')
+    }
+    
+    // Fallback to query parameters (old approach)
+    if (!phantomAction) {
+      const urlParams = new URLSearchParams(window.location.search)
+      phantomAction = urlParams.get('phantom_action')
+    }
     
     if (phantomAction !== 'connect') {
       return
@@ -224,6 +248,7 @@ export const handlePhantomConnectResponse = () => {
     })
     
     // Check for various possible parameter names that Phantom might use
+    // Check both hash and query parameters
     const possibleKeys = [
       'phantom_encryption_public_key',
       'phantomEncryptionPublicKey', 
@@ -234,20 +259,48 @@ export const handlePhantomConnectResponse = () => {
     
     let phantomPublicKey = null
     let actualKeyName = null
+    let nonce = null
+    let data = null
+    let errorCode = null
+    let errorMessage = null
     
-    for (const key of possibleKeys) {
-      const value = urlParams.get(key)
-      if (value) {
-        phantomPublicKey = value
-        actualKeyName = key
-        break
+    // First check hash parameters
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      
+      for (const key of possibleKeys) {
+        const value = hashParams.get(key)
+        if (value) {
+          phantomPublicKey = value
+          actualKeyName = key
+          break
+        }
       }
+      
+      nonce = hashParams.get('nonce')
+      data = hashParams.get('data')
+      errorCode = hashParams.get('errorCode')
+      errorMessage = hashParams.get('errorMessage')
     }
     
-    const nonce = urlParams.get('nonce')
-    const data = urlParams.get('data')
-    const errorCode = urlParams.get('errorCode')
-    const errorMessage = urlParams.get('errorMessage')
+    // If not found in hash, check query parameters
+    if (!phantomPublicKey) {
+      const urlParams = new URLSearchParams(window.location.search)
+      
+      for (const key of possibleKeys) {
+        const value = urlParams.get(key)
+        if (value) {
+          phantomPublicKey = value
+          actualKeyName = key
+          break
+        }
+      }
+      
+      if (!nonce) nonce = urlParams.get('nonce')
+      if (!data) data = urlParams.get('data')
+      if (!errorCode) errorCode = urlParams.get('errorCode')
+      if (!errorMessage) errorMessage = urlParams.get('errorMessage')
+    }
     
     // Check for errors first
     if (errorCode) {
@@ -403,6 +456,7 @@ export const handlePhantomConnectResponse = () => {
       }))
       
       // Clean up the URL and stay on same page
+      // Remove both hash and query parameters
       const cleanUrl = window.location.origin + window.location.pathname
       window.history.replaceState({}, document.title, cleanUrl)
       
@@ -435,8 +489,20 @@ export const handlePhantomConnectResponse = () => {
 // Initialize on page load
 if (typeof window !== 'undefined') {
   // Check if this is a Phantom response first
-  const urlParams = new URLSearchParams(window.location.search)
-  const phantomAction = urlParams.get('phantom_action')
+  // Check both hash and query parameters
+  let phantomAction = null
+  
+  // Check hash for phantom_action
+  if (window.location.hash) {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    phantomAction = hashParams.get('phantom_action')
+  }
+  
+  // Fallback to query parameters
+  if (!phantomAction) {
+    const urlParams = new URLSearchParams(window.location.search)
+    phantomAction = urlParams.get('phantom_action')
+  }
   
   if (phantomAction === 'connect') {
     // If this is a Phantom response, don't initialize new connection data
@@ -475,11 +541,9 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     saveConnectionData(mobileWalletState.connectionData)
 
     // Create redirect URL that keeps us on the same page
-    const currentUrl = new URL(window.location.href)
-    currentUrl.searchParams.delete('phantom_action')
     const redirectUrl = createRedirectUrl('connect')
     
-    // Build connect URL
+    // Build connect URL with proper encryption
     const connectUrl = buildConnectUrl(
       mobileWalletState.connectionData.dappKeyPair,
       redirectUrl,
@@ -494,8 +558,9 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       duration: 5000
     })
 
-    // Use window.location.replace to stay in same tab
-    window.location.replace(connectUrl)
+    // For mobile, use a simple approach that should work better
+    // Use window.location.href instead of replace() to avoid navigation issues
+    window.location.href = connectUrl
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
