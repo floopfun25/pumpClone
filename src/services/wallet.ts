@@ -473,10 +473,10 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     console.log('🔗 Opening Phantom connect URL:', connectUrl)
     console.log('📱 Redirect URL:', redirectUrl)
 
-    // Open the connect URL, using replace to avoid new tabs on mobile
+    // Open Phantom app - use replace() to avoid opening new tab
     window.location.replace(connectUrl)
 
-    // Wait for the connection event, with a timeout
+    // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         mobileWalletState.isConnecting = false
