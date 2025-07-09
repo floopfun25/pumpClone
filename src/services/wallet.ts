@@ -38,6 +38,7 @@ import * as bs58 from 'bs58'
 import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
 import { useUIStore } from '@/stores/ui'
+import { showDebugMessage } from '@/utils/mobileDebug'
 
 // Extend Window interface to include solana property
 declare global {
@@ -135,7 +136,7 @@ const saveConnectionData = (data: WalletConnectionData) => {
     
     // Use localStorage instead of sessionStorage for better mobile persistence
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
-    console.log('💾 Saved connection data to localStorage')
+    showDebugMessage('💾 Saved connection data to localStorage')
   } catch (error) {
     console.warn('Failed to save connection data:', error)
   }
@@ -156,7 +157,7 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
       }
     }
     
-    console.log('📂 Loaded connection data from localStorage', {
+    showDebugMessage('📂 Loaded connection data from localStorage', {
       hasSession: !!data.session,
       hasKeyPair: !!data.dappKeyPair
     })
@@ -194,33 +195,22 @@ const initializeConnectionData = (): WalletConnectionData => {
 
 // Check for phantom response on page load
 const checkForPhantomResponse = () => {
-  // NOTE: This is no longer needed since we're using standard web wallet connection
-  // instead of native app deeplinks that require URL parameter handling
-  
-  /* 
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
   
   if (phantomAction === 'connect') {
     handlePhantomConnectResponse()
   }
-  */
 }
 
 // Handle Phantom connect response
 export const handlePhantomConnectResponse = () => {
-  // NOTE: This is no longer needed since we're using standard web wallet connection
-  // instead of native app deeplinks that require URL parameter handling
-  
-  /*
   try {
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
-    const currentHash = window.location.hash
     
-    // Check for either phantom_action parameter OR hash fragment indicating return
-    if (phantomAction !== 'connect' && !currentHash.includes('phantom-return')) {
+    if (phantomAction !== 'connect') {
       return
     }
     
@@ -292,7 +282,7 @@ export const handlePhantomConnectResponse = () => {
       throw new Error('No dapp keypair available - cannot decrypt response')
     }
     
-    console.log('🔓 Attempting to decrypt Phantom response...')
+    showDebugMessage('🔓 Attempting to decrypt Phantom response...')
     
     // Manual decryption process
     try {
@@ -322,8 +312,8 @@ export const handlePhantomConnectResponse = () => {
       
       // Success!
       const connectData = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
-      console.log('✅ Phantom wallet connected successfully!')
-      console.log('📝 Public key:', connectData.public_key)
+      showDebugMessage('✅ Phantom wallet connected successfully!')
+      showDebugMessage('📝 Public key:', connectData.public_key)
       
       // Create PublicKey object
       const publicKey = new PublicKey(connectData.public_key)
@@ -393,9 +383,9 @@ export const handlePhantomConnectResponse = () => {
         console.warn('Failed to show success toast:', toastError)
       }
       
-      console.log('🎉 Mobile wallet connection completed successfully!')
+      showDebugMessage('🎉 Mobile wallet connection completed successfully!')
       
-      // Clean up the URL by removing phantom_action parameter and hash fragment
+      // Clean up the URL by removing phantom_action parameter
       const cleanUrl = new URL(window.location.href)
       cleanUrl.searchParams.delete('phantom_action')
       cleanUrl.searchParams.delete('phantom_encryption_public_key')
@@ -403,7 +393,6 @@ export const handlePhantomConnectResponse = () => {
       cleanUrl.searchParams.delete('nonce')
       cleanUrl.searchParams.delete('errorCode')
       cleanUrl.searchParams.delete('errorMessage')
-      cleanUrl.hash = '' // Remove hash fragment
       window.history.replaceState({}, document.title, cleanUrl.toString())
       
     } catch (decryptError) {
@@ -413,7 +402,7 @@ export const handlePhantomConnectResponse = () => {
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.log('❌ Phantom connection failed:', errorMessage)
+    showDebugMessage('❌ Phantom connection failed:', errorMessage)
     
     mobileWalletState.isConnecting = false
     clearConnectionData()
@@ -432,7 +421,6 @@ export const handlePhantomConnectResponse = () => {
       console.warn('Failed to show error toast:', toastError)
     }
   }
-  */
 }
 
 // Initialize on page load
@@ -465,99 +453,98 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
 
-    console.log('📱 Attempting Phantom connection for mobile web browser...')
-
-    // For mobile web browsers, we should use the standard window.solana provider
-    // instead of native app deeplinks which are meant for React Native apps
-    
-    // First, try to detect if Phantom is installed by checking for window.solana
-    const checkPhantomAvailable = () => {
-      return new Promise<boolean>((resolve) => {
-        let attempts = 0
-        const maxAttempts = 10
-        
-        const checkInterval = setInterval(() => {
-          attempts++
-          
-          if (window.solana && window.solana.isPhantom) {
-            clearInterval(checkInterval)
-            resolve(true)
-            return
-          }
-          
-          if (attempts >= maxAttempts) {
-            clearInterval(checkInterval)
-            resolve(false)
-            return
-          }
-        }, 100)
-      })
-    }
-
-    // Check if Phantom is available
-    const isPhantomAvailable = await checkPhantomAvailable()
-    
-    if (!isPhantomAvailable) {
-      // If Phantom is not detected, open Phantom website to install/open
-      console.log('🚀 Phantom not detected, opening Phantom website...')
-      window.open('https://phantom.app/', '_blank')
-      throw new Error('Phantom wallet not detected. Please install Phantom or open it in another tab, then try again.')
-    }
-
-    // If Phantom is available, connect using standard method
-    console.log('✅ Phantom detected, attempting connection...')
-    
-    if (!window.solana?.connect) {
-      throw new Error('Phantom wallet detected but connect method not available')
+    // Reuse existing connection data if available, otherwise initialize new
+    if (!mobileWalletState.connectionData) {
+      mobileWalletState.connectionData = initializeConnectionData()
     }
     
-    const result = await window.solana.connect()
+    // IMPORTANT: Save connection data to localStorage before opening Phantom
+    // This ensures the data is available when user returns from Phantom app
+    saveConnectionData(mobileWalletState.connectionData)
     
-    console.log('🎉 Phantom connected successfully!')
-    console.log('📝 Public key:', result.publicKey.toString())
+    showDebugMessage('💾 Connection data saved to localStorage:', {
+      hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
+      publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
+    })
 
-    // Set connection state
-    if (window.solana) {
-      window.solana.isConnected = true
-    }
+    // Create redirect URL - CRITICAL: Use exact current URL without modifications
+    // This ensures Phantom returns to the same tab
+    const redirectUrl = window.location.href
+    
+    // Build connect URL
+    const connectUrl = buildConnectUrl(
+      mobileWalletState.connectionData.dappKeyPair,
+      redirectUrl,
+      'devnet' // or 'mainnet-beta' based on your needs
+    )
 
-    return { publicKey: result.publicKey }
+    showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
+    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
+
+    // Use window.location.href (not replace) to maintain tab context
+    window.location.href = connectUrl
+
+    // Return a promise that resolves when connection is complete
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        mobileWalletState.isConnecting = false
+        reject(new Error('Connection timeout'))
+      }, 60000) // 60 second timeout
+
+      const handleConnection = (event: CustomEvent) => {
+        clearTimeout(timeout)
+        mobileWalletState.isConnecting = false
+        window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
+        resolve({ publicKey: new PublicKey(event.detail.publicKey) })
+      }
+
+      window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
+    })
 
   } catch (error) {
     mobileWalletState.isConnecting = false
-    console.log('❌ Failed to connect to Phantom:', error)
+    showDebugMessage('❌ Failed to connect to Phantom:', error)
     throw error
-  } finally {
-    mobileWalletState.isConnecting = false
   }
 }
 
 export const disconnectPhantomMobile = async (): Promise<void> => {
   try {
-    console.log('📱 Disconnecting Phantom for mobile web browser...')
-
-    // For mobile web browsers, use the standard window.solana.disconnect() method
-    // instead of native app deeplinks
-    
-    if (window.solana && window.solana.disconnect) {
-      await window.solana.disconnect()
-      console.log('✅ Phantom wallet disconnected via window.solana')
+    const connectionData = mobileWalletState.connectionData
+    if (!connectionData?.session || !connectionData?.sharedSecret) {
+      // Already disconnected
+      return
     }
+
+    // Build disconnect URL using exact current URL as redirect
+    const redirectUrl = window.location.href
+    const disconnectUrl = buildDisconnectUrl(
+      connectionData.dappKeyPair,
+      connectionData.sharedSecret,
+      connectionData.session,
+      redirectUrl
+    )
+
+    showDebugMessage('🔗 Opening Phantom disconnect URL:', disconnectUrl)
+    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
 
     // Clear local state
     mobileWalletState.connectionData = null
     clearConnectionData()
 
-    // Clear window.solana connection state
+    // Clear window.solana
     if (window.solana) {
       window.solana.isConnected = false
       window.solana.publicKey = null
     }
 
-    console.log('✅ Mobile Phantom wallet disconnected successfully')
+    // Use window.location.href to maintain tab context
+    window.location.href = disconnectUrl
+
+    showDebugMessage('✅ Phantom wallet disconnected')
     
   } catch (error) {
-    console.log('❌ Failed to disconnect from Phantom:', error)
+    showDebugMessage('❌ Failed to disconnect from Phantom:', error)
     throw error
   }
 }
@@ -701,7 +688,7 @@ class WalletService {
     if (walletName) {
       try {
         if (walletName === 'Phantom') {
-          console.log('📱 Attempting Phantom mobile connection via proper connect deeplink...')
+          showDebugMessage('📱 Attempting Phantom mobile connection via proper connect deeplink...')
           
           // Use the new connect method with proper encryption
           const result = await connectPhantomMobile()
