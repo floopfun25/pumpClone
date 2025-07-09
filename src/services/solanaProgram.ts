@@ -506,7 +506,7 @@ export class SolanaProgram {
           .from('user_holdings')
           .update({
             amount: newAmount.toString(),
-            average_price: newAvgPrice,
+            average_price: safeNumber(newAvgPrice),
             total_invested: newTotalInvested,
             last_updated: new Date().toISOString()
           })
@@ -519,7 +519,7 @@ export class SolanaProgram {
             user_id: userId,
             token_id: token.id,
             amount: tokensOut.toString(),
-            average_price: newPrice,
+            average_price: safeNumber(newPrice),
             total_invested: safeNumber(solAmount)
           })
       }

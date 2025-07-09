@@ -633,7 +633,9 @@ class TokenService {
         next_unlock_date: nextUnlockDate?.toISOString() || null,
         prebuy_sol_amount: data.tokenData.prebuyAmount || 0,
         prebuy_tokens_received: 0, // Will be updated after prebuy if applicable
-        creation_settings: creationSettings
+        creation_settings: creationSettings,
+        virtual_sol_reserves: initialState.virtualSolReserves.toString(),
+        virtual_token_reserves: initialState.virtualTokenReserves.toString()
       }
 
       console.log('💾 [DATABASE] Preparing to save token with data:', {

@@ -445,7 +445,7 @@ const addSeries = () => {
     // Add new series based on type using correct v5 API
     if (chartType.value === 'candlestick') {
       // Add candlestick series using correct API
-      candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
+      candlestickSeries = lightweightChart.addCandlestickSeries({
         upColor: '#2ebd85',
         downColor: '#f6465d',
         borderUpColor: '#2ebd85',
@@ -464,7 +464,7 @@ const addSeries = () => {
       }
       
       // Add volume histogram series using correct API
-      volumeSeries = lightweightChart.addSeries(HistogramSeries, {
+      volumeSeries = lightweightChart.addHistogramSeries({
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
@@ -481,7 +481,7 @@ const addSeries = () => {
       }
     } else if (chartType.value === 'line') {
       // Add line series using correct API
-      candlestickSeries = lightweightChart.addSeries(LineSeries, {
+      candlestickSeries = lightweightChart.addLineSeries({
         color: '#2ebd85',
         lineWidth: 2,
         priceFormat: {
@@ -501,7 +501,7 @@ const addSeries = () => {
       }
     } else if (chartType.value === 'area') {
       // Add area series using correct API
-      candlestickSeries = lightweightChart.addSeries(AreaSeries, {
+      candlestickSeries = lightweightChart.addAreaSeries({
         topColor: 'rgba(46, 189, 133, 0.4)',
         bottomColor: 'rgba(46, 189, 133, 0.05)',
         lineColor: '#2ebd85',
@@ -553,31 +553,6 @@ const loadRealChartData = async () => {
     // Get historical chart data from real-time price service
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     const chartData = await RealTimePriceService.getHistoricalChartData(props.tokenId, selectedTimeframe.value)
-    
-    // Ensure we have valid data
-    if (chartData.length === 0) {
-      // Create a minimal dataset with current price
-      const now = Date.now()
-      const currentPrice = bondingCurveState.currentPrice
-      
-      chartData.push({
-        time: now - 5 * 60 * 1000, // 5 minutes ago
-        open: currentPrice,
-        high: currentPrice * 1.001,
-        low: currentPrice * 0.999,
-        close: currentPrice,
-        volume: 0
-      })
-      
-      chartData.push({
-        time: now,
-        open: currentPrice,
-        high: currentPrice * 1.001,
-        low: currentPrice * 0.999,
-        close: currentPrice,
-        volume: 0
-      })
-    }
     
     // Convert chart data to lightweight charts format with validation
     priceData.value = chartData.map((candle, index) => {
