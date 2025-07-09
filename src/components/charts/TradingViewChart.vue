@@ -554,6 +554,21 @@ const loadRealChartData = async () => {
     const { RealTimePriceService } = await import('../../services/realTimePriceService')
     const chartData = await RealTimePriceService.getHistoricalChartData(props.tokenId, selectedTimeframe.value)
     
+    // Ensure we have valid data, create a single point if empty
+    if (chartData.length === 0) {
+      const now = Date.now()
+      const currentPrice = bondingCurveState.currentPrice
+      
+      chartData.push({
+        time: now,
+        open: currentPrice,
+        high: currentPrice,
+        low: currentPrice,
+        close: currentPrice,
+        volume: 0
+      })
+    }
+    
     // Convert chart data to lightweight charts format with validation
     priceData.value = chartData.map((candle, index) => {
       const candleData = {

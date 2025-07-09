@@ -46,7 +46,11 @@ CREATE POLICY "Allow authenticated users to create transactions" ON public.trans
 DROP POLICY IF EXISTS "Allow public read access on user_holdings" ON public.user_holdings;
 DROP POLICY IF EXISTS "Allow users to manage their holdings" ON public.user_holdings;
 
--- Users can only view and manage their own token holdings.
+-- Users can only view their own token holdings.
+CREATE POLICY "Allow public read access on user_holdings" ON public.user_holdings
+  FOR SELECT USING (true);
+
+-- Users can only manage their own token holdings.
 CREATE POLICY "Allow users to manage their holdings" ON public.user_holdings
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
