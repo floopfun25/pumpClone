@@ -261,23 +261,14 @@ export const buildConnectUrl = (
   redirectUrl: string,
   cluster: string = 'devnet'
 ): string => {
-  // Ensure we have the proper protocol for deep linking
-  const baseUrl = isAndroid() 
-    ? 'https://phantom.app/ul/v1/connect'  // Universal link for Android
-    : 'phantom://connect'                   // Custom scheme for iOS
-    
-  // Add return parameter to redirect URL
-  const returnUrl = new URL(redirectUrl)
-  returnUrl.searchParams.set('phantom_return', 'true')
-  
   const params = new URLSearchParams({
     dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
     cluster,
     app_url: window.location.origin,
-    redirect_link: returnUrl.toString(),
+    redirect_link: redirectUrl,
   })
 
-  return `${baseUrl}?${params.toString()}`
+  return `https://phantom.app/ul/v1/connect?${params.toString()}`
 }
 
 // Decrypt payload from Phantom
