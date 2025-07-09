@@ -209,7 +209,6 @@ export const handlePhantomConnectResponse = () => {
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
-    const state = urlParams.get('state')
     
     if (phantomAction !== 'connect') {
       return
@@ -386,26 +385,15 @@ export const handlePhantomConnectResponse = () => {
       
       showDebugMessage('🎉 Mobile wallet connection completed successfully!')
       
-      // Clean up the URL by removing all Phantom-related parameters
+      // Clean up the URL by removing phantom_action parameter
       const cleanUrl = new URL(window.location.href)
-      const paramsToRemove = [
-        'phantom_action',
-        'phantom_encryption_public_key',
-        'data',
-        'nonce',
-        'errorCode',
-        'errorMessage',
-        'state'
-      ]
-      
-      paramsToRemove.forEach(param => {
-        cleanUrl.searchParams.delete(param)
-      })
-      
-      // Don't replace state here - let main.ts handle state restoration
-      if (!state) {
-        window.history.replaceState({}, document.title, cleanUrl.toString())
-      }
+      cleanUrl.searchParams.delete('phantom_action')
+      cleanUrl.searchParams.delete('phantom_encryption_public_key')
+      cleanUrl.searchParams.delete('data')
+      cleanUrl.searchParams.delete('nonce')
+      cleanUrl.searchParams.delete('errorCode')
+      cleanUrl.searchParams.delete('errorMessage')
+      window.history.replaceState({}, document.title, cleanUrl.toString())
       
     } catch (decryptError) {
       console.error('Decryption failed:', decryptError)
