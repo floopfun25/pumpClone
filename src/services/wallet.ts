@@ -383,27 +383,19 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> => {
+export const connectPhantomMobile = async (): Promise<void> => {
   if (mobileWalletState.isConnecting) {
     throw new Error('Connection already in progress')
-  }
-
-  // Check if already connected
-  if (window.solana?.isConnected) {
-    return { publicKey: window.solana.publicKey! }
   }
 
   try {
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
 
-    // Reuse existing connection data if available, otherwise initialize new
     if (!mobileWalletState.connectionData) {
       mobileWalletState.connectionData = initializeConnectionData()
     }
     
-    // IMPORTANT: Save connection data to localStorage before opening Phantom
-    // This ensures the data is available when user returns from Phantom app
     saveConnectionData(mobileWalletState.connectionData)
     
     showDebugMessage('💾 Connection data saved to localStorage:', {
@@ -411,42 +403,21 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
     })
 
-    // Create redirect URL with phantom_action to solve new tab issue on mobile
     const redirectUrl = createRedirectUrl('connect')
     
-    // Build connect URL
     const connectUrl = buildConnectUrl(
       mobileWalletState.connectionData.dappKeyPair,
       redirectUrl,
-      'devnet' // or 'mainnet-beta' based on your needs
+      'devnet'
     )
 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
     showDebugMessage('📱 Redirect URL (with phantom_action):', redirectUrl)
 
-    // Use window.location.href (not replace) to maintain tab context
     window.location.href = connectUrl
-
-    // Return a promise that resolves when connection is complete
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        mobileWalletState.isConnecting = false
-        reject(new Error('Connection timeout'))
-      }, 60000) // 60 second timeout
-
-      const handleConnection = (event: CustomEvent) => {
-        clearTimeout(timeout)
-        mobileWalletState.isConnecting = false
-        window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
-        resolve({ publicKey: new PublicKey(event.detail.publicKey) })
-      }
-
-      window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
-    })
 
   } catch (error) {
     mobileWalletState.isConnecting = false
-    showDebugMessage('❌ Failed to connect to Phantom:', error)
     throw error
   }
 }
@@ -630,21 +601,11 @@ class WalletService {
           showDebugMessage('📱 Attempting Phantom mobile connection via proper connect deeplink...')
           
           // Use the new connect method with proper encryption
-          const result = await connectPhantomMobile()
+          await connectPhantomMobile()
           
-          // Find the wallet adapter for setup
-          const walletAdapter = walletAdapters.find(w => w.name === walletName)?.adapter
-          if (walletAdapter) {
-            this.currentWallet.value = walletAdapter
-            this._publicKey.value = result.publicKey
-            this.handleConnect()
-            
-            // Update balance
-            await this.updateBalance()
-          }
-          
-          console.log('✅ Phantom mobile wallet connected successfully!')
-          return
+          // NOTE: The code below this line will not execute in the original tab
+          // because connectPhantomMobile navigates away. The connection is
+          // handled by the broadcast channel when the user returns.
           
         } else {
           console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
