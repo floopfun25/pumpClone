@@ -17,6 +17,7 @@ import { createPinia } from 'pinia'
 function handlePhantomResponse() {
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
+  const state = urlParams.get('state')
   
   if (phantomAction === 'connect') {
     console.log('🔗 Phantom connect response detected in main.ts')
@@ -26,6 +27,17 @@ function handlePhantomResponse() {
       try {
         handlePhantomConnectResponse()
         console.log('✅ Phantom response handled in main.ts')
+        
+        // Restore original state if available
+        if (state) {
+          try {
+            const originalState = JSON.parse(atob(state))
+            const restoredUrl = `${originalState.path}${originalState.search}${originalState.hash}`
+            window.history.replaceState(null, '', restoredUrl)
+          } catch (stateError) {
+            console.warn('Failed to restore state:', stateError)
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to handle Phantom response in main.ts:', error)
       }

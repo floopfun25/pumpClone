@@ -261,11 +261,23 @@ export const buildConnectUrl = (
   redirectUrl: string,
   cluster: string = 'devnet'
 ): string => {
+  // Create a clean base URL without query parameters
+  const baseUrl = new URL(redirectUrl)
+  const cleanRedirectUrl = `${baseUrl.origin}${baseUrl.pathname}`
+  
+  // Save the original URL state
+  const originalState = {
+    path: baseUrl.pathname,
+    search: baseUrl.search,
+    hash: baseUrl.hash
+  }
+  
   const params = new URLSearchParams({
     dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
     cluster,
     app_url: window.location.origin,
-    redirect_link: redirectUrl,
+    redirect_link: cleanRedirectUrl,
+    state: btoa(JSON.stringify(originalState)) // Base64 encode the state
   })
 
   return `https://phantom.app/ul/v1/connect?${params.toString()}`
