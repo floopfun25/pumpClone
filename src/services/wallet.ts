@@ -543,21 +543,36 @@ export const handlePhantomConnectResponse = () => {
 
 // Initialize on page load
 if (typeof window !== 'undefined') {
-  // Check if this is a Phantom response first
+  // Check URL parameters
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
+  const isPhantomReturn = urlParams.get('phantom_return') === 'true'
+  const hasPhantomKey = urlParams.get('phantom_encryption_public_key') !== null
+  const hasData = urlParams.get('data') !== null
   
   showDebugMessage('🔄 Checking page initialization:', {
     hasPhantomAction: !!phantomAction,
+    isPhantomReturn,
+    hasPhantomKey,
+    hasData,
     urlParams: Object.fromEntries(urlParams.entries()),
     isConnectingTab: localStorage.getItem('phantom_connecting_tab') === 'true'
   })
   
-  if (phantomAction === 'connect') {
-    // This is a Phantom response - we should process it regardless of connecting_tab state
+  // Process Phantom response if we have the necessary parameters
+  if (phantomAction === 'connect' || (isPhantomReturn && hasPhantomKey && hasData)) {
+    // This is a Phantom response - we should process it
     showDebugMessage('📱 Processing Phantom connect response in new tab')
     // Clear connecting flag since we're now in the response tab
     localStorage.removeItem('phantom_connecting_tab')
+    
+    // If phantom_action is missing but we have other parameters, add it
+    if (!phantomAction && isPhantomReturn) {
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.set('phantom_action', 'connect')
+      window.history.replaceState({}, '', newUrl.toString())
+    }
+    
     checkForPhantomResponse()
   } else {
     // Only initialize connection data if we're not processing a response
