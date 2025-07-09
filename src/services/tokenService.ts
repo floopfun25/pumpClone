@@ -423,12 +423,7 @@ class TokenService {
       try {
         const { testImageUrl, analyzeSupabaseUrl } = await import('@/utils/imageDebug')
         analyzeSupabaseUrl(publicUrl.publicUrl)
-        const isAccessible = await testImageUrl(publicUrl.publicUrl, 'Newly uploaded token image')
-        
-        if (!isAccessible) {
-          console.warn('⚠️ [IMAGE UPLOAD] Image not accessible via fetch, but continuing...')
-          // Don't throw error - let's see if it works in the UI
-        }
+        await testImageUrl(publicUrl.publicUrl, 'Newly uploaded token image')
         
         // Test image load in Image element
         const imageTest = new Promise<boolean>((resolve) => {
