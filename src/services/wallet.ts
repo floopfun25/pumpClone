@@ -584,6 +584,83 @@ class WalletService {
     }
   }
 
+  disconnect = async (): Promise<void> => {
+    try {
+      this._disconnecting.value = true;
+      if (isMobile() && this.currentWallet.value?.name === 'Phantom') {
+        await disconnectPhantomMobile();
+      } else if (this.currentWallet.value) {
+        await this.currentWallet.value.disconnect();
+      }
+    } catch (error) {
+      this.handleError(error as Error);
+    } finally {
+      this.handleDisconnect();
+      this._disconnecting.value = false;
+    }
+  }
+
+  signMessage = async (message: Uint8Array): Promise<Uint8Array> => {
+    if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
+    return this.currentWallet.value.signMessage!(message);
+  }
+
+  signTransaction = async <T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> => {
+    if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
+    return this.currentWallet.value.signTransaction!(transaction);
+  }
+
+  sendTransaction = async (transaction: Transaction | VersionedTransaction, options?: SendOptions): Promise<string> => {
+    if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
+    return this.currentWallet.value.sendTransaction(transaction, this.connection, options);
+  }
+
+  handleMobileWalletReturn = async (): Promise<void> => {
+    // This logic might be needed for other mobile wallets besides Phantom
+    console.log("Handling mobile wallet return...");
+  }
+
+  autoConnect = async (): Promise<void> => {
+    if (this.connecting || this.connected) return
+
+    // Mobile auto-connect logic
+    if (isMobile()) {
+      const mobileConnectionData = loadConnectionData();
+      if (mobileConnectionData && mobileConnectionData.session) {
+        console.log("Found mobile session data, attempting to restore connection...");
+        this.handleBroadcastConnect({
+          publicKey: new PublicKey(bs58.decode(mobileConnectionData.phantomEncryptionPublicKey!)).toBase58(),
+          session: mobileConnectionData.session,
+          phantomEncryptionPublicKey: mobileConnectionData.phantomEncryptionPublicKey,
+        });
+        return;
+      }
+    }
+
+    // Desktop auto-connect logic
+    const walletName = localStorage.getItem('walletName')
+    if (walletName) {
+      this._connecting.value = true
+      try {
+        const wallet = walletAdapters.find(w => w.name === walletName)
+        if (!wallet) {
+          localStorage.removeItem('walletName')
+          return
+        }
+        if (wallet.adapter.readyState !== WalletReadyState.Installed && 
+            wallet.adapter.readyState !== WalletReadyState.Loadable) {
+          return
+        }
+        await this.connect(walletName)
+      } catch (error) {
+        localStorage.removeItem('walletName')
+        console.warn('Auto-connect failed:', error)
+      } finally {
+        this._connecting.value = false;
+      }
+    }
+  }
+
   // Mobile connection using MWA
   private async connectMobile(walletName?: string): Promise<void> {
     // Force Phantom to always use the deeplink strategy
@@ -790,10 +867,17 @@ class WalletService {
   }
 }
 
-// Export wallet service instance
-export const walletService = new WalletService()
+// Singleton instance and getter
+let walletServiceInstance: WalletService | null = null;
 
-// Export utility functions
+export const getWalletService = (): WalletService => {
+  if (!walletServiceInstance) {
+    walletServiceInstance = new WalletService();
+  }
+  return walletServiceInstance;
+};
+
+
 export const formatWalletAddress = (address: string, length = 4): string => {
   if (!address) return ''
   return `${address.slice(0, length)}...${address.slice(-length)}`

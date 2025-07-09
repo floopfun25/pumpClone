@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watchEffect } from 'vue'
 import { Transaction, VersionedTransaction } from '@solana/web3.js'
-import { walletService, formatWalletAddress, formatSOL } from '@/services/wallet'
+import { getWalletService, formatWalletAddress, formatSOL } from '@/services/wallet'
 import type { WalletAdapter } from '@/services/wallet'
 
 // Enhanced wallet store using real wallet service
 export const useWalletStore = defineStore('wallet', () => {
+  // Get the singleton instance of the wallet service
+  const walletService = getWalletService()
+
   // Reactive state from wallet service
   const walletState = ref(walletService.getState())
 
