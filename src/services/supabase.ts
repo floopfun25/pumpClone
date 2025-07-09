@@ -200,21 +200,44 @@ export class SupabaseAuth {
       
       console.log('🔑 Starting wallet authentication for:', walletAddress.slice(0, 8) + '...')
       
-      // First, check if user already exists by wallet address in metadata
-      const sessionResult = await supabase.auth.getSession()
-      console.log('📋 Session result:', sessionResult)
-      
-      const { data: existingSession } = sessionResult
-      
-      if (existingSession?.session?.user?.user_metadata?.wallet_address === walletAddress) {
-        console.log('✅ Found existing session for wallet')
-        return { user: existingSession.session.user, session: existingSession.session }
+      // First, try to find an existing user profile with this wallet address
+      const { data: existingUser, error: findError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .single();
+        
+      if (findError && findError.code !== 'PGRST116') {
+        // PGRST116: 'exact-one-row-not-found' which is okay, means no user exists
+        console.error('Error finding user:', findError);
+        throw findError;
       }
       
-      // Sign out any existing session first
-      if (existingSession?.session) {
-        console.log('🚪 Signing out existing session')
-        await supabase.auth.signOut()
+      // If a user profile exists, we need to make sure we're signed in as them.
+      if (existingUser) {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If we're already signed in as the correct user, we're done.
+        if (session && session.user?.id === existingUser.id) {
+          console.log('✅ Already signed in as the correct user.');
+          return { user: session.user, session };
+        }
+        
+        // If we are signed in as someone else, or not at all, sign out first.
+        if (session) {
+          await supabase.auth.signOut();
+        }
+
+        // Now, sign in anonymously. Supabase will handle linking if the user already exists
+        // based on its internal mechanisms, but we've verified they exist in our public table.
+        // This flow ensures we have a valid session for an existing user profile.
+      }
+      
+      // Sign out any lingering session before creating a new one
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        console.log('🚪 Signing out existing session before new anonymous login');
+        await supabase.auth.signOut();
       }
       
       console.log('🆕 Creating new anonymous session...')
@@ -224,7 +247,7 @@ export class SupabaseAuth {
         options: {
           data: {
             wallet_address: walletAddress,
-            username: `user_${walletAddress.slice(0, 8)}`,
+            username: `user_${walletAddress.slice(0, 6)}`,
             created_via: 'wallet_connection'
           }
         }
@@ -248,32 +271,17 @@ export class SupabaseAuth {
       
       console.log('✅ Anonymous auth successful, creating user profile...')
       
-      // Create or update user profile in our database
-      try {
-        const userData = {
-          id: data.user.id, // Use the Supabase auth user ID
-          wallet_address: walletAddress,
-          username: `user_${walletAddress.slice(0, 8)}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_verified: false,
-          total_volume_traded: 0,
-          tokens_created: 0,
-          reputation_score: 0
-        }
-        
-        await SupabaseService.upsertUser(userData)
-        console.log('✅ User profile created/updated')
-      } catch (dbError) {
-        console.warn('⚠️ Failed to create user profile, but auth session is valid:', dbError)
-        // Don't throw here as the auth session is still valid
-      }
-      
-      return { user: data.user, session: data.session }
-      
+      // Now, upsert the user profile in the public.users table
+      const userProfile = await SupabaseService.upsertUser({
+        id: data.user.id,
+        wallet_address: walletAddress,
+        username: `user_${walletAddress.slice(0, 6)}`
+      })
+
+      return { user: { ...data.user, ...userProfile }, session: data.session }
     } catch (error) {
-      console.error('❌ Wallet auth failed:', error)
-      throw new Error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Failed to sign in with wallet:', error)
+      throw error
     }
   }
   
@@ -334,6 +342,10 @@ export class SupabaseAuth {
     })
   }
 }
+
+// Singleton service instance
+const SupabaseAuthService = new SupabaseAuth()
+export { SupabaseAuthService }
 
 // Utility functions for common database operations
 export class SupabaseService {
@@ -417,11 +429,21 @@ export class SupabaseService {
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        // We expect a 409 conflict if the user already exists, which is fine.
+        if (error.code === '23505' || error.code === 'PGRST116') { 
+          // 23505: unique_violation, PGRST116: 'exact-one-row-not-found'
+          // In case of conflict, fetch the existing user.
+          console.log('User already exists, fetching profile...');
+          return SupabaseService.getUserByWallet(userData.wallet_address);
+        }
+        console.error('Failed to upsert user:', error)
+        throw error
+      }
       return data
     } catch (error) {
-      console.error('Failed to upsert user:', error)
-      return null
+      console.error('Error in upsertUser:', error)
+      throw error
     }
   }
   

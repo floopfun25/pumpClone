@@ -12,15 +12,13 @@ export const useWalletStore = defineStore('wallet', () => {
   // Reactive state from wallet service
   const walletState = ref(walletService.getState())
 
-  // Auto-update state when wallet service changes
-  watchEffect(() => {
-    walletState.value = walletService.getState()
-  })
-
   // Update state when wallet service changes
   const updateState = () => {
     walletState.value = walletService.getState()
   }
+
+  // Set up a listener for state changes
+  walletService.on('stateChanged', updateState);
 
   // Computed properties for easy access
   const isConnected = computed(() => walletState.value.connected)

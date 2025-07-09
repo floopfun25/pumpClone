@@ -42,6 +42,8 @@ import { showDebugMessage } from '@/utils/mobileDebug'
 import { broadcastService } from './broadcastService';
 import { notificationService } from './notificationService';
 
+type StateChangeEvent = 'stateChanged';
+
 // Extend Window interface to include solana property
 declare global {
   interface Window {
@@ -464,6 +466,8 @@ class WalletService {
   private _publicKey = ref<PublicKey | null>(null)
   private _balance = ref(0)
   private _internalConnected = ref(false) // For mobile broadcast connection
+  private listeners: { [key: string]: Array<() => void> } = {};
+
   private _connected = computed(() => {
     // A user is connected if the desktop adapter is connected OR if our mobile-specific state is true
     return (this.currentWallet.value?.connected ?? false) || this._internalConnected.value
@@ -517,6 +521,25 @@ class WalletService {
       
     } catch (error) {
       console.warn('Failed to initialize Mobile Wallet Adapter:', error)
+    }
+  }
+
+  private notifyStateChange() {
+    if (this.listeners['stateChanged']) {
+      this.listeners['stateChanged'].forEach(cb => cb());
+    }
+  }
+
+  on(event: StateChangeEvent, callback: () => void): void {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+  }
+
+  off(event: StateChangeEvent, callback: () => void): void {
+    if (this.listeners[event]) {
+      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
     }
   }
 
@@ -577,6 +600,7 @@ class WalletService {
       } else {
         await this.connectDesktop(walletName)
       }
+      this.notifyStateChange();
     } catch (error: any) {
       this.handleError(error)
       throw error
@@ -598,6 +622,7 @@ class WalletService {
     } finally {
       this.handleDisconnect();
       this._disconnecting.value = false;
+      this.notifyStateChange();
     }
   }
 
@@ -648,11 +673,19 @@ class WalletService {
           localStorage.removeItem('walletName')
           return
         }
-        if (wallet.adapter.readyState !== WalletReadyState.Installed && 
-            wallet.adapter.readyState !== WalletReadyState.Loadable) {
-          return
+        
+        // Use the adapter's autoConnect method for seamless reconnection
+        if (wallet.adapter.autoConnect) {
+            this.currentWallet.value = wallet.adapter
+            this.setupWalletListeners(wallet.adapter)
+            await wallet.adapter.autoConnect()
+        } else {
+            // Fallback for adapters that don't support autoConnect
+            if (wallet.adapter.readyState === WalletReadyState.Installed || 
+                wallet.adapter.readyState === WalletReadyState.Loadable) {
+              await this.connect(walletName)
+            }
         }
-        await this.connect(walletName)
       } catch (error) {
         localStorage.removeItem('walletName')
         console.warn('Auto-connect failed:', error)
@@ -660,6 +693,7 @@ class WalletService {
         this._connecting.value = false;
       }
     }
+    this.notifyStateChange();
   }
 
   // Mobile connection using MWA
@@ -773,6 +807,7 @@ class WalletService {
       console.error('Failed to update balance:', error)
       this._balance.value = 0
     }
+    this.notifyStateChange();
   }
 
   // Setup wallet event listeners
@@ -790,6 +825,7 @@ class WalletService {
       localStorage.setItem('walletName', this.currentWallet.value.name); // Restore for desktop
       console.log('✅ Wallet connected:', this._publicKey.value?.toBase58())
       this.updateBalance()
+      this.notifyStateChange();
     }
   }
 
@@ -804,6 +840,7 @@ class WalletService {
     localStorage.removeItem('walletName')
     clearConnectionData()
     console.log('🔌 Wallet disconnected')
+    this.notifyStateChange();
   }
 
   private handleError = (error: Error): void => {
@@ -847,6 +884,7 @@ class WalletService {
         message: `Connected via another tab.`,
         duration: 5000
       });
+      this.notifyStateChange();
     } catch(e) {
       console.error("Error handling broadcast connect", e)
     }
@@ -854,6 +892,7 @@ class WalletService {
 
   handleBroadcastDisconnect(): void {
     this.handleDisconnect();
+    this.notifyStateChange();
   }
 
 

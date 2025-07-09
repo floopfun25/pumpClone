@@ -33,6 +33,10 @@ export function getBasePath(): string {
  */
 export function getAssetPath(assetPath: string): string {
   const basePath = getBasePath()
+  // If assetPath already contains the base path, return it as is
+  if (assetPath.startsWith(basePath)) {
+    return assetPath
+  }
   // Remove leading slash from assetPath if present to avoid double slashes
   const cleanAssetPath = assetPath.startsWith('/') ? assetPath.slice(1) : assetPath
   const fullPath = `${basePath}${cleanAssetPath}`
