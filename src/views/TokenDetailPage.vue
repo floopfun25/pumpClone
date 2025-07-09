@@ -250,7 +250,7 @@
 
               <!-- Balance -->
               <div class="text-base md:text-sm text-binance-gray mb-4">
-                balance: <span class="font-medium text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
+                balance: <span class="font-medium text-white">{{ walletStore.isConnected ? `${walletStore.balance.toFixed(4)} SOL` : 'Connect wallet' }}</span>
               </div>
 
               <!-- Amount Input -->
@@ -392,7 +392,7 @@ import EnhancedTradingInterface from '@/components/token/EnhancedTradingInterfac
 import BondingCurveProgress from '@/components/token/BondingCurveProgress.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
 import { SolanaProgram } from '@/services/solanaProgram'
-import { realTimePricingService, type PriceUpdate } from '@/services/realTimePricing'
+import { RealTimePriceService, type RealPriceData } from '@/services/realTimePriceService'
 
 const route = useRoute()
 const router = useRouter()
@@ -560,6 +560,9 @@ const executeTrade = async () => {
   try {
     uiStore.setLoading(true)
     
+    // Make sure balance is fresh before trade
+    await walletStore.updateBalance()
+
     const mintAddress = new PublicKey(token.value.mint_address)
     
     // Get current bonding curve state for calculations
@@ -638,11 +641,19 @@ const executeTrade = async () => {
     // Clear the trade amount
     tradeAmount.value = ''
     
+    // Manually decrease SOL balance for UI feedback
+    walletStore.walletState.balance -= amount
+    
     // Trigger immediate price update
-    await realTimePricingService.triggerUpdate(token.value.id)
+    await RealTimePriceService.forceUpdate(token.value.id)
     
     // Refresh bonding curve data immediately after trade
     await loadBondingCurveData()
+
+    // Refresh chart data
+    if (token.value?.id) {
+      RealTimePriceService.clearCacheForToken(token.value.id)
+    }
     
     // Refresh token data to show updated stats
     await loadTokenData()
@@ -891,14 +902,13 @@ const loadBondingCurveData = async () => {
       priceUnsubscribe.value()
     }
     
-    priceUnsubscribe.value = realTimePricingService.subscribeToToken(
+    priceUnsubscribe.value = RealTimePriceService.subscribe(
       token.value.id,
-      (updatedPrice: PriceUpdate) => {
+      (updatedPrice: RealPriceData) => {
         bondingCurveState.value = {
           ...bondingCurveState.value,
           currentPrice: updatedPrice.price,
-          marketCap: updatedPrice.marketCap,
-          progress: updatedPrice.progress
+          marketCap: updatedPrice.marketCap
         }
         bondingProgress.value = {
           ...bondingProgress.value,
@@ -917,6 +927,26 @@ const loadBondingCurveData = async () => {
     
     // Fallback to basic progress calculation
     bondingProgress.value = await SupabaseService.getBondingCurveProgress(token.value.id)
+  }
+}
+
+/**
+ * Force chart to reload data
+ */
+const refreshChart = () => {
+  if (!token.value?.id) return
+  // Clear cache and force re-fetch
+  RealTimePriceService.clearCacheForToken(token.value.id)
+  
+  // Find chart component and call its reload method
+  // This is a bit of a hack, a better way would be to use an event bus
+  // or a shared state management solution for this.
+  const chart = document.querySelector('.tradingview-chart-container')
+  if (chart && (chart as any).__vue_app__) {
+    const chartInstance = (chart as any).__vue_app__.config.globalProperties.$parent
+    if (chartInstance && typeof chartInstance.setTimeframe === 'function') {
+      chartInstance.setTimeframe(chartInstance.selectedTimeframe)
+    }
   }
 }
 

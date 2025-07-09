@@ -451,7 +451,12 @@ const addSeries = () => {
         borderUpColor: '#2ebd85',
         borderDownColor: '#f6465d',
         wickUpColor: '#2ebd85',
-        wickDownColor: '#f6465d'
+        wickDownColor: '#f6465d',
+        priceFormat: {
+          type: 'price',
+          precision: 8,
+          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
+        },
       })
       
       if (priceData.value.length > 0) {
@@ -478,7 +483,12 @@ const addSeries = () => {
       // Add line series using correct API
       candlestickSeries = lightweightChart.addSeries(LineSeries, {
         color: '#2ebd85',
-        lineWidth: 2
+        lineWidth: 2,
+        priceFormat: {
+          type: 'price',
+          precision: 8,
+          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
+        },
       })
       
       const lineData = priceData.value.map(candle => ({
@@ -495,7 +505,12 @@ const addSeries = () => {
         topColor: 'rgba(46, 189, 133, 0.4)',
         bottomColor: 'rgba(46, 189, 133, 0.05)',
         lineColor: '#2ebd85',
-        lineWidth: 2
+        lineWidth: 2,
+        priceFormat: {
+          type: 'price',
+          precision: 8,
+          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
+        },
       })
       
       const areaData = priceData.value.map(candle => ({

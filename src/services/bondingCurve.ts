@@ -242,7 +242,7 @@ export class BondingCurveService {
     const effectiveSolAmount = solAmount - platformFee
 
     // Calculate tokens received using constant product formula
-    const tokensReceived = (virtualTokenReserves * effectiveSolAmount) / (virtualSolReserves + effectiveSolAmount)
+    const tokensReceived = virtualTokenReserves - (virtualSolReserves * virtualTokenReserves) / (virtualSolReserves + effectiveSolAmount)
 
     // Update reserves
     const newVirtualSolReserves = virtualSolReserves + effectiveSolAmount

@@ -13,6 +13,7 @@ export interface RealPriceData {
   high: number
   low: number
   close: number
+  progress: number
 }
 
 export interface ChartDataPoint {
@@ -164,7 +165,8 @@ class RealTimePriceService {
         open: chartData[chartData.length - 1]?.open || state.currentPrice,
         high: chartData[chartData.length - 1]?.high || state.currentPrice,
         low: chartData[chartData.length - 1]?.low || state.currentPrice,
-        close: state.currentPrice
+        close: state.currentPrice,
+        progress: state.progress
       }
 
       // Update price cache
@@ -458,6 +460,18 @@ class RealTimePriceService {
   static clearCache(): void {
     this.priceCache.clear()
     this.chartDataCache.clear()
+  }
+
+  static clearCacheForToken(tokenId: string): void {
+    if (!tokenId) return
+    
+    this.priceCache.delete(tokenId)
+    // Also clear all timeframe-specific chart caches
+    const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '24h', '7d', '30d']
+    for (const timeframe of timeframes) {
+      this.chartDataCache.delete(`${tokenId}_${timeframe}`)
+    }
+    console.log(`🧹 Cache cleared for token: ${tokenId}`)
   }
 
   private static async calculateRecentVolume(tokenId: string): Promise<number> {

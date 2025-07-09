@@ -168,6 +168,10 @@ export const useWalletStore = defineStore('wallet', () => {
     updateState();
   };
 
+  const decreaseBalance = (amount: number) => {
+    walletService.decreaseBalance(amount);
+  };
+
   // Return store interface
   return {
     // State
@@ -196,5 +200,6 @@ export const useWalletStore = defineStore('wallet', () => {
     updateState,
     handleMobileConnect,
     handleMobileDisconnect,
+    decreaseBalance,
   }
 }) 

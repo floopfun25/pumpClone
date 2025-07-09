@@ -1142,32 +1142,7 @@ export class SupabaseService {
         return []
       }
 
-      // Convert SOL prices to USD for display
-      if (data && data.length > 0) {
-        try {
-          // Get current SOL price for conversion
-          const { priceOracleService } = await import('./priceOracle')
-          const solPriceData = await priceOracleService.getSOLPrice()
-          const solPriceUSD = solPriceData.price
-          
-          console.log('📈 [PRICE HISTORY] Converting price history from SOL to USD:', {
-            entries: data.length,
-            solPriceUSD: solPriceUSD.toFixed(2),
-            firstPriceSOL: data[0]?.price?.toFixed(10),
-            firstPriceUSD: (data[0]?.price * solPriceUSD)?.toFixed(8)
-          })
-          
-          // Convert all price entries from SOL to USD
-          return data.map(entry => ({
-            ...entry,
-            price: (entry.price || 0) * solPriceUSD // Convert SOL to USD
-          }))
-        } catch (conversionError) {
-          console.warn('Failed to convert price history to USD, using SOL prices:', conversionError)
-          return data || []
-        }
-      }
-
+      // Return raw data without USD conversion
       return data || []
     } catch (error) {
       console.error('Failed to get token price history:', error)

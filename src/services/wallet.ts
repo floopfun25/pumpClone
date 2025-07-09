@@ -608,12 +608,23 @@ class WalletService {
   }
 
   signTransaction = async <T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> => {
-    if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
-    return this.currentWallet.value.signTransaction!(transaction);
+    if (!this.currentWallet.value || !this.currentWallet.value.signTransaction) {
+      throw new Error('Wallet not connected or does not support signing transactions');
+    }
+    return this.currentWallet.value.signTransaction(transaction);
+  }
+
+  decreaseBalance(amount: number) {
+    if (this._balance.value >= amount) {
+      this._balance.value -= amount
+      this.notifyStateChange();
+    }
   }
 
   sendTransaction = async (transaction: Transaction | VersionedTransaction, options?: SendOptions): Promise<string> => {
-    if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
+    if (!this.currentWallet.value || !this.currentWallet.value.sendTransaction) {
+      throw new Error('Wallet not connected or does not support sending transactions');
+    }
     return this.currentWallet.value.sendTransaction(transaction, this.connection, options);
   }
 
