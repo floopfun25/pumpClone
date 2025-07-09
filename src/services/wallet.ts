@@ -211,7 +211,14 @@ export const handlePhantomConnectResponse = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
     
+    showDebugMessage('🔍 Checking Phantom response parameters:', {
+      phantomAction,
+      hasUrlParams: urlParams.toString().length > 0,
+      allParams: Object.fromEntries(urlParams.entries())
+    })
+    
     if (phantomAction !== 'connect') {
+      showDebugMessage('⚠️ Not a connect response:', { phantomAction })
       return
     }
     
@@ -232,6 +239,7 @@ export const handlePhantomConnectResponse = () => {
       if (value) {
         phantomPublicKey = value
         actualKeyName = key
+        showDebugMessage('🔑 Found Phantom public key:', { key, value: value.slice(0, 10) + '...' })
         break
       }
     }
@@ -240,6 +248,15 @@ export const handlePhantomConnectResponse = () => {
     const data = urlParams.get('data')
     const errorCode = urlParams.get('errorCode')
     const errorMessage = urlParams.get('errorMessage')
+    
+    showDebugMessage('📝 Response parameters:', {
+      hasPhantomKey: !!phantomPublicKey,
+      keyType: actualKeyName,
+      hasNonce: !!nonce,
+      hasData: !!data,
+      errorCode,
+      errorMessage
+    })
     
     // Check for errors first
     if (errorCode) {
@@ -259,9 +276,21 @@ export const handlePhantomConnectResponse = () => {
     // Try to get connection data from memory or storage
     let connectionData = mobileWalletState.connectionData
     
+    showDebugMessage('🔄 Connection state:', {
+      hasConnectionDataInMemory: !!connectionData,
+      isConnecting: mobileWalletState.isConnecting,
+      lastAttempt: new Date(mobileWalletState.lastConnectionAttempt).toISOString()
+    })
+    
     if (!connectionData) {
       console.log('No connection data in memory, trying to load from storage...')
       const savedData = loadConnectionData()
+      
+      showDebugMessage('💾 Loaded data from storage:', {
+        hasSavedData: !!savedData,
+        hasKeyPair: !!savedData?.dappKeyPair,
+        hasSession: !!savedData?.session
+      })
       
       if (savedData?.dappKeyPair) {
         connectionData = {
@@ -283,7 +312,11 @@ export const handlePhantomConnectResponse = () => {
       throw new Error('No dapp keypair available - cannot decrypt response')
     }
     
-    showDebugMessage('🔓 Attempting to decrypt Phantom response...')
+    showDebugMessage('🔓 Attempting to decrypt Phantom response...', {
+      hasKeyPair: !!connectionData.dappKeyPair,
+      dataLength: data.length,
+      nonceLength: nonce.length
+    })
     
     // Manual decryption process
     try {
@@ -295,6 +328,11 @@ export const handlePhantomConnectResponse = () => {
         decodedPhantomKey,
         connectionData.dappKeyPair.secretKey
       )
+      
+      showDebugMessage('🔐 Generated shared secret:', {
+        phantomKeyLength: decodedPhantomKey.length,
+        sharedSecretLength: sharedSecret.length
+      })
       
       // Decode data and nonce
       const decodedData = bs58.decode(data)
@@ -313,8 +351,10 @@ export const handlePhantomConnectResponse = () => {
       
       // Success!
       const connectData = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
-      showDebugMessage('✅ Phantom wallet connected successfully!')
-      showDebugMessage('📝 Public key:', connectData.public_key)
+      showDebugMessage('✅ Successfully decrypted connection data:', {
+        publicKey: connectData.public_key ? (connectData.public_key.slice(0, 10) + '...') : 'missing',
+        hasSession: !!connectData.session
+      })
       
       // Create PublicKey object
       const publicKey = new PublicKey(connectData.public_key)
@@ -345,9 +385,7 @@ export const handlePhantomConnectResponse = () => {
       }
 
       // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
-      // Instead of accessing private properties, we'll trigger a proper connection
       try {
-        // Call connectPhantomMobile programmatically to update the service state
         const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
         if (phantomAdapter && walletService) {
           // Initialize adapter with the connection result
@@ -361,19 +399,25 @@ export const handlePhantomConnectResponse = () => {
           // Manually trigger connect handler to ensure all state is updated
           walletService['handleConnect']()
           
+          showDebugMessage('🔄 Wallet service state updated:', {
+            hasPublicKey: !!walletService['_publicKey'].value,
+            hasAdapter: !!walletService['currentWallet'].value,
+            isConnecting: walletService['_connecting'].value
+          })
+          
           // Update balance after a short delay
           setTimeout(async () => {
             try {
               await walletService.updateBalance()
+              showDebugMessage('💰 Balance updated')
             } catch (error) {
               console.warn('Failed to update balance:', error)
             }
           }, 1000)
-          
-          console.log('🔄 Wallet service state updated')
         }
       } catch (serviceError) {
         console.warn('Failed to update wallet service:', serviceError)
+        throw serviceError
       }
 
       // Update connection data with session
@@ -391,19 +435,6 @@ export const handlePhantomConnectResponse = () => {
         detail: { publicKey: connectData.public_key }
       }))
       
-      // Show success toast notification
-      try {
-        const uiStore = useUIStore()
-        uiStore.showToast({
-          type: 'success',
-          title: 'Wallet Connected!',
-          message: `Phantom wallet connected successfully. Address: ${formatWalletAddress(connectData.public_key)}`,
-          duration: 5000
-        })
-      } catch (toastError) {
-        console.warn('Failed to show success toast:', toastError)
-      }
-      
       showDebugMessage('🎉 Mobile wallet connection completed successfully!')
       
       // Clean up the URL by removing phantom_action parameter
@@ -417,7 +448,7 @@ export const handlePhantomConnectResponse = () => {
       window.history.replaceState({}, document.title, cleanUrl.toString())
       
     } catch (decryptError) {
-      console.error('Decryption failed:', decryptError)
+      showDebugMessage('❌ Decryption failed:', decryptError)
       throw decryptError
     }
     
@@ -462,25 +493,36 @@ if (typeof window !== 'undefined') {
 
 export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> => {
   if (mobileWalletState.isConnecting) {
+    showDebugMessage('⚠️ Connection already in progress')
     throw new Error('Connection already in progress')
   }
 
   // Check if already connected
   if (window.solana?.isConnected) {
+    showDebugMessage('✅ Already connected:', {
+      publicKey: window.solana.publicKey?.toBase58().slice(0, 10) + '...'
+    })
     return { publicKey: window.solana.publicKey! }
   }
 
   try {
+    showDebugMessage('🚀 Starting mobile connection process')
+    
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
 
     // Reuse existing connection data if available, otherwise initialize new
     if (!mobileWalletState.connectionData) {
+      showDebugMessage('📝 Initializing new connection data')
       mobileWalletState.connectionData = initializeConnectionData()
+    } else {
+      showDebugMessage('♻️ Reusing existing connection data:', {
+        hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
+        hasSession: !!mobileWalletState.connectionData.session
+      })
     }
     
     // IMPORTANT: Save connection data to localStorage before opening Phantom
-    // This ensures the data is available when user returns from Phantom app
     saveConnectionData(mobileWalletState.connectionData)
     
     showDebugMessage('💾 Connection data saved to localStorage:', {
@@ -489,7 +531,6 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     })
 
     // Create redirect URL - CRITICAL: Use exact current URL without modifications
-    // This ensures Phantom returns to the same tab
     const redirectUrl = window.location.href
     
     // Build connect URL
@@ -500,11 +541,12 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     )
 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
-    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
+    showDebugMessage('📱 Redirect URL:', redirectUrl)
 
     // Set up a timeout to detect if app didn't open
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
+        showDebugMessage('⚠️ Timeout: Failed to open Phantom app')
         reject(new Error('Failed to open Phantom app. Please make sure it is installed.'))
       }, 3000)
     })
@@ -514,28 +556,33 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       // Listen for page visibility change
       const handleVisibilityChange = () => {
         if (document.hidden) {
-          // App is opening
+          showDebugMessage('👁️ Page hidden - app appears to be opening')
           document.removeEventListener('visibilitychange', handleVisibilityChange)
           resolve()
         }
       }
       document.addEventListener('visibilitychange', handleVisibilityChange)
 
-      // Use window.location.href to open the URL
+      showDebugMessage('🔄 Attempting to open Phantom app')
       window.location.href = connectUrl
     })
 
     // Race between timeout and successful app opening
     await Promise.race([openAppPromise, timeoutPromise])
+    showDebugMessage('✅ App opened successfully')
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        showDebugMessage('⚠️ Connection timeout after 60 seconds')
         mobileWalletState.isConnecting = false
         reject(new Error('Connection timeout'))
       }, 60000) // 60 second timeout
 
       const handleConnection = (event: CustomEvent) => {
+        showDebugMessage('🎉 Received connection event:', {
+          publicKey: event.detail.publicKey.slice(0, 10) + '...'
+        })
         clearTimeout(timeout)
         mobileWalletState.isConnecting = false
         window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
@@ -543,6 +590,7 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       }
 
       window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
+      showDebugMessage('👂 Waiting for connection approval...')
     })
 
   } catch (error) {
@@ -555,8 +603,11 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
         ? 'https://apps.apple.com/app/phantom-solana-wallet/id1598432977'
         : 'https://play.google.com/store/apps/details?id=app.phantom'
       
+      showDebugMessage('🏪 Offering app store redirect:', appStoreUrl)
+      
       const shouldRedirect = confirm('Phantom app not found. Would you like to install it?')
       if (shouldRedirect) {
+        showDebugMessage('↗️ Redirecting to app store')
         window.location.href = appStoreUrl
       }
     }
