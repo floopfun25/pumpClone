@@ -445,7 +445,7 @@ const addSeries = () => {
     // Add new series based on type using correct v5 API
     if (chartType.value === 'candlestick') {
       // Add candlestick series using correct API
-      candlestickSeries = lightweightChart.addCandlestickSeries({
+      candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
         upColor: '#2ebd85',
         downColor: '#f6465d',
         borderUpColor: '#2ebd85',
@@ -464,7 +464,7 @@ const addSeries = () => {
       }
       
       // Add volume histogram series using correct API
-      volumeSeries = lightweightChart.addHistogramSeries({
+      volumeSeries = lightweightChart.addSeries(HistogramSeries, {
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
@@ -481,7 +481,7 @@ const addSeries = () => {
       }
     } else if (chartType.value === 'line') {
       // Add line series using correct API
-      candlestickSeries = lightweightChart.addLineSeries({
+      candlestickSeries = lightweightChart.addSeries(LineSeries, {
         color: '#2ebd85',
         lineWidth: 2,
         priceFormat: {
@@ -501,7 +501,7 @@ const addSeries = () => {
       }
     } else if (chartType.value === 'area') {
       // Add area series using correct API
-      candlestickSeries = lightweightChart.addAreaSeries({
+      candlestickSeries = lightweightChart.addSeries(AreaSeries, {
         topColor: 'rgba(46, 189, 133, 0.4)',
         bottomColor: 'rgba(46, 189, 133, 0.05)',
         lineColor: '#2ebd85',
