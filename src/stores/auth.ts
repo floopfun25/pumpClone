@@ -24,6 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
   const supabaseUser = ref<any>(null)
   const supabaseSession = ref<any>(null)
+  let isInitializing = false // Add a flag to prevent race conditions
 
   // Initialize wallet store reference
   const walletStore = useWalletStore()
@@ -74,6 +75,15 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
 
+      // Prevent re-entrant calls to avoid race conditions
+      if (isInitializing) {
+        console.log('Auth: Initialization already in progress, skipping.');
+        return;
+      }
+
+      console.log('Auth: Starting user initialization...')
+      isInitializing = true
+
       // Check for existing Supabase session
       const session = await SupabaseAuth.getSession()
       if (session?.user) {
@@ -106,6 +116,8 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = false
     } finally {
       isLoading.value = false
+      isInitializing = false
+      console.log('Auth: User initialization finished.');
     }
   }
 

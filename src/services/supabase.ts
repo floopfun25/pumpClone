@@ -227,35 +227,34 @@ export class SupabaseAuth {
         }
         
         // 2c. No session, or mismatched session was cleared. We now need a session for the *existingUser*.
-        // The ONLY way to do this without custom JWTs is to call signInAnonymously and then
-        // immediately reconcile the new auth user with our existing public user.
-        console.log('🆕 Creating a new auth session to link to existing profile...');
+        // We sign in a new anonymous user, which gives us a valid session. Then we migrate
+        // the old user's data to the new user's ID, keeping the session valid.
+        console.log('🆕 Creating a new auth session and migrating existing profile to it...');
         const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
         if (anonError || !anonData.user) throw new Error(`Failed to create anonymous session: ${anonError?.message}`);
         
-        console.log(`🔗 Linking new auth user ${anonData.user.id} to existing profile ${existingUser.id}`);
+        console.log(`🔗 Migrating existing profile ${existingUser.id} to new auth user ${anonData.user.id}`);
 
-        // This is the CRITICAL step: We call an RPC function on the database
-        // to merge the new auth user into our old one. This preserves the original user ID.
-        const { error: mergeError } = await supabase.rpc('merge_users', {
-            old_user_id: existingUser.id,
-            new_user_id: anonData.user.id
+        // This is the CRITICAL step: We call our new RPC function to migrate the data.
+        const { error: migrateError } = await supabase.rpc('migrate_user_data', {
+            old_user_id_param: existingUser.id,
+            new_user_id_param: anonData.user.id
         });
 
-        if (mergeError) {
-          console.error('❌ User merge failed!', mergeError);
-          // If merge fails, sign out to prevent inconsistent state.
+        if (migrateError) {
+          console.error('❌ User migration failed!', migrateError);
+          // If migration fails, sign out to prevent inconsistent state.
           await supabase.auth.signOut();
-          throw new Error(`Failed to reconcile user accounts: ${mergeError.message}`);
+          throw new Error(`Failed to reconcile user accounts: ${migrateError.message}`);
         }
         
-        // After successful merge, the new session now effectively belongs to the original user.
-        // We fetch the latest session data to be sure.
+        // The migration was successful. The current session (anonData.session) is now associated
+        // with the user's original data. No refresh needed.
         const { data: { session: finalSession } } = await supabase.auth.getSession();
-        if (!finalSession) throw new Error('Failed to get session after user merge.');
+        if (!finalSession) throw new Error('Failed to get session after user migration.');
         
-        console.log(`✅ Successfully linked new session to user ${existingUser.wallet_address}`);
-        return { user: { ...finalSession.user, ...existingUser }, session: finalSession };
+        console.log(`✅ Successfully migrated profile for ${existingUser.wallet_address}`);
+        return { user: { ...finalSession.user, ...existingUser, id: finalSession.user.id }, session: finalSession };
       }
 
       // 3. Case: No user profile exists. This is a new user.
