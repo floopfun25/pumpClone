@@ -22,7 +22,7 @@ import {
   getOrCreateAssociatedTokenAccount,
   mintTo
 } from '@solana/spl-token'
-import { walletService } from './wallet'
+import { getWalletService } from './wallet'
 import { BondingCurveService } from './bondingCurve'
 import { solanaProgram } from './solanaProgram'
 import { SupabaseService, supabase } from './supabase'
@@ -92,6 +92,8 @@ export interface CreatedToken {
   signature: string
   tokenAccount: string
 }
+
+const walletService = getWalletService()
 
 class TokenService {
   private connection: Connection
