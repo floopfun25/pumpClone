@@ -466,10 +466,11 @@ class WalletService {
   private _disconnecting = ref(false)
   private _publicKey = ref<PublicKey | null>(null)
   private _balance = ref(0)
-  private _internalConnected = ref(false) // New internal state
-  private _connected = computed(() => 
-    (this.currentWallet.value?.connected ?? false) || this._internalConnected.value
-  )
+  private _internalConnected = ref(false) // For mobile broadcast connection
+  private _connected = computed(() => {
+    // A user is connected if the desktop adapter is connected OR if our mobile-specific state is true
+    return (this.currentWallet.value?.connected ?? false) || this._internalConnected.value
+  })
   private mobileWalletAdapter: any = null
 
   constructor() {
@@ -918,34 +919,39 @@ class WalletService {
 
   // Setup wallet event listeners
   private setupWalletListeners(wallet: BaseMessageSignerWalletAdapter): void {
-    wallet.on('connect', this.handleConnect.bind(this))
-    wallet.on('disconnect', this.handleDisconnect.bind(this))
-    wallet.on('error', this.handleError.bind(this))
+    wallet.on('connect', this.handleConnect)
+    wallet.on('disconnect', this.handleDisconnect)
+    wallet.on('error', this.handleError)
   }
 
-  // Handle wallet connect event
-  private handleConnect(): void {
+  private handleConnect = (): void => {
     if (this.currentWallet.value) {
       this._publicKey.value = this.currentWallet.value.publicKey
-      if (!isMobile()) {
-        localStorage.setItem('walletName', this.currentWallet.value.name || 'unknown')
-      }
+      this._connecting.value = false
+      this._internalConnected.value = false // Not a mobile broadcast connection
+      console.log('✅ Wallet connected:', this._publicKey.value?.toBase58())
       this.updateBalance()
     }
   }
 
-  // Handle wallet disconnect event
-  private handleDisconnect(): void {
-    this.cleanup()
+  private handleDisconnect = (): void => {
+    // This is the generic disconnect handler for both desktop and mobile
+    this._publicKey.value = null
+    this._balance.value = 0
+    this._internalConnected.value = false
+    this._connecting.value = false
+    this._disconnecting.value = false
+    this.currentWallet.value = null
+    localStorage.removeItem('walletName')
+    clearConnectionData()
+    console.log('🔌 Wallet disconnected')
   }
 
-  // Handle wallet error event
-  private handleError(error: Error): void {
+  private handleError = (error: Error): void => {
     console.error('Wallet error:', error)
-    this.cleanup()
+    this.handleDisconnect() // Reset state on error
   }
 
-  // Cleanup wallet state
   private cleanup(): void {
     // Remove all listeners from current wallet
     if (this.currentWallet.value) {
@@ -960,7 +966,7 @@ class WalletService {
       this._publicKey.value = new PublicKey(data.publicKey);
       this.currentWallet.value = walletAdapters.find(w => w.name === 'Phantom')?.adapter || null;
       this._connecting.value = false;
-      this._internalConnected.value = true; // Set the internal state
+      this._internalConnected.value = true; // Set the internal state for mobile
 
       // Save connection data received from the other tab
       const connectionData: WalletConnectionData = {
@@ -988,7 +994,6 @@ class WalletService {
   }
 
   handleBroadcastDisconnect(): void {
-    this._internalConnected.value = false; // Reset on disconnect
     this.handleDisconnect();
   }
 
