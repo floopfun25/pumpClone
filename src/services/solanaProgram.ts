@@ -496,14 +496,16 @@ export class SolanaProgram {
 
       if (existingHolding) {
         // Update existing holding
-        const newAmount = safeNumber(existingHolding.amount + Number(tokensOut))
+        const currentAmount = BigInt(existingHolding.amount)
+        const newAmount = currentAmount + tokensOut
         const newTotalInvested = safeNumber((existingHolding.total_invested || 0) + solAmount)
-        const newAvgPrice = newTotalInvested / newAmount
+        const tokenAmountInFullUnits = Number(newAmount) / Math.pow(10, token.decimals)
+        const newAvgPrice = newTotalInvested / tokenAmountInFullUnits
 
         await supabase
           .from('user_holdings')
           .update({
-            amount: newAmount,
+            amount: newAmount.toString(),
             average_price: newAvgPrice,
             total_invested: newTotalInvested,
             last_updated: new Date().toISOString()
@@ -516,7 +518,7 @@ export class SolanaProgram {
           .insert({
             user_id: userId,
             token_id: token.id,
-            amount: safeNumber(Number(tokensOut)),
+            amount: tokensOut.toString(),
             average_price: newPrice,
             total_invested: safeNumber(solAmount)
           })
@@ -677,8 +679,10 @@ export class SolanaProgram {
       if (updateError) throw updateError
 
       // Update user holdings
-      const newAmount = holding.amount - Number(tokenAmountWithDecimals)
-      if (newAmount <= 0) {
+      const currentAmount = BigInt(holding.amount)
+      const newAmount = currentAmount - tokenAmountWithDecimals
+      
+      if (newAmount <= 0n) {
         // Delete holding if no tokens left
         await supabase
           .from('user_holdings')
@@ -689,7 +693,7 @@ export class SolanaProgram {
         await supabase
           .from('user_holdings')
           .update({
-            amount: newAmount,
+            amount: newAmount.toString(),
             last_updated: new Date().toISOString()
           })
           .eq('id', holding.id)

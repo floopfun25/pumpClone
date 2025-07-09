@@ -117,7 +117,7 @@ export interface Database {
           id: string
           user_id: string
           token_id: string
-          amount: number
+          amount: string
           average_price: number
           created_at: string
           updated_at: string
@@ -128,12 +128,12 @@ export interface Database {
           id?: string
           user_id: string
           token_id: string
-          amount: number
+          amount: string
           average_price: number
           total_invested: number
         },
         Update: {
-          amount?: number
+          amount?: string
           average_price?: number
           total_invested?: number
           last_updated?: string
