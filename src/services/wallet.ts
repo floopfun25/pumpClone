@@ -38,7 +38,6 @@ import * as bs58 from 'bs58'
 import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
 // import { useUIStore } from '@/stores/ui' // REMOVED: To be dynamically imported
-import { showDebugMessage } from '@/utils/mobileDebug'
 import { broadcastService } from './broadcastService';
 import { notificationService } from './notificationService';
 
