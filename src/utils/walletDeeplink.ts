@@ -476,9 +476,7 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  // CRITICAL: Return the exact current URL without any modifications
-  // This ensures Phantom returns to the same tab instead of opening a new one
-  const currentUrl = window.location.href
-  
-  return currentUrl
+  const url = new URL(window.location.href)
+  url.searchParams.set('phantom_action', action)
+  return url.toString()
 }
