@@ -112,6 +112,33 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['transactions']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['transactions']['Insert']>
       }
+      user_holdings: {
+        Row: {
+          id: string
+          user_id: string
+          token_id: string
+          amount: number
+          average_price: number
+          created_at: string
+          updated_at: string
+          total_invested: number
+          last_updated: string
+        },
+        Insert: {
+          id?: string
+          user_id: string
+          token_id: string
+          amount: number
+          average_price: number
+          total_invested: number
+        },
+        Update: {
+          amount?: number
+          average_price?: number
+          total_invested?: number
+          last_updated?: string
+        }
+      }
     }
   }
 }

@@ -478,7 +478,9 @@ export class SolanaProgram {
           market_cap: newMarketCap,
           volume_24h: safeNumber((token.volume_24h || 0) + solAmount),
           last_trade_at: new Date().toISOString(),
-          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100)
+          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100),
+          virtual_sol_reserves: newSolReserves.toString(),
+          virtual_token_reserves: newTokenReserves.toString()
         })
         .eq('id', token.id)
 
@@ -502,7 +504,7 @@ export class SolanaProgram {
           .from('user_holdings')
           .update({
             amount: newAmount,
-            average_buy_price: newAvgPrice,
+            average_price: newAvgPrice,
             total_invested: newTotalInvested,
             last_updated: new Date().toISOString()
           })
@@ -515,7 +517,7 @@ export class SolanaProgram {
             user_id: userId,
             token_id: token.id,
             amount: safeNumber(Number(tokensOut)),
-            average_buy_price: newPrice,
+            average_price: newPrice,
             total_invested: safeNumber(solAmount)
           })
       }
@@ -666,7 +668,9 @@ export class SolanaProgram {
           market_cap: newMarketCap,
           volume_24h: safeNumber((token.volume_24h || 0) + Number(solOut) / LAMPORTS_PER_SOL),
           last_trade_at: new Date().toISOString(),
-          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100)
+          bonding_curve_progress: Math.min(100, (newMarketCap / token.graduation_threshold) * 100),
+          virtual_sol_reserves: newSolReserves.toString(),
+          virtual_token_reserves: newTokenReserves.toString()
         })
         .eq('id', token.id)
 

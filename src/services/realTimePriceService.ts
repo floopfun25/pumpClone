@@ -286,6 +286,28 @@ class RealTimePriceService {
         return points
       }
 
+      if (priceHistory.length === 1) {
+        // If only one data point, duplicate it to create a line
+        const point = priceHistory[0]
+        const now = new Date(point.timestamp).getTime()
+        const candle: ChartDataPoint = {
+          time: now,
+          open: point.price,
+          high: point.price,
+          low: point.price,
+          close: point.price,
+          volume: point.volume || 0
+        }
+        
+        // Create a second point 5 minutes ago for a flat line
+        const fiveMinAgo = new Date(now - 5 * 60 * 1000).getTime()
+        const prevCandle: ChartDataPoint = { ...candle, time: fiveMinAgo }
+
+        const chartData = [prevCandle, candle]
+        this.chartDataCache.set(tokenId, chartData)
+        return chartData
+      }
+
       // Convert price history to OHLCV format
       const intervalMs = this.getIntervalMs(timeframe)
       const chartData: ChartDataPoint[] = []
