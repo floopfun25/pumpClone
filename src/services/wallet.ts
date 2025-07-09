@@ -570,21 +570,18 @@ class WalletService {
 
   // Connect to specific wallet
   async connect(walletName?: string): Promise<void> {
+    if (this.connecting || this.connected) return
+
+    this._connecting.value = true
     try {
-      this._connecting.value = true
-
-      // Handle mobile connection via MWA
       if (isMobile()) {
-        return await this.connectMobile(walletName)
+        await this.connectMobile(walletName)
+      } else {
+        await this.connectDesktop(walletName)
       }
-
-      // Handle desktop connection
-      return await this.connectDesktop(walletName)
-
-    } catch (error) {
-      console.error('Failed to connect wallet:', error)
-      this.cleanup()
-      throw new WalletConnectionError((error as Error)?.message || 'Failed to connect wallet')
+    } catch (error: any) {
+      this.handleError(error)
+      throw error
     } finally {
       this._connecting.value = false
     }
@@ -863,38 +860,46 @@ class WalletService {
 
   // Auto-reconnect on page load
   async autoConnect(): Promise<void> {
+    if (this.connecting || this.connected) return
+
+    // Mobile auto-connect logic
     if (isMobile()) {
-      // On mobile, try to initialize MWA but don't auto-connect
-      // User must explicitly connect on mobile
-      await this.initializeMobileWalletAdapter()
-      return
+      const mobileConnectionData = loadConnectionData();
+      if (mobileConnectionData && mobileConnectionData.session) {
+        console.log("Found mobile session data, attempting to restore connection...");
+        this.handleBroadcastConnect({
+          publicKey: new PublicKey(bs58.decode(mobileConnectionData.phantomEncryptionPublicKey!)).toBase58(),
+          session: mobileConnectionData.session,
+          phantomEncryptionPublicKey: mobileConnectionData.phantomEncryptionPublicKey,
+        });
+        return;
+      }
     }
 
-    const lastWalletName = localStorage.getItem('walletName')
-    
-    if (!lastWalletName) {
-      return
-    }
+    // Desktop auto-connect logic
+    const walletName = localStorage.getItem('walletName')
+    if (walletName) {
+      this._connecting.value = true
+      try {
+        // Find the wallet adapter
+        const wallet = walletAdapters.find(w => w.name === walletName)
+        if (!wallet) {
+          localStorage.removeItem('walletName')
+          return
+        }
 
-    try {
-      // Find the wallet adapter
-      const wallet = walletAdapters.find(w => w.name === lastWalletName)
-      if (!wallet) {
+        // Check if wallet is ready
+        if (wallet.adapter.readyState !== WalletReadyState.Installed && 
+            wallet.adapter.readyState !== WalletReadyState.Loadable) {
+          return
+        }
+
+        await this.connect(walletName)
+        
+      } catch (error) {
         localStorage.removeItem('walletName')
-        return
+        console.warn('Auto-connect failed:', error)
       }
-
-      // Check if wallet is ready
-      if (wallet.adapter.readyState !== WalletReadyState.Installed && 
-          wallet.adapter.readyState !== WalletReadyState.Loadable) {
-        return
-      }
-
-      await this.connect(lastWalletName)
-      
-    } catch (error) {
-      localStorage.removeItem('walletName')
-      console.warn('Auto-connect failed:', error)
     }
   }
 
