@@ -39,6 +39,7 @@ import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
 import { useUIStore } from '@/stores/ui'
 import { showDebugMessage } from '@/utils/mobileDebug'
+import { isIOS } from '@/utils/mobile'
 
 // Extend Window interface to include solana property
 declare global {
@@ -323,10 +324,24 @@ export const handlePhantomConnectResponse = () => {
         isPhantom: true,
         publicKey,
         isConnected: true,
-        connect: () => Promise.resolve({ publicKey }),
-        disconnect: () => Promise.resolve(),
-        signTransaction: () => Promise.reject(new Error('Use mobile signing')),
-        signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
+        connect: async () => {
+          if (!window.solana?.isConnected) {
+            throw new Error('Wallet not connected')
+          }
+          return { publicKey: window.solana.publicKey! }
+        },
+        disconnect: async () => {
+          if (window.solana) {
+            window.solana.isConnected = false
+            window.solana.publicKey = null
+          }
+        },
+        signTransaction: async () => {
+          throw new Error('Use mobile signing')
+        },
+        signAllTransactions: async () => {
+          throw new Error('Use mobile signing')
+        },
       }
 
       // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
@@ -335,10 +350,16 @@ export const handlePhantomConnectResponse = () => {
         // Call connectPhantomMobile programmatically to update the service state
         const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
         if (phantomAdapter && walletService) {
-          // Manually trigger the service's handleConnect method
+          // Initialize adapter with the connection result
+          phantomAdapter['emit']('connect', publicKey)
+          
+          // Update wallet service state
           walletService['_publicKey'].value = publicKey
           walletService['currentWallet'].value = phantomAdapter
           walletService['_connecting'].value = false
+          
+          // Manually trigger connect handler to ensure all state is updated
+          walletService['handleConnect']()
           
           // Update balance after a short delay
           setTimeout(async () => {
@@ -481,8 +502,31 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
     showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
 
-    // Use window.location.href (not replace) to maintain tab context
-    window.location.href = connectUrl
+    // Set up a timeout to detect if app didn't open
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Failed to open Phantom app. Please make sure it is installed.'))
+      }, 3000)
+    })
+
+    // Try to open the app
+    const openAppPromise = new Promise<void>((resolve) => {
+      // Listen for page visibility change
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // App is opening
+          document.removeEventListener('visibilitychange', handleVisibilityChange)
+          resolve()
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      // Use window.location.href to open the URL
+      window.location.href = connectUrl
+    })
+
+    // Race between timeout and successful app opening
+    await Promise.race([openAppPromise, timeoutPromise])
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
@@ -504,6 +548,19 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
   } catch (error) {
     mobileWalletState.isConnecting = false
     showDebugMessage('❌ Failed to connect to Phantom:', error)
+    
+    // If we failed to open the app, redirect to app store
+    if (error instanceof Error && error.message.includes('Failed to open Phantom app')) {
+      const appStoreUrl = isIOS() 
+        ? 'https://apps.apple.com/app/phantom-solana-wallet/id1598432977'
+        : 'https://play.google.com/store/apps/details?id=app.phantom'
+      
+      const shouldRedirect = confirm('Phantom app not found. Would you like to install it?')
+      if (shouldRedirect) {
+        window.location.href = appStoreUrl
+      }
+    }
+    
     throw error
   }
 }
