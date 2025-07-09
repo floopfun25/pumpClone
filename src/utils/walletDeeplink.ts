@@ -42,6 +42,7 @@ export interface WalletConnectionData {
   session: string | null
   sharedSecret: Uint8Array | null
   phantomEncryptionPublicKey: string | null
+  publicKey?: string // Added to persist user's public key
 }
 
 export interface ConnectResponse {

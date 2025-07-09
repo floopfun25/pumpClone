@@ -13,9 +13,11 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction
 } from '@solana/spl-token'
-import { walletService } from './wallet'
+import { getWalletService } from './wallet'
 import { solanaConfig, programConfig, platformConfig, bondingCurveConfig, tradingConfig } from '@/config'
 import { supabase } from './supabase'
+
+const walletService = getWalletService()
 
 // Program instruction types
 export enum BondingCurveInstruction {

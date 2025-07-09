@@ -130,6 +130,7 @@ const saveConnectionData = (data: WalletConnectionData) => {
     const safeData = {
       session: data.session,
       phantomEncryptionPublicKey: data.phantomEncryptionPublicKey,
+      publicKey: data.publicKey, // Persist the public key
       dappKeyPair: data.dappKeyPair ? {
         publicKey: bs58.encode(data.dappKeyPair.publicKey),
         secretKey: bs58.encode(data.dappKeyPair.secretKey)
@@ -396,7 +397,7 @@ export const connectPhantomMobile = async (): Promise<void> => {
     
     showDebugMessage('💾 Connection data saved to localStorage:', {
       hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
-      publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
+      publicKey: mobileWalletState.connectionData.publicKey ? 'exists' : 'missing'
     })
 
     const redirectUrl = createRedirectUrl('connect')
@@ -626,10 +627,10 @@ class WalletService {
     // Mobile auto-connect logic
     if (isMobile()) {
       const mobileConnectionData = loadConnectionData();
-      if (mobileConnectionData && mobileConnectionData.session) {
+      if (mobileConnectionData && mobileConnectionData.session && mobileConnectionData.publicKey) {
         console.log("Found mobile session data, attempting to restore connection...");
         this.handleBroadcastConnect({
-          publicKey: new PublicKey(bs58.decode(mobileConnectionData.phantomEncryptionPublicKey!)).toBase58(),
+          publicKey: mobileConnectionData.publicKey, // Use the persisted public key
           session: mobileConnectionData.session,
           phantomEncryptionPublicKey: mobileConnectionData.phantomEncryptionPublicKey,
         });
@@ -786,6 +787,7 @@ class WalletService {
       this._publicKey.value = this.currentWallet.value.publicKey
       this._connecting.value = false
       this._internalConnected.value = false // Not a mobile broadcast connection
+      localStorage.setItem('walletName', this.currentWallet.value.name); // Restore for desktop
       console.log('✅ Wallet connected:', this._publicKey.value?.toBase58())
       this.updateBalance()
     }
@@ -831,6 +833,7 @@ class WalletService {
         session: data.session,
         sharedSecret: null, // Can't reconstruct this, but session is what matters now
         phantomEncryptionPublicKey: data.phantomEncryptionPublicKey,
+        publicKey: data.publicKey, // Ensure public key is saved
       };
       saveConnectionData(connectionData);
       localStorage.setItem('walletName', 'Phantom');
