@@ -812,6 +812,12 @@ class WalletService {
 
   // Setup wallet event listeners
   private setupWalletListeners(wallet: BaseMessageSignerWalletAdapter): void {
+    // Remove any existing listeners to prevent duplicates
+    wallet.off('connect', this.handleConnect)
+    wallet.off('disconnect', this.handleDisconnect)
+    wallet.off('error', this.handleError)
+    
+    // Add the listeners
     wallet.on('connect', this.handleConnect)
     wallet.on('disconnect', this.handleDisconnect)
     wallet.on('error', this.handleError)
@@ -824,13 +830,26 @@ class WalletService {
       this._internalConnected.value = false // Not a mobile broadcast connection
       localStorage.setItem('walletName', this.currentWallet.value.name); // Restore for desktop
       console.log('✅ Wallet connected:', this._publicKey.value?.toBase58())
+
+      notificationService.emit('showToast', {
+        type: 'success',
+        title: 'Wallet Connected',
+        message: `Connected to ${this.currentWallet.value.name}`
+      });
+
       this.updateBalance()
       this.notifyStateChange();
     }
   }
 
   private handleDisconnect = (): void => {
+    // If already disconnected, do nothing. This makes the handler idempotent.
+    if (this._publicKey.value === null) {
+      return;
+    }
+
     // This is the generic disconnect handler for both desktop and mobile
+    const walletName = this.currentWallet.value?.name || 'Wallet';
     this._publicKey.value = null
     this._balance.value = 0
     this._internalConnected.value = false
@@ -840,11 +859,23 @@ class WalletService {
     localStorage.removeItem('walletName')
     clearConnectionData()
     console.log('🔌 Wallet disconnected')
+
+    notificationService.emit('showToast', {
+      type: 'info',
+      title: 'Wallet Disconnected',
+      message: `Disconnected from ${walletName}`
+    });
+
     this.notifyStateChange();
   }
 
   private handleError = (error: Error): void => {
     console.error('Wallet error:', error)
+    notificationService.emit('showToast', {
+        type: 'error',
+        title: 'Wallet Error',
+        message: error.message || 'An unknown wallet error occurred.'
+    });
     this.handleDisconnect() // Reset state on error
   }
 

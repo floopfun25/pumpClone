@@ -83,6 +83,12 @@ ALTER TABLE public.messages
   ADD CONSTRAINT messages_receiver_id_fkey
   FOREIGN KEY (receiver_id) REFERENCES public.users(id) ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- 10. portfolio_snapshots table
+SELECT drop_constraint_if_exists('portfolio_snapshots', 'portfolio_snapshots_user_id_fkey');
+ALTER TABLE public.portfolio_snapshots
+  ADD CONSTRAINT portfolio_snapshots_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
 -- Clean up helper function
 DROP FUNCTION drop_constraint_if_exists(TEXT, TEXT);
 
