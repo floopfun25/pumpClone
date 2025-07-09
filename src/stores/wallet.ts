@@ -150,6 +150,23 @@ export const useWalletStore = defineStore('wallet', () => {
     }
   }
 
+  /**
+   * Handle successful mobile connection from broadcast channel
+   * @param data - The connection data from the broadcast message
+   */
+  const handleMobileConnect = (data: any) => {
+    walletService.handleBroadcastConnect(data);
+    updateState();
+  };
+
+  /**
+   * Handle mobile disconnect from broadcast channel
+   */
+  const handleMobileDisconnect = () => {
+    walletService.handleBroadcastDisconnect();
+    updateState();
+  };
+
   // Return store interface
   return {
     // State
@@ -175,6 +192,8 @@ export const useWalletStore = defineStore('wallet', () => {
     signTransaction,
     sendTransaction,
     handleMobileWalletReturn,
-    updateState
+    updateState,
+    handleMobileConnect,
+    handleMobileDisconnect,
   }
 }) 

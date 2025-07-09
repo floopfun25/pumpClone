@@ -51,6 +51,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { useTypedI18n } from '@/i18n'
 import { useDebugService } from '@/services/debugService'
+import { broadcastService } from '@/services/broadcastService'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -102,6 +103,20 @@ function handleResize() {
   windowWidth.value = window.innerWidth
 }
 
+// Handle broadcast messages from other tabs
+const handleBroadcastMessage = (event: MessageEvent) => {
+  const { type, data } = event.data;
+
+  if (type === 'wallet-connected') {
+    console.log('Broadcast received: wallet-connected', data);
+    walletStore.handleMobileConnect(data);
+  } else if (type === 'wallet-disconnected') {
+    console.log('Broadcast received: wallet-disconnected');
+    walletStore.handleMobileDisconnect();
+  }
+};
+
+
 // Application initialization
 onMounted(async () => {
   try {
@@ -132,6 +147,9 @@ onMounted(async () => {
     
     // Add window resize listener
     window.addEventListener('resize', handleResize)
+
+    // Add broadcast channel listener
+    broadcastService.addEventListener(handleBroadcastMessage);
   } catch (error) {
     console.error('Failed to initialize app:', error)
   }
@@ -140,6 +158,7 @@ onMounted(async () => {
 // Cleanup on component unmount
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  broadcastService.removeEventListener(handleBroadcastMessage);
 })
 </script>
 

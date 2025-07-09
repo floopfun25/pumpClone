@@ -39,6 +39,7 @@ import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
 import { useUIStore } from '@/stores/ui'
 import { showDebugMessage } from '@/utils/mobileDebug'
+import { broadcastService } from './broadcastService';
 
 // Extend Window interface to include solana property
 declare global {
@@ -312,79 +313,22 @@ export const handlePhantomConnectResponse = () => {
       
       // Success!
       const connectData = JSON.parse(Buffer.from(decryptedData).toString('utf8'))
-      showDebugMessage('✅ Phantom wallet connected successfully!')
-      showDebugMessage('📝 Public key:', connectData.public_key)
       
-      // Create PublicKey object
-      const publicKey = new PublicKey(connectData.public_key)
-      
-      // Set window.solana for compatibility
-      window.solana = {
-        isPhantom: true,
-        publicKey,
-        isConnected: true,
-        connect: () => Promise.resolve({ publicKey }),
-        disconnect: () => Promise.resolve(),
-        signTransaction: () => Promise.reject(new Error('Use mobile signing')),
-        signAllTransactions: () => Promise.reject(new Error('Use mobile signing')),
-      }
-
-      // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
-      // Instead of accessing private properties, we'll trigger a proper connection
-      try {
-        // Call connectPhantomMobile programmatically to update the service state
-        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
-        if (phantomAdapter && walletService) {
-          // Manually trigger the service's handleConnect method
-          walletService['_publicKey'].value = publicKey
-          walletService['currentWallet'].value = phantomAdapter
-          walletService['_connecting'].value = false
-          
-          // Update balance after a short delay
-          setTimeout(async () => {
-            try {
-              await walletService.updateBalance()
-            } catch (error) {
-              console.warn('Failed to update balance:', error)
-            }
-          }, 1000)
-          
-          console.log('🔄 Wallet service state updated')
+      // Broadcast the successful connection event
+      broadcastService.postMessage({
+        type: 'wallet-connected',
+        data: {
+          publicKey: connectData.public_key,
+          session: connectData.session,
+          phantomEncryptionPublicKey: phantomPublicKey,
         }
-      } catch (serviceError) {
-        console.warn('Failed to update wallet service:', serviceError)
-      }
+      });
 
-      // Update connection data with session
-      mobileWalletState.connectionData = {
-        ...connectionData,
-        session: connectData.session,
-        sharedSecret
-      }
+      // Attempt to close the new tab, this might not always work due to browser restrictions
+      setTimeout(() => {
+        window.close();
+      }, 500);
 
-      // Save updated connection data
-      saveConnectionData(mobileWalletState.connectionData)
-
-      // Trigger connection event for the app to listen to
-      window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
-        detail: { publicKey: connectData.public_key }
-      }))
-      
-      // Show success toast notification
-      try {
-        const uiStore = useUIStore()
-        uiStore.showToast({
-          type: 'success',
-          title: 'Wallet Connected!',
-          message: `Phantom wallet connected successfully. Address: ${formatWalletAddress(connectData.public_key)}`,
-          duration: 5000
-        })
-      } catch (toastError) {
-        console.warn('Failed to show success toast:', toastError)
-      }
-      
-      showDebugMessage('🎉 Mobile wallet connection completed successfully!')
-      
       // Clean up the URL by removing phantom_action parameter
       const cleanUrl = new URL(window.location.href)
       cleanUrl.searchParams.delete('phantom_action')
@@ -516,7 +460,7 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
     }
 
     // Build disconnect URL using exact current URL as redirect
-    const redirectUrl = window.location.href
+    const redirectUrl = createRedirectUrl('disconnect');
     const disconnectUrl = buildDisconnectUrl(
       connectionData.dappKeyPair,
       connectionData.sharedSecret,
@@ -525,17 +469,13 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
     )
 
     showDebugMessage('🔗 Opening Phantom disconnect URL:', disconnectUrl)
-    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
+    showDebugMessage('📱 Redirect URL (with phantom_action):', redirectUrl)
 
     // Clear local state
     mobileWalletState.connectionData = null
     clearConnectionData()
 
-    // Clear window.solana
-    if (window.solana) {
-      window.solana.isConnected = false
-      window.solana.publicKey = null
-    }
+    broadcastService.postMessage({ type: 'wallet-disconnected' });
 
     // Use window.location.href to maintain tab context
     window.location.href = disconnectUrl
@@ -555,9 +495,9 @@ class WalletService {
   private _disconnecting = ref(false)
   private _publicKey = ref<PublicKey | null>(null)
   private _balance = ref(0)
+  private _internalConnected = ref(false) // New internal state
   private _connected = computed(() => 
-    !!this.currentWallet.value?.connected && 
-    !!this._publicKey.value
+    (this.currentWallet.value?.connected ?? false) || this._internalConnected.value
   )
   private mobileWalletAdapter: any = null
 
@@ -1049,13 +989,51 @@ class WalletService {
 
   // Cleanup wallet state
   private cleanup(): void {
-    this.currentWallet.value = null
-    this._publicKey.value = null
-    this._balance.value = 0
-    if (!isMobile()) {
-      localStorage.removeItem('walletName')
+    // Remove all listeners from current wallet
+    if (this.currentWallet.value) {
+      this.currentWallet.value.off('connect', this.handleConnect)
+      this.currentWallet.value.off('disconnect', this.handleDisconnect)
+      this.currentWallet.value.off('error', this.handleError)
     }
   }
+
+  handleBroadcastConnect(data: any): void {
+    try {
+      this._publicKey.value = new PublicKey(data.publicKey);
+      this.currentWallet.value = walletAdapters.find(w => w.name === 'Phantom')?.adapter || null;
+      this._connecting.value = false;
+      this._internalConnected.value = true; // Set the internal state
+
+      // Save connection data received from the other tab
+      const connectionData: WalletConnectionData = {
+        dappKeyPair: generateDappKeyPair(), // This will be different, but we don't need it for decrypting anymore
+        session: data.session,
+        sharedSecret: null, // Can't reconstruct this, but session is what matters now
+        phantomEncryptionPublicKey: data.phantomEncryptionPublicKey,
+      };
+      saveConnectionData(connectionData);
+      localStorage.setItem('walletName', 'Phantom');
+
+
+      this.updateBalance();
+      
+      const uiStore = useUIStore()
+      uiStore.showToast({
+        type: 'success',
+        title: 'Wallet Connected!',
+        message: `Connected via another tab.`,
+        duration: 5000
+      })
+    } catch(e) {
+      console.error("Error handling broadcast connect", e)
+    }
+  }
+
+  handleBroadcastDisconnect(): void {
+    this._internalConnected.value = false; // Reset on disconnect
+    this.handleDisconnect();
+  }
+
 
   // Get wallet state for reactive use
   getState(): WalletState {
