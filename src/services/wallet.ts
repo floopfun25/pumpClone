@@ -37,7 +37,7 @@ import type { WalletConnectionData } from '../utils/walletDeeplink'
 import * as bs58 from 'bs58'
 import * as nacl from 'tweetnacl'
 import { showDebug } from '@/services/debugService'
-import { useUIStore } from '@/stores/ui'
+// import { useUIStore } from '@/stores/ui' // REMOVED: To be dynamically imported
 import { showDebugMessage } from '@/utils/mobileDebug'
 import { broadcastService } from './broadcastService';
 
@@ -353,7 +353,7 @@ export const handlePhantomConnectResponse = () => {
     mobileWalletState.connectionData = null
     
     // Show error toast
-    try {
+    import('@/stores/ui').then(({ useUIStore }) => {
       const uiStore = useUIStore()
       uiStore.showToast({
         type: 'error',
@@ -361,9 +361,9 @@ export const handlePhantomConnectResponse = () => {
         message: errorMessage,
         duration: 8000
       })
-    } catch (toastError) {
-      console.warn('Failed to show error toast:', toastError)
-    }
+    }).catch(toastError => {
+       console.warn('Failed to show error toast:', toastError)
+    })
   }
 }
 
@@ -765,12 +765,14 @@ class WalletService {
 
       this.updateBalance();
       
-      const uiStore = useUIStore()
-      uiStore.showToast({
-        type: 'success',
-        title: 'Wallet Connected!',
-        message: `Connected via another tab.`,
-        duration: 5000
+      import('@/stores/ui').then(({ useUIStore }) => {
+        const uiStore = useUIStore()
+        uiStore.showToast({
+          type: 'success',
+          title: 'Wallet Connected!',
+          message: `Connected via another tab.`,
+          duration: 5000
+        })
       })
     } catch(e) {
       console.error("Error handling broadcast connect", e)

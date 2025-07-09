@@ -1,85 +1,27 @@
-<!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FloppFun - Create & Trade Meme Tokens</title>
-    <meta name="description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
-    
-    <!-- Open Graph meta tags for social media sharing -->
-    <meta property="og:title" content="FloppFun - Create & Trade Meme Tokens" />
-    <meta property="og:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://floopfun25.github.io/pumpClone/" />
-    
-    <!-- Twitter meta tags -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FloppFun - Create & Trade Meme Tokens" />
-    <meta name="twitter:description" content="Create and trade meme tokens on Solana with FloppFun - the ultimate pump.fun alternative" />
-    
-    <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>Redirecting...</title>
+    <script>
+      // Get the full path that the user tried to access, including the base directory.
+      const path = window.location.pathname;
 
-    <!-- Critical browser polyfills and environment setup -->
-    <script>
-      // Global and process polyfills (must be first)
-      if (typeof global === 'undefined') {
-        window.global = window;
-      }
+      // Find the base of your application. For https://floopfun25.github.io/pumpClone/create,
+      // the base is /pumpClone/
+      const base = path.substring(0, path.lastIndexOf('/') + 1);
       
-      if (typeof process === 'undefined') {
-        window.process = { 
-          env: { NODE_ENV: 'production' },
-          browser: true,
-          nextTick: function(fn) { setTimeout(fn, 0); }
-        };
-      }
-      
-      // Ensure WebCrypto is available (critical for Supabase)
-      if (!window.crypto || !window.crypto.subtle) {
-        console.error('❌ WebCrypto API not available - this will cause Supabase failures');
-        window.crypto = window.crypto || {};
-        window.crypto.subtle = {
-          digest: function() {
-            throw new Error('WebCrypto not available in this context. Supabase requires HTTPS.');
-          }
-        };
-      }
-      
-      // Buffer polyfill for Solana
-      if (typeof Buffer === 'undefined') {
-        try {
-          window.Buffer = require('buffer').Buffer;
-        } catch (e) {
-          window.Buffer = {
-            from: function(data) { return new Uint8Array(data); },
-            isBuffer: function() { return false; }
-          };
-        }
-      }
+      // Get the path relative to the base, which is what the Vue router expects.
+      // e.g., for /pumpClone/create, this would be /create
+      const relativePath = window.location.pathname.substring(base.length - 1) + window.location.search + window.location.hash;
+
+      // Store the relative path in sessionStorage
+      sessionStorage.setItem('redirectPath', relativePath);
+
+      // Redirect to the root of the application
+      window.location.href = base;
     </script>
-    
-    <!-- CDN Supabase to bypass bundling issues -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-      // Make Supabase globally available for our app
-      if (window.supabase && window.supabase.createClient) {
-        window.__SUPABASE_CDN__ = window.supabase;
-      } else {
-        console.warn('⚠️ Supabase CDN failed to load');
-      }
-    </script>
-    
-    <!-- Authentication Script (htaccess-like protection) -->
-    <script src="/auth.js"></script>
   </head>
-  <body class="font-sans bg-binance-dark dark:bg-binance-dark">
-    <!-- Main Vue.js application mount point -->
-    <div id="app"></div>
-    
-    <!-- Application entry script -->
-    <script type="module" src="/src/main.ts"></script>
+  <body>
+    <p>If you are not redirected automatically, <a href="/pumpClone/">click here</a>.</p>
   </body>
 </html> 

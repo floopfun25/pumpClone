@@ -125,6 +125,13 @@ const router = createRouter({
   }
 })
 
+// Handle SPA redirect from 404.html on GitHub Pages
+const redirectPath = sessionStorage.getItem('redirectPath')
+if (redirectPath) {
+  sessionStorage.removeItem('redirectPath')
+  router.replace(redirectPath)
+}
+
 // Navigation guards for authentication and metadata
 router.beforeEach(async (to, from, next) => {
   try {
