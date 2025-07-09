@@ -37,13 +37,13 @@ DROP POLICY IF EXISTS "Allow user to update their own snapshots" ON public.portf
 
 -- Create RLS policies
 CREATE POLICY "Allow user to read their own snapshots" ON public.portfolio_snapshots
-    FOR SELECT USING (auth.uid() = user_id);
+    FOR SELECT USING (get_my_user_id() = user_id);
 
 CREATE POLICY "Allow user to insert their own snapshots" ON public.portfolio_snapshots
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+    FOR INSERT WITH CHECK (get_my_user_id() = user_id);
 
 CREATE POLICY "Allow user to update their own snapshots" ON public.portfolio_snapshots
-    FOR UPDATE USING (auth.uid() = user_id);
+    FOR UPDATE USING (get_my_user_id() = user_id);
 
 
 -- Grant permissions
