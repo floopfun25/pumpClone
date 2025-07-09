@@ -52,33 +52,19 @@ export interface ConnectResponse {
 /**
  * Create Phantom deeplink for mobile connection
  */
-// Build a Phantom universal-link / intent link that **does not create a new tab on Android Chrome**
-// See https://phantom.app/learn/blog/the-complete-guide-to-phantom-deeplinks and
-// https://developer.chrome.com/docs/multidevice/android/intents/
 export const createPhantomDeeplink = (options: DeeplinkOptions = {}) => {
   const {
-    dappUrl     = window.location.origin,
+    dappUrl = window.location.origin,
     redirectUrl = window.location.href,
-    cluster     = 'mainnet-beta'
+    cluster = 'mainnet-beta'
   } = options
 
-  // Build the query-string common to both schemes
-  const qs = new URLSearchParams({
-    app_url: dappUrl,
-    redirect_link: redirectUrl,
-    cluster
-  }).toString()
-
-  // On Android we wrap the same path in an intent:// URL so Chrome passes the
-  // intent to the OS without altering the current tab. This prevents the extra
-  // "phantom.app" tab that appears when returning from the wallet.
-  if (isAndroid()) {
-    // Package name taken from Google Play listing
-    return `intent://ul/v1/connect?${qs}#Intent;scheme=https;package=app.phantom;end`
-  }
-
-  // iOS / desktop browsers keep using the recommended universal link format
-  return `https://phantom.app/ul/v1/connect?${qs}`
+  // Encode URLs for safety
+  const encodedDappUrl = encodeURIComponent(dappUrl)
+  const encodedRedirectUrl = encodeURIComponent(redirectUrl)
+  
+  // Use Phantom's universal link format for better compatibility
+  return `https://phantom.app/ul/v1/browse/${encodedDappUrl}?ref=${encodedRedirectUrl}&cluster=${cluster}`
 }
 
 /**
