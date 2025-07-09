@@ -119,9 +119,74 @@ const mobileWalletState: MobileWalletState = {
   lastConnectionAttempt: 0
 }
 
-// Store connection data in localStorage for persistence
+// Constants for localStorage keys
 const STORAGE_KEY = 'phantom_connection_data'
+const CONNECTION_STATE_KEY = 'phantom_connection_state'
 
+// Listen for connection state changes across tabs
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === CONNECTION_STATE_KEY) {
+      const connectionState = JSON.parse(event.newValue || '{}')
+      showDebugMessage('📡 Received connection state from other tab:', connectionState)
+      
+      if (connectionState.connected && connectionState.publicKey) {
+        // Update window.solana
+        window.solana = {
+          isPhantom: true,
+          publicKey: new PublicKey(connectionState.publicKey),
+          isConnected: true,
+          connect: async () => {
+            if (!window.solana?.isConnected) {
+              throw new Error('Wallet not connected')
+            }
+            return { publicKey: window.solana.publicKey! }
+          },
+          disconnect: async () => {
+            if (window.solana) {
+              window.solana.isConnected = false
+              window.solana.publicKey = null
+            }
+          },
+          signTransaction: async () => {
+            throw new Error('Use mobile signing')
+          },
+          signAllTransactions: async () => {
+            throw new Error('Use mobile signing')
+          },
+        }
+
+        // Update wallet service state
+        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
+        if (phantomAdapter && walletService && window.solana?.publicKey) {
+          phantomAdapter['emit']('connect', window.solana.publicKey)
+          walletService['_publicKey'].value = window.solana.publicKey
+          walletService['currentWallet'].value = phantomAdapter
+          walletService['_connecting'].value = false
+          walletService['handleConnect']()
+        }
+
+        showDebugMessage('✅ Connection state synchronized from other tab')
+      }
+    }
+  })
+}
+
+// Function to broadcast connection state to other tabs
+const broadcastConnectionState = (publicKey: string) => {
+  try {
+    localStorage.setItem(CONNECTION_STATE_KEY, JSON.stringify({
+      connected: true,
+      publicKey,
+      timestamp: Date.now()
+    }))
+    showDebugMessage('📢 Broadcasting connection state to other tabs')
+  } catch (error) {
+    console.warn('Failed to broadcast connection state:', error)
+  }
+}
+
+// Store connection data in localStorage for persistence
 const saveConnectionData = (data: WalletConnectionData) => {
   try {
     // We need to save the keypair for decrypting Phantom responses
@@ -396,41 +461,18 @@ export const handlePhantomConnectResponse = () => {
         },
       }
 
-      // **IMPORTANT: Trigger wallet service to connect with the mobile wallet result**
-      try {
-        const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
-        if (phantomAdapter && walletService) {
-          // Initialize adapter with the connection result
-          phantomAdapter['emit']('connect', publicKey)
-          
-          // Update wallet service state
-          walletService['_publicKey'].value = publicKey
-          walletService['currentWallet'].value = phantomAdapter
-          walletService['_connecting'].value = false
-          
-          // Manually trigger connect handler to ensure all state is updated
-          walletService['handleConnect']()
-          
-          showDebugMessage('🔄 Wallet service state updated:', {
-            hasPublicKey: !!walletService['_publicKey'].value,
-            hasAdapter: !!walletService['currentWallet'].value,
-            isConnecting: walletService['_connecting'].value
-          })
-          
-          // Update balance after a short delay
-          setTimeout(async () => {
-            try {
-              await walletService.updateBalance()
-              showDebugMessage('💰 Balance updated')
-            } catch (error) {
-              console.warn('Failed to update balance:', error)
-            }
-          }, 1000)
-        }
-      } catch (serviceError) {
-        console.warn('Failed to update wallet service:', serviceError)
-        throw serviceError
+      // Update wallet service state
+      const phantomAdapter = walletAdapters.find(w => w.name === 'Phantom')?.adapter
+      if (phantomAdapter && walletService) {
+        phantomAdapter['emit']('connect', publicKey)
+        walletService['_publicKey'].value = publicKey
+        walletService['currentWallet'].value = phantomAdapter
+        walletService['_connecting'].value = false
+        walletService['handleConnect']()
       }
+
+      // Broadcast connection state to other tabs
+      broadcastConnectionState(connectData.public_key)
 
       // Update connection data with session
       mobileWalletState.connectionData = {
@@ -442,11 +484,19 @@ export const handlePhantomConnectResponse = () => {
       // Save updated connection data
       saveConnectionData(mobileWalletState.connectionData)
 
-      // Trigger connection event for the app to listen to
-      window.dispatchEvent(new CustomEvent('phantom-wallet-connected', {
-        detail: { publicKey: connectData.public_key }
-      }))
-      
+      // Show success toast
+      try {
+        const uiStore = useUIStore()
+        uiStore.showToast({
+          type: 'success',
+          title: 'Wallet Connected!',
+          message: `Phantom wallet connected successfully. Address: ${formatWalletAddress(connectData.public_key)}`,
+          duration: 5000
+        })
+      } catch (toastError) {
+        console.warn('Failed to show success toast:', toastError)
+      }
+
       showDebugMessage('🎉 Mobile wallet connection completed successfully!')
       
       // Clean up the URL by removing phantom_action parameter
@@ -492,23 +542,22 @@ if (typeof window !== 'undefined') {
   // Check if this is a Phantom response first
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
-  const isPhantomReturn = urlParams.get('phantom_return') === 'true'
   
   if (phantomAction === 'connect') {
     // If this is a Phantom response, don't initialize new connection data
     // Let the response handler load the stored data instead
     showDebugMessage('📥 Processing Phantom connect response')
     checkForPhantomResponse()
-  } else if (isPhantomReturn) {
-    // This is the return tab - redirect back to original tab
-    showDebugMessage('↩️ Detected return tab, redirecting to original')
-    const cleanUrl = new URL(window.location.href)
-    cleanUrl.searchParams.delete('phantom_return')
-    window.location.replace(cleanUrl.toString())
   } else {
-    // Only initialize connection data if we're not processing a response
-    showDebugMessage('🔄 Initializing new connection')
-    mobileWalletState.connectionData = initializeConnectionData()
+    // Check if this is a new tab but we're already connecting in another tab
+    const isConnectingInOtherTab = localStorage.getItem('phantom_connecting_tab') === 'true'
+    if (isConnectingInOtherTab) {
+      showDebugMessage('⚠️ Connection already in progress in another tab')
+    } else {
+      // Only initialize connection data if we're not processing a response
+      showDebugMessage('🔄 Initializing new connection')
+      mobileWalletState.connectionData = initializeConnectionData()
+    }
   }
 }
 
@@ -529,12 +578,11 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
   try {
     showDebugMessage('🚀 Starting mobile connection process')
     
-    // Store original tab URL in localStorage
-    const originalUrl = window.location.href
-    localStorage.setItem('phantom_original_tab', originalUrl)
-    
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
+
+    // Mark this as the original connecting tab
+    localStorage.setItem('phantom_connecting_tab', 'true')
 
     // Reuse existing connection data if available, otherwise initialize new
     if (!mobileWalletState.connectionData) {
@@ -601,25 +649,32 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       const timeout = setTimeout(() => {
         showDebugMessage('⚠️ Connection timeout after 60 seconds')
         mobileWalletState.isConnecting = false
+        localStorage.removeItem('phantom_connecting_tab')
         reject(new Error('Connection timeout'))
       }, 60000) // 60 second timeout
 
-      const handleConnection = (event: CustomEvent) => {
-        showDebugMessage('🎉 Received connection event:', {
-          publicKey: event.detail.publicKey.slice(0, 10) + '...'
-        })
-        clearTimeout(timeout)
-        mobileWalletState.isConnecting = false
-        window.removeEventListener('phantom-wallet-connected', handleConnection as EventListener)
-        resolve({ publicKey: new PublicKey(event.detail.publicKey) })
+      // Listen for connection state changes
+      const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === CONNECTION_STATE_KEY) {
+          const connectionState = JSON.parse(event.newValue || '{}')
+          if (connectionState.connected && connectionState.publicKey) {
+            showDebugMessage('📡 Received connection state:', connectionState)
+            clearTimeout(timeout)
+            window.removeEventListener('storage', handleStorageChange)
+            mobileWalletState.isConnecting = false
+            localStorage.removeItem('phantom_connecting_tab')
+            resolve({ publicKey: new PublicKey(connectionState.publicKey) })
+          }
+        }
       }
 
-      window.addEventListener('phantom-wallet-connected', handleConnection as EventListener)
+      window.addEventListener('storage', handleStorageChange)
       showDebugMessage('👂 Waiting for connection approval...')
     })
 
   } catch (error) {
     mobileWalletState.isConnecting = false
+    localStorage.removeItem('phantom_connecting_tab')
     showDebugMessage('❌ Failed to connect to Phantom:', error)
     
     // If we failed to open the app, redirect to app store
