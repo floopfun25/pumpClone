@@ -467,9 +467,8 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
     })
 
-    // Create redirect URL - CRITICAL: Use exact current URL without modifications
-    // This ensures Phantom returns to the same tab
-    const redirectUrl = window.location.href
+    // Create redirect URL with phantom_action to solve new tab issue on mobile
+    const redirectUrl = createRedirectUrl('connect')
     
     // Build connect URL
     const connectUrl = buildConnectUrl(
@@ -479,7 +478,7 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     )
 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
-    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
+    showDebugMessage('📱 Redirect URL (with phantom_action):', redirectUrl)
 
     // Use window.location.href (not replace) to maintain tab context
     window.location.href = connectUrl
