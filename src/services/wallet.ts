@@ -449,9 +449,9 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     return { publicKey: window.solana.publicKey! }
   }
 
-      try {
-      mobileWalletState.isConnecting = true
-      mobileWalletState.lastConnectionAttempt = Date.now()
+  try {
+    mobileWalletState.isConnecting = true
+    mobileWalletState.lastConnectionAttempt = Date.now()
 
     // Reuse existing connection data if available, otherwise initialize new
     if (!mobileWalletState.connectionData) {
@@ -467,8 +467,9 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
       publicKey: mobileWalletState.connectionData.dappKeyPair.publicKey ? 'exists' : 'missing'
     })
 
-    // Create redirect URL (will now go to home page)
-    const redirectUrl = createRedirectUrl('connect')
+    // Create redirect URL - CRITICAL: Use exact current URL without modifications
+    // This ensures Phantom returns to the same tab
+    const redirectUrl = window.location.href
     
     // Build connect URL
     const connectUrl = buildConnectUrl(
@@ -478,10 +479,10 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     )
 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
-    showDebugMessage('📱 Redirect URL:', redirectUrl)
+    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
 
-    // Force navigation in the same tab to prevent new tab creation
-    window.location.replace(connectUrl)
+    // Use window.location.href (not replace) to maintain tab context
+    window.location.href = connectUrl
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
@@ -502,7 +503,7 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
 
   } catch (error) {
     mobileWalletState.isConnecting = false
-    console.error('❌ Failed to connect to Phantom:', error)
+    showDebugMessage('❌ Failed to connect to Phantom:', error)
     throw error
   }
 }
@@ -515,14 +516,17 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
       return
     }
 
-    // Build disconnect URL
-    const redirectUrl = createRedirectUrl('disconnect')
+    // Build disconnect URL using exact current URL as redirect
+    const redirectUrl = window.location.href
     const disconnectUrl = buildDisconnectUrl(
       connectionData.dappKeyPair,
       connectionData.sharedSecret,
       connectionData.session,
       redirectUrl
     )
+
+    showDebugMessage('🔗 Opening Phantom disconnect URL:', disconnectUrl)
+    showDebugMessage('📱 Redirect URL (exact current URL):', redirectUrl)
 
     // Clear local state
     mobileWalletState.connectionData = null
@@ -534,13 +538,13 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
       window.solana.publicKey = null
     }
 
-    // Force navigation in the same tab to prevent new tab creation
-    window.location.replace(disconnectUrl)
+    // Use window.location.href to maintain tab context
+    window.location.href = disconnectUrl
 
-    console.log('✅ Phantom wallet disconnected')
+    showDebugMessage('✅ Phantom wallet disconnected')
     
   } catch (error) {
-    console.error('❌ Failed to disconnect from Phantom:', error)
+    showDebugMessage('❌ Failed to disconnect from Phantom:', error)
     throw error
   }
 }

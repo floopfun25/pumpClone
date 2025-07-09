@@ -476,36 +476,9 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  // Use the exact current URL without any modifications
-  // This helps ensure Phantom returns to the same tab
+  // CRITICAL: Return the exact current URL without any modifications
+  // This ensures Phantom returns to the same tab instead of opening a new one
   const currentUrl = window.location.href
   
-  // If there's already a phantom_action parameter, remove it from the base URL
-  let baseUrl = currentUrl
-  if (currentUrl.includes('phantom_action=')) {
-    const url = new URL(currentUrl)
-    url.searchParams.delete('phantom_action')
-    baseUrl = url.toString()
-  }
-  
-  // Add the phantom_action parameter using the minimal approach
-  const separator = baseUrl.includes('?') ? '&' : '?'
-  const redirectUrl = `${baseUrl}${separator}phantom_action=${action}`
-  
-  // Debug logging (remove after testing)
-  if (typeof window !== 'undefined') {
-    try {
-      const { showDebugMessage } = require('./mobileDebug')
-      showDebugMessage(`🔗 Creating redirect URL:`, {
-        originalUrl: currentUrl,
-        baseUrl,
-        action,
-        finalUrl: redirectUrl
-      })
-    } catch (e) {
-      // Fallback if debug module not available
-    }
-  }
-  
-  return redirectUrl
+  return currentUrl
 }
