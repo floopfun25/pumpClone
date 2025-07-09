@@ -499,16 +499,20 @@ export const handlePhantomConnectResponse = () => {
 
       showDebugMessage('🎉 Mobile wallet connection completed successfully!')
       
-      // Clean up the URL by removing phantom_action parameter
-      const cleanUrl = new URL(window.location.href)
-      cleanUrl.searchParams.delete('phantom_action')
-      cleanUrl.searchParams.delete('phantom_encryption_public_key')
-      cleanUrl.searchParams.delete('data')
-      cleanUrl.searchParams.delete('nonce')
-      cleanUrl.searchParams.delete('errorCode')
-      cleanUrl.searchParams.delete('errorMessage')
-      window.history.replaceState({}, document.title, cleanUrl.toString())
-      
+      // Clean up URL parameters
+      try {
+        const cleanUrl = new URL(window.location.href)
+        cleanUrl.searchParams.delete('phantom_action')
+        cleanUrl.searchParams.delete('phantom_encryption_public_key')
+        cleanUrl.searchParams.delete('data')
+        cleanUrl.searchParams.delete('nonce')
+        cleanUrl.searchParams.delete('errorCode')
+        cleanUrl.searchParams.delete('errorMessage')
+        window.history.replaceState({}, document.title, cleanUrl.toString())
+      } catch (error) {
+        console.warn('Failed to clean URL:', error)
+      }
+
     } catch (decryptError) {
       showDebugMessage('❌ Decryption failed:', decryptError)
       throw decryptError
@@ -543,21 +547,22 @@ if (typeof window !== 'undefined') {
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
   
+  showDebugMessage('🔄 Checking page initialization:', {
+    hasPhantomAction: !!phantomAction,
+    urlParams: Object.fromEntries(urlParams.entries()),
+    isConnectingTab: localStorage.getItem('phantom_connecting_tab') === 'true'
+  })
+  
   if (phantomAction === 'connect') {
-    // If this is a Phantom response, don't initialize new connection data
-    // Let the response handler load the stored data instead
-    showDebugMessage('📥 Processing Phantom connect response')
+    // This is a Phantom response - we should process it regardless of connecting_tab state
+    showDebugMessage('📱 Processing Phantom connect response in new tab')
+    // Clear connecting flag since we're now in the response tab
+    localStorage.removeItem('phantom_connecting_tab')
     checkForPhantomResponse()
   } else {
-    // Check if this is a new tab but we're already connecting in another tab
-    const isConnectingInOtherTab = localStorage.getItem('phantom_connecting_tab') === 'true'
-    if (isConnectingInOtherTab) {
-      showDebugMessage('⚠️ Connection already in progress in another tab')
-    } else {
-      // Only initialize connection data if we're not processing a response
-      showDebugMessage('🔄 Initializing new connection')
-      mobileWalletState.connectionData = initializeConnectionData()
-    }
+    // Only initialize connection data if we're not processing a response
+    showDebugMessage('🔄 Initializing new connection')
+    mobileWalletState.connectionData = initializeConnectionData()
   }
 }
 
@@ -646,29 +651,42 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        showDebugMessage('⚠️ Connection timeout after 60 seconds')
+      let connectionTimeout: NodeJS.Timeout
+      let storageListener: (event: StorageEvent) => void
+
+      const cleanup = () => {
+        clearTimeout(connectionTimeout)
+        window.removeEventListener('storage', storageListener)
         mobileWalletState.isConnecting = false
         localStorage.removeItem('phantom_connecting_tab')
-        reject(new Error('Connection timeout'))
-      }, 60000) // 60 second timeout
+      }
+
+      // Set up connection timeout
+      connectionTimeout = setTimeout(() => {
+        showDebugMessage('⚠️ Connection timeout after 60 seconds')
+        cleanup()
+        reject(new Error('Connection timeout - please try connecting again'))
+      }, 60000)
 
       // Listen for connection state changes
-      const handleStorageChange = (event: StorageEvent) => {
+      storageListener = (event: StorageEvent) => {
         if (event.key === CONNECTION_STATE_KEY) {
-          const connectionState = JSON.parse(event.newValue || '{}')
-          if (connectionState.connected && connectionState.publicKey) {
-            showDebugMessage('📡 Received connection state:', connectionState)
-            clearTimeout(timeout)
-            window.removeEventListener('storage', handleStorageChange)
-            mobileWalletState.isConnecting = false
-            localStorage.removeItem('phantom_connecting_tab')
-            resolve({ publicKey: new PublicKey(connectionState.publicKey) })
+          try {
+            const connectionState = JSON.parse(event.newValue || '{}')
+            showDebugMessage('📡 Received storage event:', connectionState)
+            
+            if (connectionState.connected && connectionState.publicKey) {
+              showDebugMessage('✅ Connection confirmed via storage event')
+              cleanup()
+              resolve({ publicKey: new PublicKey(connectionState.publicKey) })
+            }
+          } catch (error) {
+            showDebugMessage('❌ Error processing storage event:', error)
           }
         }
       }
 
-      window.addEventListener('storage', handleStorageChange)
+      window.addEventListener('storage', storageListener)
       showDebugMessage('👂 Waiting for connection approval...')
     })
 
