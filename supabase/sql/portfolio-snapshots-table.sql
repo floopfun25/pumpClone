@@ -26,19 +26,30 @@ ON public.portfolio_snapshots(user_id, snapshot_date);
 -- Enable RLS
 ALTER TABLE public.portfolio_snapshots ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own portfolio snapshots" ON public.portfolio_snapshots;
+DROP POLICY IF EXISTS "Users can insert their own portfolio snapshots" ON public.portfolio_snapshots;
+DROP POLICY IF EXISTS "Users can update their own portfolio snapshots" ON public.portfolio_snapshots;
+DROP POLICY IF EXISTS "Allow user to read their own snapshots" ON public.portfolio_snapshots;
+DROP POLICY IF EXISTS "Allow user to insert their own snapshots" ON public.portfolio_snapshots;
+DROP POLICY IF EXISTS "Allow user to update their own snapshots" ON public.portfolio_snapshots;
+
+
 -- Create RLS policies
-CREATE POLICY "Users can view their own portfolio snapshots" ON public.portfolio_snapshots
-    FOR SELECT USING (auth.uid()::text = user_id::text);
+CREATE POLICY "Allow user to read their own snapshots" ON public.portfolio_snapshots
+    FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own portfolio snapshots" ON public.portfolio_snapshots
-    FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+CREATE POLICY "Allow user to insert their own snapshots" ON public.portfolio_snapshots
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own portfolio snapshots" ON public.portfolio_snapshots
-    FOR UPDATE USING (auth.uid()::text = user_id::text);
+CREATE POLICY "Allow user to update their own snapshots" ON public.portfolio_snapshots
+    FOR UPDATE USING (auth.uid() = user_id);
+
 
 -- Grant permissions
 GRANT ALL ON public.portfolio_snapshots TO authenticated;
-GRANT SELECT ON public.portfolio_snapshots TO anon;
+-- It's safer to not allow anon users to select from this table.
+-- GRANT SELECT ON public.portfolio_snapshots TO anon;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_portfolio_snapshots_updated_at()
@@ -50,6 +61,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for updated_at
+DROP TRIGGER IF EXISTS portfolio_snapshots_updated_at ON public.portfolio_snapshots;
 CREATE TRIGGER portfolio_snapshots_updated_at
     BEFORE UPDATE ON public.portfolio_snapshots
     FOR EACH ROW
