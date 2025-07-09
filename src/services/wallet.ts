@@ -449,9 +449,9 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     return { publicKey: window.solana.publicKey! }
   }
 
-  try {
-    mobileWalletState.isConnecting = true
-    mobileWalletState.lastConnectionAttempt = Date.now()
+      try {
+      mobileWalletState.isConnecting = true
+      mobileWalletState.lastConnectionAttempt = Date.now()
 
     // Reuse existing connection data if available, otherwise initialize new
     if (!mobileWalletState.connectionData) {
@@ -480,8 +480,8 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
     showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
     showDebugMessage('📱 Redirect URL:', redirectUrl)
 
-    // Open Phantom app - use href to maintain tab context
-    window.location.href = connectUrl
+    // Force navigation in the same tab to prevent new tab creation
+    window.location.replace(connectUrl)
 
     // Return a promise that resolves when connection is complete
     return new Promise((resolve, reject) => {
@@ -534,8 +534,8 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
       window.solana.publicKey = null
     }
 
-    // Open disconnect URL - use href to maintain tab context
-    window.location.href = disconnectUrl
+    // Force navigation in the same tab to prevent new tab creation
+    window.location.replace(disconnectUrl)
 
     console.log('✅ Phantom wallet disconnected')
     
