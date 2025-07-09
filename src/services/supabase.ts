@@ -193,95 +193,95 @@ export class SupabaseAuth {
    */
   static async signInWithWallet(walletAddress: string): Promise<{ user: any; session: any }> {
     try {
-      // Validate wallet address parameter
-      if (!walletAddress || typeof walletAddress !== 'string') {
-        throw new Error(`Invalid wallet address: ${walletAddress}`)
-      }
-      
-      console.log('🔑 Starting wallet authentication for:', walletAddress.slice(0, 8) + '...')
-      
-      // First, try to find an existing user profile with this wallet address
+      if (!walletAddress) throw new Error('Invalid wallet address');
+      console.log(`🔑 Authenticating wallet: ${walletAddress.slice(0, 8)}...`);
+
+      // 1. Check if a user profile with this wallet address already exists in our public table.
       const { data: existingUser, error: findError } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress)
         .single();
-        
-      if (findError && findError.code !== 'PGRST116') {
-        // PGRST116: 'exact-one-row-not-found' which is okay, means no user exists
-        console.error('Error finding user:', findError);
-        throw findError;
-      }
-      
-      // If a user profile exists, we need to make sure we're signed in as them.
-      if (existingUser) {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        // If we're already signed in as the correct user, we're done.
-        if (session && session.user?.id === existingUser.id) {
-          console.log('✅ Already signed in as the correct user.');
-          return { user: session.user, session };
-        }
-        
-        // If we are signed in as someone else, or not at all, sign out first.
-        if (session) {
-          await supabase.auth.signOut();
-        }
 
-        // Now, sign in anonymously. Supabase will handle linking if the user already exists
-        // based on its internal mechanisms, but we've verified they exist in our public table.
-        // This flow ensures we have a valid session for an existing user profile.
+      if (findError && findError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw new Error(`Error finding user: ${findError.message}`);
       }
       
-      // Sign out any lingering session before creating a new one
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error(`Error getting session: ${sessionError.message}`);
+
+      // 2. Case: User profile exists in our DB.
+      if (existingUser) {
+        console.log(`✅ Existing user profile found: ${existingUser.id}`);
+        // 2a. And the current session belongs to this user. Perfect, we're done.
+        if (currentSession && currentSession.user?.id === existingUser.id) {
+          console.log('✅ Session matches existing user. Authentication complete.');
+          return { user: currentSession.user, session: currentSession };
+        }
+        
+        // 2b. A session exists, but for a different user. This is an inconsistent state.
+        // We must sign out before we can proceed to log the correct user in.
+        if (currentSession) {
+            console.warn(`Mismatched session found. Signing out before re-authenticating.`);
+            await supabase.auth.signOut();
+        }
+        
+        // 2c. No session, or mismatched session was cleared. We now need a session for the *existingUser*.
+        // The ONLY way to do this without custom JWTs is to call signInAnonymously and then
+        // immediately reconcile the new auth user with our existing public user.
+        console.log('🆕 Creating a new auth session to link to existing profile...');
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError || !anonData.user) throw new Error(`Failed to create anonymous session: ${anonError?.message}`);
+        
+        console.log(`🔗 Linking new auth user ${anonData.user.id} to existing profile ${existingUser.id}`);
+
+        // This is the CRITICAL step: We call an RPC function on the database
+        // to merge the new auth user into our old one. This preserves the original user ID.
+        const { error: mergeError } = await supabase.rpc('merge_users', {
+            old_user_id: existingUser.id,
+            new_user_id: anonData.user.id
+        });
+
+        if (mergeError) {
+          console.error('❌ User merge failed!', mergeError);
+          // If merge fails, sign out to prevent inconsistent state.
+          await supabase.auth.signOut();
+          throw new Error(`Failed to reconcile user accounts: ${mergeError.message}`);
+        }
+        
+        // After successful merge, the new session now effectively belongs to the original user.
+        // We fetch the latest session data to be sure.
+        const { data: { session: finalSession } } = await supabase.auth.getSession();
+        if (!finalSession) throw new Error('Failed to get session after user merge.');
+        
+        console.log(`✅ Successfully linked new session to user ${existingUser.wallet_address}`);
+        return { user: { ...finalSession.user, ...existingUser }, session: finalSession };
+      }
+
+      // 3. Case: No user profile exists. This is a new user.
+      console.log('🆕 No existing profile. Creating new user...');
       if (currentSession) {
-        console.log('🚪 Signing out existing session before new anonymous login');
+        console.log('🚪 Clearing pre-existing session before new user login.');
         await supabase.auth.signOut();
       }
       
-      console.log('🆕 Creating new anonymous session...')
-      
-      // Create anonymous user with wallet address in metadata
-      const { data, error } = await supabase.auth.signInAnonymously({
-        options: {
-          data: {
-            wallet_address: walletAddress,
-            username: `user_${walletAddress.slice(0, 6)}`,
-            created_via: 'wallet_connection'
-          }
-        }
-      })
-      
-      console.log('Supabase auth response:', { data, error }) // Debug what we get back
-      
-      if (error) {
-        console.error('❌ Supabase auth error:', error)
-        throw error
+      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+      if (anonError || !anonData.user) {
+        throw new Error(`Supabase anonymous sign-in failed: ${anonError?.message}`);
       }
       
-      // Check if data exists first
-      if (!data) {
-        throw new Error('Supabase returned null data - Anonymous auth may not be enabled')
-      }
-      
-      if (!data.user || !data.session) {
-        throw new Error('Failed to create anonymous auth session - missing user or session')
-      }
-      
-      console.log('✅ Anonymous auth successful, creating user profile...')
-      
-      // Now, upsert the user profile in the public.users table
-      const userProfile = await SupabaseService.upsertUser({
-        id: data.user.id,
+      console.log(`✅ Anonymous auth successful. Creating profile for new user: ${anonData.user.id}`);
+      const newUserProfile = await SupabaseService.upsertUser({
+        id: anonData.user.id,
         wallet_address: walletAddress,
         username: `user_${walletAddress.slice(0, 6)}`
-      })
+      });
 
-      return { user: { ...data.user, ...userProfile }, session: data.session }
+      return { user: { ...anonData.user, ...newUserProfile }, session: anonData.session };
+
     } catch (error) {
-      console.error('Failed to sign in with wallet:', error)
-      throw error
+      console.error('❌ Wallet authentication failed:', error);
+      throw error;
     }
   }
   
@@ -420,30 +420,27 @@ export class SupabaseService {
    */
   static async upsertUser(userData: Database['public']['Tables']['users']['Insert']) {
     try {
+      if (!userData.wallet_address) throw new Error("Wallet address is required to upsert a user.");
+
       const { data, error } = await supabase
         .from('users')
-        .upsert(userData, {
-          onConflict: 'wallet_address',
-          ignoreDuplicates: false
-        })
+        .upsert(userData, { onConflict: 'wallet_address', ignoreDuplicates: false })
         .select()
         .single()
-      
+
       if (error) {
-        // We expect a 409 conflict if the user already exists, which is fine.
-        if (error.code === '23505' || error.code === 'PGRST116') { 
-          // 23505: unique_violation, PGRST116: 'exact-one-row-not-found'
-          // In case of conflict, fetch the existing user.
-          console.log('User already exists, fetching profile...');
+        // It's possible another process created the user in the meantime.
+        // If it's a unique constraint violation, we can safely fetch the user.
+        if (error.code === '23505') { // unique_violation
+          console.warn('Upsert failed due to conflict, fetching existing user.');
           return SupabaseService.getUserByWallet(userData.wallet_address);
         }
-        console.error('Failed to upsert user:', error)
-        throw error
+        throw error; // Re-throw other errors
       }
-      return data
+      return data;
     } catch (error) {
-      console.error('Error in upsertUser:', error)
-      throw error
+      console.error('Error in upsertUser:', error);
+      throw error;
     }
   }
   
