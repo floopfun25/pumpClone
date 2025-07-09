@@ -210,9 +210,11 @@ export const handlePhantomConnectResponse = () => {
     // Check if this is actually a Phantom response
     const urlParams = new URLSearchParams(window.location.search)
     const phantomAction = urlParams.get('phantom_action')
+    const isPhantomReturn = urlParams.get('phantom_return') === 'true'
     
     showDebugMessage('🔍 Checking Phantom response parameters:', {
       phantomAction,
+      isPhantomReturn,
       hasUrlParams: urlParams.toString().length > 0,
       allParams: Object.fromEntries(urlParams.entries())
     })
@@ -220,6 +222,16 @@ export const handlePhantomConnectResponse = () => {
     if (phantomAction !== 'connect') {
       showDebugMessage('⚠️ Not a connect response:', { phantomAction })
       return
+    }
+
+    // If this is a return tab, try to redirect back to original
+    if (isPhantomReturn) {
+      const originalTab = localStorage.getItem('phantom_original_tab')
+      if (originalTab) {
+        showDebugMessage('↩️ Redirecting back to original tab:', originalTab)
+        window.location.replace(originalTab)
+        return
+      }
     }
     
     // Check for various possible parameter names that Phantom might use
@@ -480,13 +492,22 @@ if (typeof window !== 'undefined') {
   // Check if this is a Phantom response first
   const urlParams = new URLSearchParams(window.location.search)
   const phantomAction = urlParams.get('phantom_action')
+  const isPhantomReturn = urlParams.get('phantom_return') === 'true'
   
   if (phantomAction === 'connect') {
     // If this is a Phantom response, don't initialize new connection data
     // Let the response handler load the stored data instead
+    showDebugMessage('📥 Processing Phantom connect response')
     checkForPhantomResponse()
+  } else if (isPhantomReturn) {
+    // This is the return tab - redirect back to original tab
+    showDebugMessage('↩️ Detected return tab, redirecting to original')
+    const cleanUrl = new URL(window.location.href)
+    cleanUrl.searchParams.delete('phantom_return')
+    window.location.replace(cleanUrl.toString())
   } else {
     // Only initialize connection data if we're not processing a response
+    showDebugMessage('🔄 Initializing new connection')
     mobileWalletState.connectionData = initializeConnectionData()
   }
 }
@@ -507,6 +528,10 @@ export const connectPhantomMobile = async (): Promise<{ publicKey: PublicKey }> 
 
   try {
     showDebugMessage('🚀 Starting mobile connection process')
+    
+    // Store original tab URL in localStorage
+    const originalUrl = window.location.href
+    localStorage.setItem('phantom_original_tab', originalUrl)
     
     mobileWalletState.isConnecting = true
     mobileWalletState.lastConnectionAttempt = Date.now()
