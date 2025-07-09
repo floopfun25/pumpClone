@@ -150,6 +150,7 @@ export const openWalletApp = async (walletName: string, options: DeeplinkOptions
 
     // Attempt to open the deeplink
     try {
+      // Use location.href to maintain tab context
       window.location.href = deeplink
     } catch (error) {
       clearTimeout(timeoutId)
@@ -475,16 +476,15 @@ export const isPhantomResponse = (url: string): boolean => {
 
 // Create redirect URL for the current page
 export const createRedirectUrl = (action: string): string => {
-  // For GitHub Pages project sites, we need to include the repository path
-  // Extract the base path from the current location
-  const currentPath = window.location.pathname
+  // Use the current URL to maintain tab context
+  const currentUrl = new URL(window.location.href)
   
-  // For GitHub Pages project sites, the path starts with /repositoryname/
-  // We need to extract just the repository part
-  const pathParts = currentPath.split('/').filter(part => part.length > 0)
-  const basePath = pathParts.length > 0 ? `/${pathParts[0]}/` : '/'
+  // Remove any existing phantom_action parameter to avoid conflicts
+  currentUrl.searchParams.delete('phantom_action')
   
-  const baseUrl = window.location.origin + basePath
+  // Add the phantom_action parameter
+  currentUrl.searchParams.set('phantom_action', action)
   
-  return `${baseUrl}?phantom_action=${action}`
+  // Return the modified current URL to maintain tab context
+  return currentUrl.toString()
 }
