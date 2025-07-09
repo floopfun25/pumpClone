@@ -592,66 +592,58 @@ class WalletService {
 
   // Mobile connection using MWA
   private async connectMobile(walletName?: string): Promise<void> {
+    // Force Phantom to always use the deeplink strategy
+    if (walletName === 'Phantom') {
+      try {
+        showDebugMessage('📱 Forcing Phantom mobile connection via deeplink...');
+        await connectPhantomMobile();
+        // The browser navigates away, so code below will not be executed in this tab.
+        return; 
+      } catch (error) {
+        console.error(`Failed to connect to Phantom on mobile:`, error);
+        this._connecting.value = false;
+        this.handleError(error as Error);
+        throw error;
+      }
+    }
+
+    // Fallback for other wallets or if no name is specified
     const isChrome = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent)
     
     // Use proper deeplink connection for mobile wallets
     if (walletName) {
       try {
-        if (walletName === 'Phantom') {
-          showDebugMessage('📱 Attempting Phantom mobile connection via proper connect deeplink...')
-          
-          // Use the new connect method with proper encryption
-          await connectPhantomMobile()
-          
-          // NOTE: The code below this line will not execute in the original tab
-          // because connectPhantomMobile navigates away. The connection is
-          // handled by the broadcast channel when the user returns.
-          
-        } else {
-          console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
-          
-          // Show instructions to user
-          const instructions = getMobileConnectionInstructions(walletName)
-          console.log(instructions)
-          
-          // Use deep linking to open the wallet app for other wallets
-          await connectMobileWallet(walletName, {
-            dappUrl: window.location.origin,
-            redirectUrl: window.location.href,
-            cluster: 'mainnet-beta'
-          })
-          
-          console.log(`Successfully opened ${walletName} app for connection`)
-          
-          // The actual connection will happen when the user returns from the app
-          this.setupMobileReturnListener(walletName)
-          
-          return
-        }
+        // This block will now handle non-Phantom wallets like Solflare
+        console.log(`Attempting mobile connection to ${walletName} via deep linking...`)
         
-      } catch (error: any) {
-        console.error(`Mobile connection failed for ${walletName}:`, error)
+        // Show instructions to user
+        const instructions = getMobileConnectionInstructions(walletName)
+        console.log(instructions)
         
-        // If deep linking fails and we're on Chrome Android, try MWA as fallback
-        if (isChrome && this.mobileWalletAdapter) {
-          console.log('Falling back to Mobile Wallet Adapter...')
-          return this.connectViaMWA()
-        }
+        // Use deep linking to open the wallet app for other wallets
+        await connectMobileWallet(walletName, {
+          dappUrl: window.location.origin,
+          redirectUrl: window.location.href,
+          cluster: 'mainnet-beta'
+        })
         
-        throw new WalletConnectionError(
-          `Unable to connect to ${walletName}. Please make sure the ${walletName} app is installed on your device.`
-        )
+        console.log(`Successfully opened ${walletName} app for connection`)
+        
+        // The actual connection will happen when the user returns from the app
+        this.setupMobileReturnListener(walletName)
+        
+        return
+        
+      } catch (error) {
+        console.error(`Failed to connect to ${walletName} on mobile:`, error)
+        this._connecting.value = false
+        this.handleError(error as Error)
+        throw error
       }
-    }
-    
-    // Fallback to MWA for Chrome Android if no specific wallet is requested
-    if (isChrome) {
+    } else {
+      // If no specific wallet is chosen, use MWA
       return this.connectViaMWA()
     }
-    
-    throw new WalletConnectionError(
-      'Mobile wallet connections require a compatible wallet app. Please install Phantom or Solflare from your app store.'
-    )
   }
 
   private async connectViaMWA(): Promise<void> {
