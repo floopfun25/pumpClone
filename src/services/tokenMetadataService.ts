@@ -23,65 +23,38 @@ class TokenMetadataService {
    * Get token metadata from multiple sources with fallbacks
    */
   async getTokenMetadata(mintAddress: string): Promise<TokenMetadata> {
-    console.log(`🔍 [METADATA] Starting metadata lookup for token: ${mintAddress}`)
     
     // Check cache first
     const cacheKey = `metadata_${mintAddress}`
     const cached = this.metadataCache.get(cacheKey)
     
     if (cached) {
-      console.log(`📦 [METADATA] Found cached metadata for ${mintAddress}:`, {
-        name: cached.name,
-        symbol: cached.symbol,
-        image: cached.image,
-        source: cached.source
-      })
       return cached
     }
 
     try {
       // 1. Try to get from database first (our platform tokens)
-      console.log(`🗄️ [METADATA] Trying database lookup for ${mintAddress}`)
       const dbMetadata = await this.getMetadataFromDatabase(mintAddress)
       if (dbMetadata) {
-        console.log(`✅ [METADATA] Found database metadata for ${mintAddress}:`, {
-          name: dbMetadata.name,
-          symbol: dbMetadata.symbol,
-          image: dbMetadata.image,
-          verified: dbMetadata.verified
-        })
         this.metadataCache.set(cacheKey, dbMetadata)
         return dbMetadata
       }
 
       // 2. Try Jupiter Token Registry
-      console.log(`🪐 [METADATA] Trying Jupiter registry for ${mintAddress}`)
       const jupiterMetadata = await this.getMetadataFromJupiter(mintAddress)
       if (jupiterMetadata) {
-        console.log(`✅ [METADATA] Found Jupiter metadata for ${mintAddress}:`, {
-          name: jupiterMetadata.name,
-          symbol: jupiterMetadata.symbol,
-          image: jupiterMetadata.image
-        })
         this.metadataCache.set(cacheKey, jupiterMetadata)
         return jupiterMetadata
       }
 
       // 3. Try to get from on-chain metadata URI
-      console.log(`⛓️ [METADATA] Trying on-chain metadata for ${mintAddress}`)
       const onChainMetadata = await this.getMetadataFromOnChain(mintAddress)
       if (onChainMetadata) {
-        console.log(`✅ [METADATA] Found on-chain metadata for ${mintAddress}:`, {
-          name: onChainMetadata.name,
-          symbol: onChainMetadata.symbol,
-          image: onChainMetadata.image
-        })
         this.metadataCache.set(cacheKey, onChainMetadata)
         return onChainMetadata
       }
 
       // 4. Fallback to basic info
-      console.log(`⚠️ [METADATA] No metadata found, using fallback for ${mintAddress}`)
       const fallbackMetadata = this.createFallbackMetadata(mintAddress)
       this.metadataCache.set(cacheKey, fallbackMetadata)
       return fallbackMetadata
@@ -114,13 +87,6 @@ class TokenMetadataService {
         console.log(`No token found in database for ${mintAddress}`)
         return null
       }
-
-      console.log(`Found token in database for ${mintAddress}:`, {
-        name: token.name,
-        symbol: token.symbol,
-        image_url: token.image_url,
-        metadata_uri: token.metadata_uri
-      })
 
       return {
         mint: mintAddress,

@@ -141,7 +141,6 @@ const saveConnectionData = (data: WalletConnectionData) => {
     
     // Use localStorage instead of sessionStorage for better mobile persistence
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeData))
-    showDebugMessage('💾 Saved connection data to localStorage')
   } catch (error) {
     console.warn('Failed to save connection data:', error)
   }
@@ -161,11 +160,6 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
         secretKey: bs58.decode(data.dappKeyPair.secretKey)
       }
     }
-    
-    showDebugMessage('📂 Loaded connection data from localStorage', {
-      hasSession: !!data.session,
-      hasKeyPair: !!data.dappKeyPair
-    })
     
     return data
   } catch (error) {
@@ -287,8 +281,6 @@ export const handlePhantomConnectResponse = () => {
       throw new Error('No dapp keypair available - cannot decrypt response')
     }
     
-    showDebugMessage('🔓 Attempting to decrypt Phantom response...')
-    
     // Manual decryption process
     try {
       // Decode the Phantom public key
@@ -350,7 +342,6 @@ export const handlePhantomConnectResponse = () => {
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    showDebugMessage('❌ Phantom connection failed:', errorMessage)
     
     mobileWalletState.isConnecting = false
     clearConnectionData()
@@ -397,11 +388,6 @@ export const connectPhantomMobile = async (): Promise<void> => {
     
     saveConnectionData(mobileWalletState.connectionData)
     
-    showDebugMessage('💾 Connection data saved to localStorage:', {
-      hasKeyPair: !!mobileWalletState.connectionData.dappKeyPair,
-      publicKey: mobileWalletState.connectionData.publicKey ? 'exists' : 'missing'
-    })
-
     const redirectUrl = createRedirectUrl('connect')
     
     const connectUrl = buildConnectUrl(
@@ -409,9 +395,6 @@ export const connectPhantomMobile = async (): Promise<void> => {
       redirectUrl,
       'devnet'
     )
-
-    showDebugMessage('🔗 Opening Phantom connect URL:', connectUrl)
-    showDebugMessage('📱 Redirect URL (with phantom_action):', redirectUrl)
 
     window.location.href = connectUrl
 
@@ -438,9 +421,6 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
       redirectUrl
     )
 
-    showDebugMessage('🔗 Opening Phantom disconnect URL:', disconnectUrl)
-    showDebugMessage('📱 Redirect URL (with phantom_action):', redirectUrl)
-
     // Clear local state
     mobileWalletState.connectionData = null
     clearConnectionData()
@@ -450,10 +430,7 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
     // Use window.location.href to maintain tab context
     window.location.href = disconnectUrl
 
-    showDebugMessage('✅ Phantom wallet disconnected')
-    
   } catch (error) {
-    showDebugMessage('❌ Failed to disconnect from Phantom:', error)
     throw error
   }
 }
@@ -701,7 +678,6 @@ class WalletService {
     // Force Phantom to always use the deeplink strategy
     if (walletName === 'Phantom') {
       try {
-        showDebugMessage('📱 Forcing Phantom mobile connection via deeplink...');
         await connectPhantomMobile();
         // The browser navigates away, so code below will not be executed in this tab.
         return; 

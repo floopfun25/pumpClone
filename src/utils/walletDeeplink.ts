@@ -99,11 +99,8 @@ export const openWalletApp = async (walletName: string, options: DeeplinkOptions
         return
     }
 
-    console.log(`Attempting to open ${walletName} via deeplink:`, deeplink)
-
     // Set up a timeout to detect if the app didn't open
     const timeoutId = setTimeout(() => {
-      console.log(`${walletName} app not detected, redirecting to app store`)
       
       // Show user a choice or redirect to app store
       const userWantsToInstall = confirm(
@@ -129,7 +126,6 @@ export const openWalletApp = async (walletName: string, options: DeeplinkOptions
       if (document.hidden === false && timeElapsed > 2000) {
         clearTimeout(timeoutId)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
-        console.log(`${walletName} app appeared to open successfully`)
         resolve()
       }
     }

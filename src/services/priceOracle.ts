@@ -207,13 +207,6 @@ class PriceOracleService {
           // Ignore price history errors
         }
 
-        console.log('🔄 [PRICE ORACLE] Converting platform token price:', {
-          mintAddress: mintAddress.slice(0, 8) + '...',
-          tokenPriceSOL: tokenPriceSOL.toFixed(10),
-          solPriceUSD: solPriceData.price.toFixed(2),
-          tokenPriceUSD: tokenPriceUSD.toFixed(8)
-        })
-
         return {
           price: tokenPriceUSD, // Now properly converted to USD
           priceChange24h,

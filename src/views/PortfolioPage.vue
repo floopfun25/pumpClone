@@ -355,28 +355,6 @@ const loadPortfolio = async (): Promise<void> => {
           tokenMetadataService.getTokenMetadata(account.mint)
         ])
 
-        // Debug logging
-        console.log(`Token ${account.mint}:`, {
-          tokenPrice,
-          tokenMetadata,
-          balance: account.balance,
-          decimals: account.decimals
-        })
-
-        // Additional debug for images
-        console.log(`Token metadata for ${account.mint}:`, {
-          image: tokenMetadata?.image,
-          source: tokenMetadata?.source,
-          fallbackImage: getTokenFallbackImage()
-        })
-
-        // Test image URL accessibility if available
-        if (tokenMetadata?.image) {
-          const { testImageUrl, analyzeSupabaseUrl } = await import('@/utils/imageDebug')
-          analyzeSupabaseUrl(tokenMetadata.image)
-          testImageUrl(tokenMetadata.image, `${tokenMetadata.name || 'Unknown'} (${account.mint})`)
-        }
-
         const metadata = {
           name: tokenMetadata?.name || tokenPrice?.name || 'Unknown Token',
           symbol: tokenMetadata?.symbol || tokenPrice?.symbol || 'UNKNOWN',
@@ -388,8 +366,6 @@ const loadPortfolio = async (): Promise<void> => {
         // Note: account.balance is already converted to UI amount in getUserTokenAccounts
         const balance = account.balance
         const value = balance * (tokenPrice?.price || 0)
-        
-        console.log(`Calculated value for ${metadata.name}: ${balance} * ${tokenPrice?.price} = ${value}`)
         
         return {
           mint: account.mint,

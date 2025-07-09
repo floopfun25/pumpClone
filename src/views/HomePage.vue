@@ -207,8 +207,6 @@ const loadTokens = async () => {
     const solPriceData = await priceOracleService.getSOLPrice()
     const solPriceUSD = solPriceData.price
     
-    console.log('💰 [HOMEPAGE] Using SOL price for conversion:', `$${solPriceUSD.toFixed(2)}`)
-    
     let data
     const ITEMS_PER_PAGE = 100
     
@@ -298,14 +296,6 @@ const loadTokens = async () => {
       tokens.value = result.data.map((token: any) => {
         const priceSOL = Number(token.current_price) || 0
         const priceUSD = priceSOL * solPriceUSD
-        
-        console.log('🔄 [HOMEPAGE] Converting token price:', {
-          name: token.name,
-          symbol: token.symbol,
-          priceSOL: priceSOL.toFixed(10),
-          solPriceUSD: solPriceUSD.toFixed(2),
-          priceUSD: priceUSD.toFixed(8)
-        })
         
         return {
           id: token.id || '',

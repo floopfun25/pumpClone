@@ -87,7 +87,7 @@ class ApiHealthMonitor {
 
       // Log critical failures
       if (newStatus === 'down') {
-        console.warn(`🚨 API Service ${service} is DOWN - ${consecutiveFailures} consecutive failures`)
+        // console.warn(`🚨 API Service ${service} is DOWN - ${consecutiveFailures} consecutive failures`)
       }
     }
   }
