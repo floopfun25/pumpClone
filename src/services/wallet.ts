@@ -40,6 +40,7 @@ import { showDebug } from '@/services/debugService'
 // import { useUIStore } from '@/stores/ui' // REMOVED: To be dynamically imported
 import { showDebugMessage } from '@/utils/mobileDebug'
 import { broadcastService } from './broadcastService';
+import { notificationService } from './notificationService';
 
 // Extend Window interface to include solana property
 declare global {
@@ -352,18 +353,13 @@ export const handlePhantomConnectResponse = () => {
     clearConnectionData()
     mobileWalletState.connectionData = null
     
-    // Show error toast
-    import('@/stores/ui').then(({ useUIStore }) => {
-      const uiStore = useUIStore()
-      uiStore.showToast({
-        type: 'error',
-        title: 'Connection Failed',
-        message: errorMessage,
-        duration: 8000
-      })
-    }).catch(toastError => {
-       console.warn('Failed to show error toast:', toastError)
-    })
+    // Show error toast via notification service
+    notificationService.emit('showToast', {
+      type: 'error',
+      title: 'Connection Failed',
+      message: errorMessage,
+      duration: 8000
+    });
   }
 }
 
@@ -765,15 +761,12 @@ class WalletService {
 
       this.updateBalance();
       
-      import('@/stores/ui').then(({ useUIStore }) => {
-        const uiStore = useUIStore()
-        uiStore.showToast({
-          type: 'success',
-          title: 'Wallet Connected!',
-          message: `Connected via another tab.`,
-          duration: 5000
-        })
-      })
+      notificationService.emit('showToast', {
+        type: 'success',
+        title: 'Wallet Connected!',
+        message: `Connected via another tab.`,
+        duration: 5000
+      });
     } catch(e) {
       console.error("Error handling broadcast connect", e)
     }

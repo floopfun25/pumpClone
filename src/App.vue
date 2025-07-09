@@ -52,6 +52,7 @@ import { useUIStore } from '@/stores/ui'
 import { useTypedI18n } from '@/i18n'
 import { useDebugService } from '@/services/debugService'
 import { broadcastService } from '@/services/broadcastService'
+import { notificationService } from '@/services/notificationService'
 
 // Import layout components
 import Navbar from '@/components/layout/Navbar.vue'
@@ -150,6 +151,11 @@ onMounted(async () => {
 
     // Add broadcast channel listener
     broadcastService.addEventListener(handleBroadcastMessage);
+
+    // Add notification listener
+    notificationService.on('showToast', (payload) => {
+      uiStore.showToast(payload);
+    });
   } catch (error) {
     console.error('Failed to initialize app:', error)
   }
@@ -159,6 +165,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   broadcastService.removeEventListener(handleBroadcastMessage);
+  notificationService.off('showToast');
 })
 </script>
 
