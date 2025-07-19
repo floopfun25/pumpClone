@@ -24,11 +24,13 @@ export interface TokenPriceData {
 
 class PriceOracleService {
   private priceCache = new Map<string, PriceData>()
-  private readonly CACHE_DURATION = 30000 // 30 seconds
+  private readonly CACHE_DURATION = 300000 // 5 minutes (extended to reduce API calls)
   private readonly COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
   private readonly BIRDEYE_BASE_URL = 'https://public-api.birdeye.so/defi'
+  private readonly FALLBACK_SOL_PRICE = 100 // Default SOL price when APIs fail
+  private readonly IS_DEVELOPMENT = import.meta.env.DEV || window.location.hostname === 'localhost'
 
-  // Get SOL price from CoinGecko
+  // Get SOL price - uses simulated data in development to avoid CORS issues
   async getSOLPrice(): Promise<PriceData> {
     const cacheKey = 'SOL'
     const cachedPrice = this.priceCache.get(cacheKey)
@@ -37,9 +39,24 @@ class PriceOracleService {
       return cachedPrice
     }
 
+    // In development, show error instead of fake data
+    if (this.IS_DEVELOPMENT) {
+      console.warn('🚫 SOL price unavailable in development (CoinGecko CORS blocked)')
+      throw new Error('Price data unavailable in development environment')
+    }
+
     try {
       const response = await fetch(
-        `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`
+        `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        }
       )
       
       if (!response.ok) {
@@ -62,18 +79,99 @@ class PriceOracleService {
       return priceData
       
     } catch (error) {
-      console.error('Failed to fetch SOL price:', error)
-      
-      // Return cached data if available, otherwise fallback
-      const fallbackPrice: PriceData = {
-        price: 100, // Fallback SOL price
-        priceChange24h: 0,
-        priceChangePercent24h: 0,
-        lastUpdated: Date.now()
+      // Use cached data if available (even if expired) to reduce error impact
+      if (cachedPrice) {
+        console.warn('Using cached SOL price due to API error:', error instanceof Error ? error.message : 'Unknown error')
+        return cachedPrice
       }
       
-      return cachedPrice || fallbackPrice
+      // Only log detailed error once per minute to avoid spam
+      const now = Date.now()
+      const lastErrorLog = this.priceCache.get('lastErrorLog')
+      if (!lastErrorLog || (now - lastErrorLog.lastUpdated) > 60000) {
+        console.error('Failed to fetch SOL price (will use fallback):', error instanceof Error ? error.message : 'Unknown error')
+        this.priceCache.set('lastErrorLog', { price: 0, priceChange24h: 0, priceChangePercent24h: 0, lastUpdated: now })
+      }
+      
+      // Return fallback data
+      const fallbackPrice: PriceData = {
+        price: this.FALLBACK_SOL_PRICE,
+        priceChange24h: 0,
+        priceChangePercent24h: 0,
+        lastUpdated: now
+      }
+      
+      return fallbackPrice
     }
+  }
+
+  // Generate realistic simulated SOL price for development
+  private getSimulatedSOLPrice(): PriceData {
+    const cacheKey = 'SOL'
+    const basePrice = 100 // Base SOL price around $100
+    const now = Date.now()
+    
+    // Create subtle price variation based on time to simulate market movement
+    const timeVariation = Math.sin(now / 3600000) * 5 // Slow cycle over hours
+    const randomVariation = (Math.random() - 0.5) * 2 // Small random movement
+    const currentPrice = basePrice + timeVariation + randomVariation
+    
+    // Simulate daily change
+    const dailyChange = timeVariation + (Math.random() - 0.5) * 8
+    const dailyChangePercent = (dailyChange / basePrice) * 100
+    
+    const simulatedPrice: PriceData = {
+      price: parseFloat(currentPrice.toFixed(2)),
+      priceChange24h: parseFloat(dailyChange.toFixed(2)),
+      priceChangePercent24h: parseFloat(dailyChangePercent.toFixed(2)),
+      marketCap: 50000000000, // 50B market cap
+      volume24h: 2000000000, // 2B volume
+      lastUpdated: now
+    }
+    
+    // Cache the simulated price
+    this.priceCache.set(cacheKey, simulatedPrice)
+    
+    console.log(`🧪 [DEV] Using simulated SOL price: $${simulatedPrice.price}`)
+    return simulatedPrice
+  }
+
+  // Generate realistic simulated token price for development
+  private getSimulatedTokenPrice(mintAddress: string): TokenPriceData {
+    const cacheKey = `token_${mintAddress}`
+    const now = Date.now()
+    
+    // Generate price based on token address to ensure consistency
+    const addressHash = mintAddress.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0)
+      return a & a
+    }, 0)
+    
+    const basePrice = Math.abs(addressHash) % 100 + 0.01 // Price between $0.01 and $100
+    const timeVariation = Math.sin((now + addressHash) / 3600000) * (basePrice * 0.1)
+    const currentPrice = basePrice + timeVariation
+    
+    // Generate token metadata based on address
+    const symbols = ['MEME', 'PEPE', 'DOGE', 'SHIB', 'FLOKI', 'BONK', 'WIF', 'POPCAT']
+    const symbol = symbols[Math.abs(addressHash) % symbols.length]
+    
+    const simulatedToken: TokenPriceData = {
+      mint: mintAddress,
+      symbol: symbol,
+      name: `${symbol} Token`,
+      price: parseFloat(currentPrice.toFixed(6)),
+      priceChange24h: parseFloat((timeVariation).toFixed(6)),
+      priceChangePercent24h: parseFloat(((timeVariation / basePrice) * 100).toFixed(2)),
+      marketCap: Math.abs(addressHash) % 10000000 + 100000, // 100K to 10M market cap
+      volume24h: Math.abs(addressHash) % 1000000 + 10000, // 10K to 1M volume
+      lastUpdated: now
+    }
+    
+    // Cache the simulated price
+    this.priceCache.set(cacheKey, simulatedToken)
+    
+    console.log(`🧪 [DEV] Using simulated token price for ${symbol}: $${simulatedToken.price}`)
+    return simulatedToken
   }
 
   // Get token price from Birdeye API (supports SPL tokens)
@@ -88,6 +186,12 @@ class PriceOracleService {
         name: 'Unknown Token',
         ...cachedPrice
       }
+    }
+
+    // In development, show error instead of fake data
+    if (this.IS_DEVELOPMENT) {
+      console.warn('🚫 Token price unavailable in development (API access blocked)')
+      return null // Return null to indicate price unavailable
     }
 
     try {

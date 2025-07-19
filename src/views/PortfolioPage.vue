@@ -344,14 +344,19 @@ const loadPortfolio = async (): Promise<void> => {
       }))
     ]
 
-    // Calculate real portfolio value using price oracle
-    const portfolioValue = await priceOracleService.calculatePortfolioValue(holdings)
+    // Check if price data is available in development
+    let portfolioValue: any
+    try {
+      portfolioValue = await priceOracleService.calculatePortfolioValue(holdings)
+    } catch (priceError) {
+      throw new Error('Price data unavailable in development environment. External APIs (CoinGecko/Birdeye) are blocked by CORS policy.')
+    }
     
     // Get token metadata and prices
     const tokenHoldings = await Promise.all(
       tokenAccounts.map(async (account): Promise<TokenHolding> => {
         const [tokenPrice, tokenMetadata] = await Promise.all([
-          priceOracleService.getTokenPrice(account.mint),
+          priceOracleService.getTokenPrice(account.mint).catch(() => null), // Handle price errors gracefully
           tokenMetadataService.getTokenMetadata(account.mint)
         ])
 
@@ -396,7 +401,7 @@ const loadPortfolio = async (): Promise<void> => {
           totalValue: portfolioValue.totalValue,
           solBalance,
           solValue: portfolioValue.solValue,
-          tokenValue: portfolioValue.tokenValues.reduce((sum, token) => sum + token.value, 0),
+          tokenValue: portfolioValue.tokenValues.reduce((sum: number, token: any) => sum + token.value, 0),
           tokenCount: tokenHoldings.length
         })
       }
@@ -409,7 +414,7 @@ const loadPortfolio = async (): Promise<void> => {
       totalValue: portfolioValue.totalValue,
       solBalance,
       solValue: portfolioValue.solValue,
-      tokenValue: portfolioValue.tokenValues.reduce((sum, token) => sum + token.value, 0),
+      tokenValue: portfolioValue.tokenValues.reduce((sum: number, token: any) => sum + token.value, 0),
       tokenHoldings,
       totalChange24h
     }
