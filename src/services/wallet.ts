@@ -604,7 +604,26 @@ class WalletService {
 
   signMessage = async (message: Uint8Array): Promise<Uint8Array> => {
     if (!this.currentWallet.value || !this.connected) throw new WalletNotConnectedError();
-    return this.currentWallet.value.signMessage!(message);
+    if (!this.currentWallet.value.signMessage) {
+      throw new Error('Wallet does not support message signing');
+    }
+    return this.currentWallet.value.signMessage(message);
+  }
+
+  /**
+   * Sign a text message for authentication
+   */
+  signTextMessage = async (message: string): Promise<Uint8Array> => {
+    const messageBytes = new TextEncoder().encode(message);
+    return this.signMessage(messageBytes);
+  }
+
+  /**
+   * Sign an authentication challenge
+   */
+  signAuthChallenge = async (walletAddress: string, challenge: string, timestamp: number): Promise<Uint8Array> => {
+    const message = `FloppFun Authentication\n\nWallet: ${walletAddress}\nChallenge: ${challenge}\nTimestamp: ${timestamp}\n\nSign this message to prove ownership of your wallet.`;
+    return this.signTextMessage(message);
   }
 
   signTransaction = async <T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> => {

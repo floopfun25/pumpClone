@@ -263,7 +263,7 @@ export class SupabaseAuth {
         console.log(`🔗 Migrating existing profile ${existingUser.id} to new auth user ${anonData.user.id}`);
 
         // This is the CRITICAL step: We call our new RPC function to migrate the data.
-        const { error: migrateError } = await supabase.rpc('migrate_user_data', {
+        const { error: migrateError } = await supabase.rpc('migrate_single_user', {
             old_user_id_param: existingUser.id,
             new_user_id_param: anonData.user.id
         });

@@ -122,40 +122,63 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Sign in with wallet
-   * Creates Supabase auth session and user profile
+   * Sign in with wallet using secure challenge-response authentication
+   * Creates cryptographically verified Supabase auth session and user profile
    */
   const signInWithWallet = async (walletAddress: string) => {
+    const walletStore = useWalletStore()
+    
     try {
-      const { user: authUser } = await SupabaseAuth.signInWithWallet(walletAddress)
+      console.log('🔐 Starting secure wallet authentication...')
       
-      // Get or create user profile
-      let existingUser = await SupabaseService.getUserByWallet(walletAddress)
+      // Step 1: Generate authentication challenge
+      const { SecureAuthService } = await import('@/services/secureAuth')
+      const challenge = SecureAuthService.generateChallenge(walletAddress)
       
-      if (existingUser) {
-        user.value = existingUser
-        isAuthenticated.value = true
-        return existingUser
-      } else {
-        // Create new user profile
-        const newUser = await SupabaseService.upsertUser({
-          id: authUser.id,
-          wallet_address: walletAddress,
-          username: `user_${walletAddress.slice(0, 8)}`,
-          is_verified: false,
-          total_volume_traded: 0,
-          tokens_created: 0,
-          reputation_score: 0
-        })
-        
-        if (newUser) {
-          user.value = newUser
-          isAuthenticated.value = true
-          return newUser
-        }
+      console.log('📝 Please sign the authentication message in your wallet...')
+      
+      // Step 2: Request user to sign the challenge
+      const signature = await walletStore.signAuthChallenge(
+        walletAddress, 
+        challenge.challenge, 
+        challenge.timestamp
+      )
+      
+      console.log('✍️ Signature received, verifying...')
+      
+      // Step 3: Verify signature and authenticate
+      const authResult = await SecureAuthService.verifyAndAuthenticate(
+        walletAddress,
+        signature,
+        challenge.challenge,
+        challenge.timestamp
+      )
+      
+      if (!authResult.success) {
+        throw new Error(authResult.error || 'Authentication failed')
       }
+      
+      if (authResult.user) {
+        user.value = authResult.user
+        isAuthenticated.value = true
+        supabaseUser.value = authResult.user
+        supabaseSession.value = authResult.session
+        
+        console.log('✅ Secure authentication completed!')
+        return authResult.user
+      }
+      
+      throw new Error('Authentication completed but no user data returned')
+      
     } catch (error) {
-      console.error('Failed to sign in with wallet:', error)
+      console.error('❌ Secure wallet authentication failed:', error)
+      
+      // Clear any partial auth state
+      user.value = null
+      isAuthenticated.value = false
+      supabaseUser.value = null
+      supabaseSession.value = null
+      
       throw error
     }
   }

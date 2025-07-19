@@ -120,6 +120,24 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 
   /**
+   * Sign text message with wallet
+   * @param message - Text message to sign
+   */
+  async function signTextMessage(message: string): Promise<Uint8Array> {
+    return await walletService.signTextMessage(message)
+  }
+
+  /**
+   * Sign authentication challenge
+   * @param walletAddress - Wallet address for authentication
+   * @param challenge - Challenge nonce
+   * @param timestamp - Authentication timestamp
+   */
+  async function signAuthChallenge(walletAddress: string, challenge: string, timestamp: number): Promise<Uint8Array> {
+    return await walletService.signAuthChallenge(walletAddress, challenge, timestamp)
+  }
+
+  /**
    * Sign transaction with wallet
    * @param transaction - Transaction to sign
    */
@@ -194,6 +212,8 @@ export const useWalletStore = defineStore('wallet', () => {
     getAllWallets,
     updateBalance,
     signMessage,
+    signTextMessage,
+    signAuthChallenge,
     signTransaction,
     sendTransaction,
     handleMobileWalletReturn,

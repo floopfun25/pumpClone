@@ -10,6 +10,18 @@
 
         <!-- Settings Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Security Testing (Development) -->
+          <div v-if="isDevelopment" class="md:col-span-2 bg-trading-surface rounded-lg border border-yellow-500 p-6">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+              <h2 class="text-xl font-semibold text-white">🔐 Security Testing (Development)</h2>
+            </div>
+            <p class="text-yellow-400 text-sm mb-4">
+              This section is only visible in development mode for testing the new secure authentication system.
+            </p>
+            <SecureAuthTest />
+          </div>
           <!-- General Settings -->
           <div class="bg-trading-surface rounded-lg border border-binance-border p-6">
             <h2 class="text-xl font-semibold text-white mb-4">{{ t('settings.general') }}</h2>
@@ -131,12 +143,15 @@ import { computed } from 'vue'
 import { useTypedI18n } from '@/i18n'
 import { useUIStore } from '@/stores/ui'
 import { supportedLanguages, saveLanguage, getLanguageInfo, type LanguageCode } from '@/i18n'
+import SecureAuthTest from '@/components/debug/SecureAuthTest.vue'
 
 const { t, locale } = useTypedI18n()
 const uiStore = useUIStore()
 
 // Computed properties
 const isDarkMode = computed(() => uiStore.isDarkMode)
+
+const isDevelopment = computed(() => import.meta.env.DEV)
 
 const currentLanguage = computed(() => {
   try {
