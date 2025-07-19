@@ -119,88 +119,117 @@ export class SecureAuthService {
   }
 
   /**
-   * Create secure authenticated session
+   * Create secure authenticated session using anonymous auth
    */
   private static async createSecureSession(walletAddress: string): Promise<AuthResult> {
     try {
       // Check if user exists in our database
       const existingUser = await SupabaseService.getUserByWallet(walletAddress)
       
+      // Check current session
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error('Error getting current session:', sessionError)
+      }
+      
       if (existingUser) {
-        // Existing user - create session with their ID
+        // Existing user - check if current session matches
         console.log(`🔄 Creating session for existing user: ${existingUser.id}`)
         
-        const { data, error } = await supabase.auth.signUp({
-          email: `${walletAddress}@verified.wallet`,
-          password: generateSessionToken(),
+        // If current session belongs to this user, we're done
+        if (currentSession && currentSession.user?.id === existingUser.id) {
+          console.log('✅ Session matches existing user. Authentication complete.')
+          return {
+            success: true,
+            user: { ...currentSession.user, ...existingUser },
+            session: currentSession
+          }
+        }
+        
+        // Clear any mismatched session
+        if (currentSession) {
+          console.log('🚪 Clearing mismatched session before re-authenticating.')
+          await supabase.auth.signOut()
+        }
+        
+        // Create new anonymous session
+        console.log('🆕 Creating anonymous auth session for existing user...')
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously({
           options: {
             data: {
               wallet_address: walletAddress,
-              username: existingUser.username,
               verified: true // Mark as cryptographically verified
             }
           }
         })
-
-        if (error) {
-          console.error('Failed to create secure session:', error)
-          return { success: false, error: 'Failed to create session' }
+        
+        if (anonError || !anonData.user) {
+          console.error('Failed to create anonymous session:', anonError)
+          return { success: false, error: 'Failed to create anonymous session' }
         }
+        
+        // Migrate existing profile to new auth user
+        console.log(`🔗 Migrating existing profile ${existingUser.id} to new auth user ${anonData.user.id}`)
+        const { error: migrateError } = await supabase.rpc('migrate_single_user', {
+          old_user_id_param: existingUser.id,
+          new_user_id_param: anonData.user.id
+        })
 
-        // Update the user record to match the new auth user ID if needed
-        if (data.user && data.user.id !== existingUser.id) {
-          console.log(`🔗 Linking auth user ${data.user.id} to existing profile ${existingUser.id}`)
-          
-          // Use our migration function to transfer data to the new auth user
-          const { error: migrateError } = await supabase.rpc('migrate_single_user', {
-            old_user_id_param: existingUser.id,
-            new_user_id_param: data.user.id
-          })
-
-          if (migrateError) {
-            console.error('Migration failed:', migrateError)
-            // Sign out the created user to prevent inconsistent state
-            await supabase.auth.signOut()
-            return { success: false, error: 'Failed to link user accounts' }
-          }
+        if (migrateError) {
+          console.error('Migration failed:', migrateError)
+          await supabase.auth.signOut()
+          return { success: false, error: 'Failed to link user accounts' }
         }
-
-        const finalUser = data.user ? {
-          ...data.user,
+        
+        // Get final session after migration
+        const { data: { session: finalSession } } = await supabase.auth.getSession()
+        if (!finalSession) {
+          return { success: false, error: 'Failed to get session after migration' }
+        }
+        
+        const finalUser = {
+          ...finalSession.user,
           ...existingUser,
-          id: data.user.id
-        } : existingUser
+          id: finalSession.user.id,
+          verified: true
+        }
 
+        console.log(`✅ Successfully migrated profile for ${walletAddress.slice(0, 8)}...`)
         return {
           success: true,
           user: finalUser,
-          session: data.session
+          session: finalSession
         }
 
       } else {
         // New user - create profile
         console.log(`🆕 Creating new user profile for ${walletAddress.slice(0, 8)}...`)
         
-        const { data, error } = await supabase.auth.signUp({
-          email: `${walletAddress}@verified.wallet`,
-          password: generateSessionToken(),
+        // Clear any existing session
+        if (currentSession) {
+          console.log('🚪 Clearing pre-existing session before new user login.')
+          await supabase.auth.signOut()
+        }
+        
+        // Create anonymous auth session
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously({
           options: {
             data: {
               wallet_address: walletAddress,
-              username: `user_${walletAddress.slice(0, 6)}`,
               verified: true // Mark as cryptographically verified
             }
           }
         })
 
-        if (error || !data.user) {
-          console.error('Failed to create new user:', error)
-          return { success: false, error: 'Failed to create user account' }
+        if (anonError || !anonData.user) {
+          console.error('Failed to create anonymous session:', anonError)
+          return { success: false, error: 'Failed to create anonymous session' }
         }
 
         // Create user profile in our database
+        console.log(`✅ Anonymous auth successful. Creating profile for new user: ${anonData.user.id}`)
         const newUserProfile = await SupabaseService.upsertUser({
-          id: data.user.id,
+          id: anonData.user.id,
           wallet_address: walletAddress,
           username: `user_${walletAddress.slice(0, 6)}`,
           is_verified: true, // Mark as verified since they passed crypto verification
@@ -210,14 +239,14 @@ export class SecureAuthService {
         })
 
         const finalUser = {
-          ...data.user,
+          ...anonData.user,
           ...newUserProfile
         }
 
         return {
           success: true,
           user: finalUser,
-          session: data.session
+          session: anonData.session
         }
       }
 
