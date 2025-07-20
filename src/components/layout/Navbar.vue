@@ -86,6 +86,12 @@
               v-if="showUserMenu"
               class="absolute right-0 mt-2 w-48 bg-trading-surface rounded-lg shadow-xl border border-binance-border py-2"
             >
+              <!-- Wallet Balance Display -->
+              <div class="px-4 py-3 border-b border-binance-border">
+                <div class="text-binance-gray text-xs font-medium mb-1">{{ t('wallet.balance') }}</div>
+                <div class="text-white font-bold text-lg">{{ balance }}</div>
+              </div>
+              
               <router-link 
                 to="/portfolio" 
                 class="block px-4 py-2 text-white hover:bg-trading-elevated transition-colors"
