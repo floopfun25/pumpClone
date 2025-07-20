@@ -47,6 +47,16 @@ class PriceOracleService {
   private readonly BIRDEYE_BASE_URL = import.meta.env.DEV ? '/api/birdeye' : (import.meta.env.VITE_BIRDEYE_API_URL || 'https://public-api.birdeye.so/defi')
   private readonly JUPITER_BASE_URL = import.meta.env.DEV ? '/api/jupiter' : (import.meta.env.VITE_JUPITER_API_URL || 'https://price.jup.ag/v6')
   private readonly JUPITER_FALLBACK_URL = 'https://quote-api.jup.ag/v6' // Alternative Jupiter endpoint
+  
+  // Additional fallback APIs for regions with restrictions
+  private readonly ALTERNATIVE_APIS = [
+    { name: 'CoinPaprika', url: 'https://api.coinpaprika.com/v1/tickers/sol-solana' },
+    { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/price?fsym=SOL&tsyms=USD' },
+    { name: 'Binance', url: 'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT' },
+    { name: 'Kraken', url: 'https://api.kraken.com/0/public/Ticker?pair=SOLUSD' },
+    { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets/solana' },
+    { name: 'CoinLore', url: 'https://api.coinlore.net/api/ticker/?id=45' }
+  ]
   private readonly IS_DEVELOPMENT = import.meta.env.DEV
 
   /**
@@ -96,7 +106,7 @@ class PriceOracleService {
     `)
   }
 
-  // Get SOL price - with intelligent environment detection
+  // Get SOL price - with intelligent environment detection and multiple fallbacks
   async getSOLPrice(): Promise<PriceData> {
     const cacheKey = 'SOL'
     const cachedPrice = this.priceCache.get(cacheKey)
@@ -105,34 +115,123 @@ class PriceOracleService {
       return cachedPrice
     }
 
-    // Always try real APIs only - no mock data, no fallbacks
+    const errors: string[] = []
+
+    // Try Jupiter first (Solana-native, most reliable)
     try {
-      // Use Jupiter as primary source (Solana-native, more reliable)
-      return await this.getSOLPriceFromJupiter()
+      const price = await this.getSOLPriceFromJupiter()
+      this.priceCache.set(cacheKey, price)
+      return price
     } catch (jupiterError) {
-      console.error('Jupiter API failed:', jupiterError instanceof Error ? jupiterError.message : 'Unknown error')
-      
-      try {
-        // Try CoinGecko as fallback
-        if (!this.IS_DEVELOPMENT) {
-          // Production: Use direct API calls (no proxy)
-          return await this.getSOLPriceFromRealAPI()
-        } else {
-          // Development: Use proxy
-          return await this.getSOLPriceFromProxy()
-        }
-      } catch (coinGeckoError) {
-        console.error('CoinGecko also failed:', coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error')
-        
-        // Use cached data if available (even if expired) as last resort
-        if (cachedPrice) {
-          console.warn('⚠️ Using stale cached SOL price - APIs are down')
-          return cachedPrice
-        }
-        
-        // All sources failed - throw error to be handled by UI
-        throw new Error(`Failed to fetch SOL price: Jupiter failed (${jupiterError instanceof Error ? jupiterError.message : 'Unknown error'}), CoinGecko failed (${coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error'})`)
+      const errorMsg = jupiterError instanceof Error ? jupiterError.message : 'Unknown error'
+      errors.push(`Jupiter: ${errorMsg}`)
+      console.error('Jupiter API failed:', errorMsg)
+    }
+    
+    // Try CoinGecko as second choice
+    try {
+      let price: PriceData
+      if (!this.IS_DEVELOPMENT) {
+        // Production: Use direct API calls (no proxy)
+        price = await this.getSOLPriceFromRealAPI()
+      } else {
+        // Development: Use proxy
+        price = await this.getSOLPriceFromProxy()
       }
+      this.priceCache.set(cacheKey, price)
+      return price
+    } catch (coinGeckoError) {
+      const errorMsg = coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error'
+      errors.push(`CoinGecko: ${errorMsg}`)
+      console.error('CoinGecko also failed:', errorMsg)
+    }
+
+    // Try alternative APIs for regions with crypto restrictions
+    console.log('🌐 [FALLBACK] Trying alternative APIs for restricted regions...')
+    for (const api of this.ALTERNATIVE_APIS) {
+      try {
+        const price = await this.getSOLPriceFromAlternativeAPI(api)
+        console.log(`✅ [FALLBACK] Success with ${api.name}!`)
+        this.priceCache.set(cacheKey, price)
+        return price
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        errors.push(`${api.name}: ${errorMsg}`)
+        console.log(`❌ [FALLBACK] ${api.name} failed:`, errorMsg)
+      }
+    }
+
+    // Use stale cached data as absolute last resort
+    if (cachedPrice) {
+      console.warn('⚠️ [FALLBACK] Using stale cached SOL price - all APIs are blocked/down')
+      return cachedPrice
+    }
+    
+    // All sources failed
+    throw new Error(`All SOL price APIs failed. This indicates network-level blocking of crypto APIs in your region/ISP. Try using a VPN. Errors: ${errors.join(', ')}`)
+  }
+
+  // Get SOL price from alternative APIs for restricted regions
+  private async getSOLPriceFromAlternativeAPI(api: { name: string; url: string }): Promise<PriceData> {
+    console.log(`🔄 [ALTERNATIVE] Trying ${api.name}:`, api.url)
+    
+    const response = await fetch(api.url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'FloppFun/1.0.0'
+      },
+      signal: AbortSignal.timeout(8000)
+    })
+
+    if (!response.ok) {
+      throw new Error(`${api.name} API error! Status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    let price: number
+    let change24h = 0
+
+    // Parse different API response formats
+    switch (api.name) {
+      case 'CoinPaprika':
+        price = data.quotes?.USD?.price || data.price_usd
+        change24h = data.quotes?.USD?.percent_change_24h || 0
+        break
+      case 'CryptoCompare':
+        price = data.USD
+        break
+      case 'Binance':
+        price = parseFloat(data.price)
+        break
+      case 'Kraken':
+        // Kraken returns nested object
+        const pair = Object.keys(data.result)[0]
+        price = parseFloat(data.result[pair].c[0]) // 'c' is current price array
+        break
+      case 'CoinCap':
+        price = parseFloat(data.data.priceUsd)
+        change24h = parseFloat(data.data.changePercent24Hr) || 0
+        break
+      case 'CoinLore':
+        price = parseFloat(data[0].price_usd)
+        change24h = parseFloat(data[0].percent_change_24h) || 0
+        break
+      default:
+        throw new Error(`Unknown API format for ${api.name}`)
+    }
+
+    if (!price || isNaN(price)) {
+      throw new Error(`Invalid price data from ${api.name}`)
+    }
+
+    return {
+      price,
+      priceChange24h: 0, // Absolute change not available from all sources
+      priceChangePercent24h: change24h,
+      marketCap: 0, // Not available from all sources
+      volume24h: 0, // Not available from all sources
+      lastUpdated: Date.now()
     }
   }
 
