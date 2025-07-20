@@ -293,19 +293,145 @@ const connectWallet = async () => {
 }
 
 /**
- * Authenticate user with wallet for commenting
+ * Simple authentication for trading (mobile-friendly)
+ */
+const authenticateForTrading = async () => {
+  if (!walletStore.walletAddress) {
+    throw new Error('Wallet not connected')
+  }
+
+  try {
+    console.log('🔐 [AUTH] Starting simple authentication for trading...')
+    console.log('🔍 [AUTH] Wallet address:', walletStore.walletAddress)
+    
+    // Use the simpler SupabaseAuth.signInWithWallet method directly
+    // This bypasses the complex crypto challenge flow which can fail on mobile
+    const { SupabaseAuth } = await import('@/services/supabase')
+    console.log('🔍 [AUTH] Calling SupabaseAuth.signInWithWallet...')
+    const result = await SupabaseAuth.signInWithWallet(walletStore.walletAddress)
+    console.log('🔍 [AUTH] SupabaseAuth result:', {
+      hasUser: !!result.user,
+      hasSession: !!result.session,
+      userId: result.user?.id
+    })
+    
+    // Ensure user record exists after successful authentication
+    if (result.session?.user?.id) {
+      try {
+        const { supabase } = await import('@/services/supabase')
+        console.log('🔍 [AUTH] Ensuring user record exists...')
+        
+        const { data: ensuredUserId, error: ensureError } = await supabase
+          .rpc('get_or_create_user_by_wallet', {
+            wallet_address: walletStore.walletAddress
+          })
+        
+        if (ensureError) {
+          console.warn('⚠️ [AUTH] Failed to ensure user exists via RPC, trying direct method...')
+          
+          // Fallback method
+          const { error: createError } = await supabase
+            .from('users')
+            .upsert({
+              id: result.session.user.id,
+              wallet_address: walletStore.walletAddress,
+              username: `user_${walletStore.walletAddress.slice(0, 8)}`
+            })
+          
+          if (createError) {
+            console.warn('⚠️ [AUTH] User record creation failed:', createError)
+          } else {
+            console.log('✅ [AUTH] User record created via fallback method')
+          }
+        } else {
+          console.log('✅ [AUTH] User record ensured via RPC:', ensuredUserId)
+        }
+      } catch (userCreationError) {
+        console.warn('⚠️ [AUTH] User record creation failed, trading may not work:', userCreationError)
+      }
+    }
+    
+    if (result.user && result.session) {
+      // Update auth store state manually
+      authStore.user = result.user
+      authStore.isAuthenticated = true
+      authStore.supabaseUser = result.user
+      authStore.supabaseSession = result.session
+      
+      console.log('✅ [AUTH] Simple authentication successful')
+      console.log('🔍 [AUTH] Session details:', {
+        sessionUserId: result.session?.user?.id,
+        userRecordId: result.user?.id,
+        walletAddress: walletStore.walletAddress,
+        idsMatch: result.session?.user?.id === result.user?.id
+      })
+      
+      // Verify the session is valid for database operations
+      try {
+        const { SupabaseAuth } = await import('@/services/supabase')
+        const sessionCheck = await SupabaseAuth.getSession()
+        console.log('🔍 [AUTH] Current session check:', {
+          hasSession: !!sessionCheck,
+          sessionUserId: sessionCheck?.user?.id,
+          isAuthenticated: !!sessionCheck?.user
+        })
+      } catch (sessionError) {
+        console.warn('⚠️ [AUTH] Session verification failed:', sessionError)
+      }
+      
+      // Load user token balance after authentication
+      await loadUserTokenBalance()
+      
+      return result
+    } else {
+      throw new Error('Authentication failed - no user data returned')
+    }
+    
+  } catch (error: any) {
+    console.error('❌ [AUTH] Simple authentication failed:', error)
+    
+    // If simple auth fails, try the full crypto challenge method as fallback
+    try {
+      console.log('🔄 [AUTH] Falling back to secure authentication...')
+      await authStore.signInWithWallet(walletStore.walletAddress)
+      await loadUserTokenBalance()
+      console.log('✅ [AUTH] Fallback authentication successful')
+    } catch (fallbackError: any) {
+      console.error('❌ [AUTH] Both authentication methods failed:', fallbackError)
+      throw new Error(`Authentication failed: ${fallbackError.message || 'Unknown error'}`)
+    }
+  }
+}
+
+/**
+ * Authenticate user with wallet for trading and commenting
  */
 const authenticateUserWithWallet = async () => {
   try {
     if (!walletStore.walletAddress) return
     
-    // Sign in user with wallet address to enable commenting
-    await authStore.signInWithWallet(walletStore.walletAddress)
+    // Check if already authenticated with the same wallet
+    if (authStore.isAuthenticated && 
+        authStore.user?.wallet_address === walletStore.walletAddress) {
+      console.log('✅ User already authenticated')
+      return
+    }
     
-    console.log('✅ User authenticated for commenting')
+    console.log('🔐 Authenticating user with Supabase...')
+    
+    // Use the simple authentication method for better mobile compatibility
+    await authenticateForTrading()
+    
+    console.log('✅ User authenticated for trading and commenting')
+    
   } catch (error) {
-    console.error('❌ Failed to authenticate user for commenting:', error)
-    // Don't show error toast as wallet is still connected for trading
+    console.error('❌ Failed to authenticate user:', error)
+    // Show info message about authentication being optional for viewing
+    uiStore.showToast({
+      type: 'info',
+      title: 'Authentication Optional',
+      message: 'You can view token info without authentication. Authentication is required for trading and commenting.'
+    })
   }
 }
 
@@ -329,6 +455,41 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
       message: 'Token information is not available'
     })
     return
+  }
+
+  // Check if user is authenticated with Supabase (required for trading)
+  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
+    try {
+      console.log('🔐 [TRADE] User not authenticated, starting authentication process...')
+      console.log('🔍 [TRADE] Auth state:', {
+        isAuthenticated: authStore.isAuthenticated,
+        hasSupabaseUser: !!authStore.supabaseUser,
+        walletAddress: walletStore.walletAddress
+      })
+      
+      uiStore.showToast({
+        type: 'info',
+        title: 'Setting up trading...',
+        message: 'Preparing your wallet for trading...'
+      })
+      
+      // Try the simple authentication method first (better for mobile)
+      await authenticateForTrading()
+      
+      uiStore.showToast({
+        type: 'success',
+        title: 'Ready to Trade!',
+        message: 'Your wallet is now set up for trading.'
+      })
+    } catch (authError: any) {
+      console.error('❌ Failed to authenticate for trading:', authError)
+      uiStore.showToast({
+        type: 'error',
+        title: 'Setup Failed',
+        message: authError.message || 'Failed to set up trading. Please try again.'
+      })
+      return
+    }
   }
 
   // Check if token has graduated
@@ -403,24 +564,46 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
     console.log(`✅ ${type} transaction completed:`, signature)
     
   } catch (error: any) {
-    console.error('Trade failed:', error)
+    console.error('❌ [TRADE] Trade failed:', error)
+    console.error('❌ [TRADE] Error details:', {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+      details: error.details
+    })
     
     let errorMessage = 'An unexpected error occurred during the trade'
+    let errorTitle = 'Trade Failed'
     
     // Handle specific error types
-    if (error.message.includes('Insufficient')) {
+    if (error.code === '42501' || error.message.includes('row-level security')) {
+      errorTitle = 'Database Permission Error'
+      errorMessage = 'Your wallet session has expired. Please refresh the page and try again.'
+      console.log('🔄 [TRADE] RLS error detected - clearing auth state')
+      // Clear auth state to force fresh authentication
+      await authStore.signOut()
+    } else if (error.message.includes('Insufficient')) {
       errorMessage = error.message
     } else if (error.message.includes('Slippage')) {
       errorMessage = 'Price moved too much during trade. Try again with higher slippage tolerance.'
     } else if (error.message.includes('graduated')) {
       errorMessage = 'This token has graduated to DEX trading.'
+    } else if (error.message.includes('Forbidden') || error.status === 403) {
+      errorTitle = 'Permission Denied'
+      errorMessage = 'Database access denied. Please refresh the page and reconnect your wallet.'
+      console.log('🔄 [TRADE] 403 error detected - clearing auth state')
+      await authStore.signOut()
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      errorTitle = 'Network Error'
+      errorMessage = 'Failed to connect to the trading service. Please check your internet connection and try again.'
     }
     
     uiStore.showToast({
       type: 'error',
-      title: 'Trade Failed',
+      title: errorTitle,
       message: errorMessage
     })
+    
   } finally {
     uiStore.setLoading(false)
   }
@@ -463,11 +646,25 @@ const loadUserTokenBalance = async () => {
     return
   }
 
+  // Skip loading if user is not authenticated with Supabase
+  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
+    console.log('📊 Skipping token balance loading - user not authenticated with Supabase')
+    userTokenBalance.value = 0
+    return
+  }
+
   try {
     // TODO: Implement actual token balance loading from blockchain
-    // For now, set to 0 as placeholder
-    userTokenBalance.value = 0
-    console.log('📊 User token balance loaded:', userTokenBalance.value)
+    // For now, try to get user holdings from database as a starting point
+    try {
+      const holdings = await SupabaseService.getUserHoldings(authStore.supabaseUser.id)
+      const tokenHolding = holdings.find(h => h.token_id === token.value?.id)
+      userTokenBalance.value = tokenHolding?.balance || 0
+      console.log('📊 User token balance loaded from database:', userTokenBalance.value)
+    } catch (dbError) {
+      console.warn('Failed to load balance from database, using 0:', dbError)
+      userTokenBalance.value = 0
+    }
   } catch (error) {
     console.error('❌ Failed to load user token balance:', error)
     userTokenBalance.value = 0
@@ -821,8 +1018,23 @@ const toggleWatchlist = async () => {
   }
 }
 
-onMounted(() => {
-  loadTokenData()
+onMounted(async () => {
+  console.log('🚀 [MOUNT] TokenDetailPage mounted')
+  console.log('🔍 [MOUNT] Initial auth state:', {
+    isAuthenticated: authStore.isAuthenticated,
+    hasSupabaseUser: !!authStore.supabaseUser,
+    hasWalletAddress: !!walletStore.walletAddress,
+    isWalletConnected: walletStore.isConnected
+  })
+  
+  await loadTokenData()
+  
+  // Debug auth state after loading
+  console.log('🔍 [MOUNT] Post-load auth state:', {
+    isAuthenticated: authStore.isAuthenticated,
+    hasSupabaseUser: !!authStore.supabaseUser,
+    hasUser: !!authStore.user
+  })
 })
 
 onUnmounted(() => {

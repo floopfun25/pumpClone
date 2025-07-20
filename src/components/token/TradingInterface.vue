@@ -34,6 +34,22 @@
       </span>
     </div>
 
+    <!-- Authentication Status -->
+    <div v-if="walletStore.isConnected && !authStore.isAuthenticated" class="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+      <div class="flex items-center gap-2 text-yellow-400 text-sm">
+        <div class="w-4 h-4">⚠️</div>
+        <span>Setting up trading... Click 'Buy' or 'Sell' to continue</span>
+      </div>
+    </div>
+    
+    <!-- Authentication Success -->
+    <div v-if="walletStore.isConnected && authStore.isAuthenticated" class="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+      <div class="flex items-center gap-2 text-green-400 text-sm">
+        <div class="w-4 h-4">✅</div>
+        <span>Ready to trade!</span>
+      </div>
+    </div>
+
     <!-- Amount Input -->
     <div class="mb-4">
       <div class="flex items-center border border-binance-border rounded-lg bg-trading-elevated">
@@ -135,6 +151,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useWalletStore } from '@/stores/wallet'
+import { useAuthStore } from '@/stores/auth'
 import { BondingCurveService } from '@/services/bondingCurve'
 
 interface Props {
@@ -158,6 +175,7 @@ const emit = defineEmits<{
 
 // Stores
 const walletStore = useWalletStore()
+const authStore = useAuthStore()
 
 // State
 const tradeType = ref<'buy' | 'sell'>('buy')
@@ -200,6 +218,7 @@ const quickAmounts = computed(() => {
 const canTrade = computed(() => {
   if (props.disabled || trading.value) return false
   if (!walletStore.isConnected) return false
+  if (!authStore.isAuthenticated) return false // Authentication required for trading
   if (!tradeAmount.value || parseFloat(tradeAmount.value) <= 0) return false
   
   const amount = parseFloat(tradeAmount.value)

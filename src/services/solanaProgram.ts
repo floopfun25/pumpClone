@@ -412,26 +412,56 @@ export class SolanaProgram {
         throw new Error('Token not found in database')
       }
 
-      // Get or create user
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletService.publicKey.toBase58())
-        .single()
-
-      let userId = user?.id
-      if (!user) {
-        const { data: newUser, error: createUserError } = await supabase
-          .from('users')
-          .insert({
-            wallet_address: walletService.publicKey.toBase58(),
-            username: `user_${walletService.publicKey.toBase58().slice(0, 8)}`
+      // Get current authenticated user ID from session (required for RLS policies)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.user?.id) {
+        throw new Error('User not authenticated. Please sign in with your wallet first.')
+      }
+      
+      const userId = session.user.id
+      console.log('💡 [TRADING] Using authenticated session user ID:', userId)
+      console.log('💡 [TRADING] Wallet address:', walletService.publicKey.toBase58())
+      
+      // Ensure user record exists (auto-create if missing)
+      try {
+        const { data: ensuredUserId, error: ensureError } = await supabase
+          .rpc('get_or_create_user_by_wallet', {
+            wallet_address: walletService.publicKey.toBase58()
           })
-          .select()
+        
+        if (ensureError) {
+          console.error('❌ [TRADING] Failed to ensure user exists:', ensureError)
+          throw new Error('Failed to set up user record for trading.')
+        }
+        
+        console.log('✅ [TRADING] User record verified/created:', ensuredUserId)
+      } catch (rpcError) {
+        console.error('❌ [TRADING] RPC call failed, trying direct user creation...')
+        
+        // Fallback: Try to get or create user using simpler method
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('wallet_address', walletService.publicKey.toBase58())
           .single()
-
-        if (createUserError) throw createUserError
-        userId = newUser.id
+        
+        if (!existingUser) {
+          // Create user record manually
+          const { error: createError } = await supabase
+            .from('users')
+            .upsert({
+              id: userId,
+              wallet_address: walletService.publicKey.toBase58(),
+              username: `user_${walletService.publicKey.toBase58().slice(0, 8)}`
+            })
+          
+          if (createError) {
+            console.error('❌ [TRADING] Failed to create user record:', createError)
+            throw new Error('Failed to create user record for trading.')
+          }
+          
+          console.log('✅ [TRADING] User record created via fallback method')
+        }
       }
 
       // Calculate new price and market cap
@@ -603,22 +633,48 @@ export class SolanaProgram {
         throw new Error('Token not found in database')
       }
 
-      // Get user
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletService.publicKey.toBase58())
-        .single()
-
-      if (userError || !user) {
-        throw new Error('User not found')
+      // Get current authenticated user ID from session (required for RLS policies)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.user?.id) {
+        throw new Error('User not authenticated. Please sign in with your wallet first.')
+      }
+      
+      const userId = session.user.id
+      console.log('💡 [TRADING] Using authenticated session user ID:', userId)
+      
+      // Ensure user record exists for selling operations
+      try {
+        const { data: ensuredUserId, error: ensureError } = await supabase
+          .rpc('get_or_create_user_by_wallet', {
+            wallet_address: walletService.publicKey.toBase58()
+          })
+        
+        if (ensureError) {
+          console.error('❌ [TRADING] Failed to ensure user exists:', ensureError)
+          throw new Error('Failed to set up user record for trading.')
+        }
+        
+        console.log('✅ [TRADING] User record verified for selling:', ensuredUserId)
+      } catch (rpcError) {
+        console.error('❌ [TRADING] RPC call failed, ensuring user exists...')
+        
+        // Fallback: Try to get user record
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('wallet_address', walletService.publicKey.toBase58())
+          .single()
+        
+        if (!existingUser) {
+          throw new Error('User record not found. Please reconnect your wallet.')
+        }
       }
 
       // Check user holdings
       const { data: holding, error: holdingError } = await supabase
         .from('user_holdings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('token_id', token.id)
         .single()
 
@@ -648,7 +704,7 @@ export class SolanaProgram {
         .insert({
           signature: mockSignature,
           token_id: token.id,
-          user_id: user.id,
+          user_id: userId,
           transaction_type: 'sell',
           sol_amount: safeNumber(Number(solOut) / LAMPORTS_PER_SOL),
           token_amount: safeNumber(Number(tokenAmountWithDecimals) / Math.pow(10, token.decimals)),
