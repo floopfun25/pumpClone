@@ -344,19 +344,20 @@ const loadPortfolio = async (): Promise<void> => {
       }))
     ]
 
-    // Check if price data is available in development
-    let portfolioValue: any
+    // Calculate real portfolio value using price oracle - throw error if fails
+    let portfolioValue
     try {
       portfolioValue = await priceOracleService.calculatePortfolioValue(holdings)
     } catch (priceError) {
-      throw new Error('Price data unavailable in development environment. External APIs (CoinGecko/Birdeye) are blocked by CORS policy.')
+      console.error('Failed to calculate portfolio value:', priceError)
+      throw new Error(`Unable to load portfolio data: ${priceError instanceof Error ? priceError.message : 'Unknown error'}. Please check your internet connection and try again.`)
     }
     
     // Get token metadata and prices
     const tokenHoldings = await Promise.all(
       tokenAccounts.map(async (account): Promise<TokenHolding> => {
         const [tokenPrice, tokenMetadata] = await Promise.all([
-          priceOracleService.getTokenPrice(account.mint).catch(() => null), // Handle price errors gracefully
+          priceOracleService.getTokenPrice(account.mint),
           tokenMetadataService.getTokenMetadata(account.mint)
         ])
 

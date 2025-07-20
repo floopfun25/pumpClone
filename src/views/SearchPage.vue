@@ -240,6 +240,16 @@ interface Token {
   volume_24h: number
   holders_count: number
   mint_address: string
+  // Optional properties used in template
+  is_featured?: boolean
+  description?: string
+  bonding_curve_progress?: number
+  // Properties for TokenCard compatibility
+  price: number
+  priceChange24h: number
+  marketCap: number
+  volume24h: number
+  holders: number
 }
 
 // State
@@ -288,10 +298,17 @@ const performSearch = async () => {
   hasSearched.value = true
   
   try {
-    // Get current SOL price for conversion
+    // Get current SOL price for conversion - throw error if fails
     const { priceOracleService } = await import('@/services/priceOracle')
-    const solPriceData = await priceOracleService.getSOLPrice()
-    const solPriceUSD = solPriceData.price
+    let solPriceUSD = 0
+    
+    try {
+      const solPriceData = await priceOracleService.getSOLPrice()
+      solPriceUSD = solPriceData.price
+    } catch (priceError) {
+      console.error('Failed to fetch SOL price:', priceError)
+      throw new Error(`Unable to load current SOL price: ${priceError instanceof Error ? priceError.message : 'Unknown error'}. Please check your internet connection and try again.`)
+    }
     
     const result = await SupabaseService.searchTokens({
       query: currentQuery.value.trim(),
@@ -300,10 +317,16 @@ const performSearch = async () => {
       limit: 20
     })
     
-    // Convert SOL prices to USD for display
+    // Convert SOL prices to USD for display and transform for TokenCard compatibility
     const tokensWithUSDPrices = result.tokens.map((token: any) => ({
       ...token,
-      current_price: (Number(token.current_price) || 0) * solPriceUSD // Convert SOL to USD
+      current_price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
+      // Add TokenCard compatible properties
+      price: (Number(token.current_price) || 0) * solPriceUSD,
+      priceChange24h: Number(token.price_change_24h) || 0,
+      marketCap: Number(token.market_cap) || 0,
+      volume24h: Number(token.volume_24h) || 0,
+      holders: Number(token.holders_count) || 0
     }))
     
     if (page.value === 1) {

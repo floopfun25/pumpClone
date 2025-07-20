@@ -559,10 +559,17 @@ const loadUserProfile = async () => {
     // Debug: investigate token relationships (remove this later)
     // await SupabaseService.debugUserTokens(walletAddress)
     
-    // Get current SOL price for conversion
+    // Get current SOL price for conversion - throw error if fails
     const { priceOracleService } = await import('@/services/priceOracle')
-    const solPriceData = await priceOracleService.getSOLPrice()
-    const solPriceUSD = solPriceData.price
+    let solPriceUSD = 0
+    
+    try {
+      const solPriceData = await priceOracleService.getSOLPrice()
+      solPriceUSD = solPriceData.price
+    } catch (priceError) {
+      console.error('Failed to fetch SOL price:', priceError)
+      throw new Error(`Unable to load current SOL price: ${priceError instanceof Error ? priceError.message : 'Unknown error'}. Please check your internet connection and try again.`)
+    }
     
     // Load user's data in parallel
     const [tokens, watchlist, history, holdings, activity] = await Promise.all([

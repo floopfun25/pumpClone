@@ -85,6 +85,16 @@
           <p class="text-binance-gray">{{ t('common.loading') }}...</p>
         </div>
         
+        <!-- Error State -->
+        <div v-else-if="error" class="text-center py-12">
+          <div class="text-6xl mb-4">⚠️</div>
+          <h3 class="text-xl font-semibold text-red-400 mb-2">{{ t('messages.error.loadTokens') || 'Error Loading Tokens' }}</h3>
+          <p class="text-binance-gray mb-4">{{ error }}</p>
+          <button @click="loadTokens()" class="btn-secondary">
+            {{ t('common.retry') || 'Try Again' }}
+          </button>
+        </div>
+        
         <!-- Empty State -->
         <div v-else class="text-center py-12">
           <div class="text-6xl mb-4">🎭</div>
@@ -165,6 +175,7 @@ const router = useRouter()
 // Reactive state
 const tokens = ref<Token[]>([])
 const loading = ref(true)
+const error = ref<string | null>(null)
 const page = ref(1)
 const totalPages = ref(1)
 const totalTokens = ref(0)
@@ -200,12 +211,40 @@ const quickFilters = computed(() => [
 const loadTokens = async () => {
   try {
     loading.value = true
+    error.value = null // Clear any previous errors
     tokens.value = [] // Always clear previous tokens for page-based navigation
     
-    // Get current SOL price for conversion
+    // Get current SOL price for conversion - throw error if fails
     const { priceOracleService } = await import('@/services/priceOracle')
-    const solPriceData = await priceOracleService.getSOLPrice()
-    const solPriceUSD = solPriceData.price
+    let solPriceUSD = 0
+    
+    try {
+      const solPriceData = await priceOracleService.getSOLPrice()
+      solPriceUSD = solPriceData.price
+    } catch (priceError) {
+      console.error('Failed to fetch SOL price:', priceError)
+      
+      // Run network connectivity test to help diagnose the issue
+      if (import.meta.env.DEV) {
+        console.log('🔧 Running network connectivity test...')
+        priceOracleService.testNetworkConnectivity().catch(e => 
+          console.error('Network test failed:', e)
+        )
+      }
+      
+      throw new Error(`Unable to load current SOL price: ${priceError instanceof Error ? priceError.message : 'Unknown error'}.
+
+🌐 Network Issue Detected:
+Your network environment appears to be blocking external API calls. This is common in corporate/university networks or with certain ISPs.
+
+💡 Solutions:
+1. Try using a VPN or different internet connection
+2. Deploy your app to production (network restrictions may not apply)
+3. Ask your network administrator about firewall rules
+4. Note: Switching from devnet to mainnet will NOT fix this issue
+
+Check browser console for detailed network diagnosis.`)
+    }
     
     let data
     const ITEMS_PER_PAGE = 100
@@ -316,8 +355,11 @@ const loadTokens = async () => {
       totalTokens.value = result.total
     }
     
-  } catch (error) {
-    console.error('Failed to load tokens:', error)
+  } catch (loadError) {
+    console.error('Failed to load tokens:', loadError)
+    // Show error in UI instead of hiding it
+    error.value = loadError instanceof Error ? loadError.message : 'Failed to load token data. Please check your internet connection and try again.'
+    tokens.value = [] // Clear any partial data
   } finally {
     loading.value = false
   }

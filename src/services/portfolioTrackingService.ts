@@ -42,12 +42,6 @@ class PortfolioTrackingService {
       tokenCount: number
     }
   ): Promise<boolean> {
-    // Skip portfolio snapshots in development to avoid RLS policy issues
-    const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost'
-    if (isDevelopment) {
-      console.log('🚫 Skipping portfolio snapshot in development environment')
-      return true // Return success to avoid breaking the flow
-    }
 
     try {
       const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
@@ -102,6 +96,7 @@ class PortfolioTrackingService {
    * Get portfolio 24h change
    */
   async getPortfolio24hChange(userId: string, currentValue: number): Promise<PortfolioChange> {
+
     try {
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
@@ -144,6 +139,7 @@ class PortfolioTrackingService {
    * Get portfolio history for charts
    */
   async getPortfolioHistory(userId: string, days: number = 30): Promise<PortfolioSnapshot[]> {
+
     try {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - days)
@@ -171,6 +167,7 @@ class PortfolioTrackingService {
     bestPerformer?: { mint: string; name: string; change: number }
     worstPerformer?: { mint: string; name: string; change: number }
   }> {
+
     try {
       // Get user's current holdings
       const { data: currentHoldings } = await supabase

@@ -22,15 +22,81 @@ export interface TokenPriceData {
   lastUpdated: number
 }
 
+/**
+ * Jupiter-First Price Oracle Service for Solana Ecosystem
+ * 
+ * Primary Strategy:
+ * 1. Jupiter API (Solana-native, best for SPL tokens)
+ * 2. CoinGecko (fallback for general crypto data)  
+ * 3. Cached prices (if APIs fail)
+ * 4. Mock data (development mode with API issues)
+ * 
+ * Jupiter advantages:
+ * - Solana-native pricing from real DEX data
+ * - Better SPL token coverage
+ * - No rate limiting issues
+ * - Free API, no authentication needed
+ */
 class PriceOracleService {
   private priceCache = new Map<string, PriceData>()
-  private readonly CACHE_DURATION = 300000 // 5 minutes (extended to reduce API calls)
-  private readonly COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
-  private readonly BIRDEYE_BASE_URL = 'https://public-api.birdeye.so/defi'
-  private readonly FALLBACK_SOL_PRICE = 100 // Default SOL price when APIs fail
-  private readonly IS_DEVELOPMENT = import.meta.env.DEV || window.location.hostname === 'localhost'
+  private readonly CACHE_DURATION = 900000 // 15 minutes (extended to reduce API calls)
+  private lastRequestTime = 0
+  private readonly MIN_REQUEST_INTERVAL = 6000 // 6 seconds between requests
+  private readonly COINGECKO_BASE_URL = import.meta.env.DEV ? '/api/coingecko' : (import.meta.env.VITE_COINGECKO_API_URL || 'https://api.coingecko.com/api/v3')
+  private readonly COINPAPRIKA_BASE_URL = import.meta.env.DEV ? '/api/coinpaprika' : (import.meta.env.VITE_COINPAPRIKA_API_URL || 'https://api.coinpaprika.com/v1')
+  private readonly BIRDEYE_BASE_URL = import.meta.env.DEV ? '/api/birdeye' : (import.meta.env.VITE_BIRDEYE_API_URL || 'https://public-api.birdeye.so/defi')
+  private readonly JUPITER_BASE_URL = import.meta.env.DEV ? '/api/jupiter' : (import.meta.env.VITE_JUPITER_API_URL || 'https://price.jup.ag/v6')
+  private readonly JUPITER_FALLBACK_URL = 'https://quote-api.jup.ag/v6' // Alternative Jupiter endpoint
+  private readonly IS_DEVELOPMENT = import.meta.env.DEV
 
-  // Get SOL price - uses simulated data in development to avoid CORS issues
+  /**
+   * Test network connectivity to external APIs
+   * Helps diagnose network/firewall issues in development
+   */
+  async testNetworkConnectivity(): Promise<void> {
+    console.log('🌐 [NETWORK TEST] Checking API connectivity...')
+    
+    const testEndpoints = [
+      { name: 'Jupiter', url: 'https://price.jup.ag' },
+      { name: 'CoinGecko', url: 'https://api.coingecko.com' },
+      { name: 'Birdeye', url: 'https://public-api.birdeye.so' }
+    ]
+    
+    for (const endpoint of testEndpoints) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+        
+        const response = await fetch(endpoint.url, { 
+          method: 'HEAD',
+          signal: controller.signal,
+          mode: 'no-cors' // Avoid CORS issues for connectivity test
+        })
+        clearTimeout(timeoutId)
+        console.log(`✅ [NETWORK TEST] ${endpoint.name} - Reachable`)
+      } catch (error) {
+        console.error(`❌ [NETWORK TEST] ${endpoint.name} - Not reachable:`, error)
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            console.error(`⏱️ [NETWORK TEST] ${endpoint.name} - Connection timeout (>5s)`)
+          } else if (error.message.includes('Failed to fetch')) {
+            console.error(`🔒 [NETWORK TEST] ${endpoint.name} - Likely blocked by firewall/network`)
+          }
+        }
+      }
+    }
+    
+    console.log(`
+🔧 [NETWORK DIAGNOSIS] If APIs are not reachable:
+1. Your network/firewall may be blocking external APIs
+2. Try using a VPN or different internet connection
+3. Corporate/university networks often block crypto APIs
+4. Deploy to production environment for testing
+5. Switching from devnet to mainnet will NOT fix this issue
+    `)
+  }
+
+  // Get SOL price - with intelligent environment detection
   async getSOLPrice(): Promise<PriceData> {
     const cacheKey = 'SOL'
     const cachedPrice = this.priceCache.get(cacheKey)
@@ -39,139 +105,235 @@ class PriceOracleService {
       return cachedPrice
     }
 
-    // In development, show error instead of fake data
-    if (this.IS_DEVELOPMENT) {
-      console.warn('🚫 SOL price unavailable in development (CoinGecko CORS blocked)')
-      throw new Error('Price data unavailable in development environment')
-    }
-
+    // Always try real APIs only - no mock data, no fallbacks
     try {
-      const response = await fetch(
-        `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          // Add timeout to prevent hanging
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+      // Use Jupiter as primary source (Solana-native, more reliable)
+      return await this.getSOLPriceFromJupiter()
+    } catch (jupiterError) {
+      console.error('Jupiter API failed:', jupiterError instanceof Error ? jupiterError.message : 'Unknown error')
+      
+      try {
+        // Try CoinGecko as fallback
+        if (!this.IS_DEVELOPMENT) {
+          // Production: Use direct API calls (no proxy)
+          return await this.getSOLPriceFromRealAPI()
+        } else {
+          // Development: Use proxy
+          return await this.getSOLPriceFromProxy()
         }
-      )
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      } catch (coinGeckoError) {
+        console.error('CoinGecko also failed:', coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error')
+        
+        // Use cached data if available (even if expired) as last resort
+        if (cachedPrice) {
+          console.warn('⚠️ Using stale cached SOL price - APIs are down')
+          return cachedPrice
+        }
+        
+        // All sources failed - throw error to be handled by UI
+        throw new Error(`Failed to fetch SOL price: Jupiter failed (${jupiterError instanceof Error ? jupiterError.message : 'Unknown error'}), CoinGecko failed (${coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error'})`)
       }
-      
-      const data = await response.json()
-      const solData = data.solana
-      
-      const priceData: PriceData = {
-        price: solData.usd || 0,
-        priceChange24h: solData.usd_24h_change || 0,
-        priceChangePercent24h: solData.usd_24h_change || 0,
-        marketCap: solData.usd_market_cap,
-        volume24h: solData.usd_24h_vol,
-        lastUpdated: Date.now()
-      }
-      
-      this.priceCache.set(cacheKey, priceData)
-      return priceData
-      
-    } catch (error) {
-      // Use cached data if available (even if expired) to reduce error impact
-      if (cachedPrice) {
-        console.warn('Using cached SOL price due to API error:', error instanceof Error ? error.message : 'Unknown error')
-        return cachedPrice
-      }
-      
-      // Only log detailed error once per minute to avoid spam
-      const now = Date.now()
-      const lastErrorLog = this.priceCache.get('lastErrorLog')
-      if (!lastErrorLog || (now - lastErrorLog.lastUpdated) > 60000) {
-        console.error('Failed to fetch SOL price (will use fallback):', error instanceof Error ? error.message : 'Unknown error')
-        this.priceCache.set('lastErrorLog', { price: 0, priceChange24h: 0, priceChangePercent24h: 0, lastUpdated: now })
-      }
-      
-      // Return fallback data
-      const fallbackPrice: PriceData = {
-        price: this.FALLBACK_SOL_PRICE,
-        priceChange24h: 0,
-        priceChangePercent24h: 0,
-        lastUpdated: now
-      }
-      
-      return fallbackPrice
     }
   }
 
-  // Generate realistic simulated SOL price for development
-  private getSimulatedSOLPrice(): PriceData {
+  // Get SOL price from CoinPaprika API (fallback)
+  private async getSOLPriceFromCoinPaprika(): Promise<PriceData> {
+    const url = `${this.COINPAPRIKA_BASE_URL}/tickers/sol-solana`
+    console.log('🔍 Fetching SOL price from CoinPaprika:', url)
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(10000)
+    })
+    
+    console.log('📡 CoinPaprika response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available')
+      console.error('❌ CoinPaprika API error response:', errorText)
+      throw new Error(`CoinPaprika API error! Status: ${response.status} ${response.statusText}. Details: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    
+    if (!data.quotes?.USD) {
+      throw new Error('Invalid CoinPaprika response format')
+    }
+    
+    const quote = data.quotes.USD
+    const priceData: PriceData = {
+      price: quote.price || 0,
+      priceChange24h: quote.percent_change_24h || 0,
+      priceChangePercent24h: quote.percent_change_24h || 0,
+      marketCap: quote.market_cap || 0,
+      volume24h: quote.volume_24h || 0,
+      lastUpdated: Date.now()
+    }
+    
+    console.log('✅ CoinPaprika SOL price fetched successfully:', priceData.price)
+    
+    // Cache the successful result
     const cacheKey = 'SOL'
-    const basePrice = 100 // Base SOL price around $100
-    const now = Date.now()
+    this.priceCache.set(cacheKey, priceData)
     
-    // Create subtle price variation based on time to simulate market movement
-    const timeVariation = Math.sin(now / 3600000) * 5 // Slow cycle over hours
-    const randomVariation = (Math.random() - 0.5) * 2 // Small random movement
-    const currentPrice = basePrice + timeVariation + randomVariation
-    
-    // Simulate daily change
-    const dailyChange = timeVariation + (Math.random() - 0.5) * 8
-    const dailyChangePercent = (dailyChange / basePrice) * 100
-    
-    const simulatedPrice: PriceData = {
-      price: parseFloat(currentPrice.toFixed(2)),
-      priceChange24h: parseFloat(dailyChange.toFixed(2)),
-      priceChangePercent24h: parseFloat(dailyChangePercent.toFixed(2)),
-      marketCap: 50000000000, // 50B market cap
-      volume24h: 2000000000, // 2B volume
-      lastUpdated: now
-    }
-    
-    // Cache the simulated price
-    this.priceCache.set(cacheKey, simulatedPrice)
-    
-    console.log(`🧪 [DEV] Using simulated SOL price: $${simulatedPrice.price}`)
-    return simulatedPrice
+    return priceData
   }
 
-  // Generate realistic simulated token price for development
-  private getSimulatedTokenPrice(mintAddress: string): TokenPriceData {
-    const cacheKey = `token_${mintAddress}`
-    const now = Date.now()
+
+
+  // Get SOL price from real API (production)
+  private async getSOLPriceFromRealAPI(): Promise<PriceData> {
+    // Use CoinGecko directly in production (no proxy)
+    const url = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true'
+    console.log('🔍 [PRODUCTION] Fetching SOL price from CoinGecko:', url)
     
-    // Generate price based on token address to ensure consistency
-    const addressHash = mintAddress.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0)
-      return a & a
-    }, 0)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'FloppFun/1.0.0'
+      },
+      signal: AbortSignal.timeout(10000)
+    })
     
-    const basePrice = Math.abs(addressHash) % 100 + 0.01 // Price between $0.01 and $100
-    const timeVariation = Math.sin((now + addressHash) / 3600000) * (basePrice * 0.1)
-    const currentPrice = basePrice + timeVariation
-    
-    // Generate token metadata based on address
-    const symbols = ['MEME', 'PEPE', 'DOGE', 'SHIB', 'FLOKI', 'BONK', 'WIF', 'POPCAT']
-    const symbol = symbols[Math.abs(addressHash) % symbols.length]
-    
-    const simulatedToken: TokenPriceData = {
-      mint: mintAddress,
-      symbol: symbol,
-      name: `${symbol} Token`,
-      price: parseFloat(currentPrice.toFixed(6)),
-      priceChange24h: parseFloat((timeVariation).toFixed(6)),
-      priceChangePercent24h: parseFloat(((timeVariation / basePrice) * 100).toFixed(2)),
-      marketCap: Math.abs(addressHash) % 10000000 + 100000, // 100K to 10M market cap
-      volume24h: Math.abs(addressHash) % 1000000 + 10000, // 10K to 1M volume
-      lastUpdated: now
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error! Status: ${response.status}`)
     }
     
-    // Cache the simulated price
-    this.priceCache.set(cacheKey, simulatedToken)
+    const data = await response.json()
+    const solData = data.solana
     
-    console.log(`🧪 [DEV] Using simulated token price for ${symbol}: $${simulatedToken.price}`)
-    return simulatedToken
+    const priceData: PriceData = {
+      price: solData.usd || 0,
+      priceChange24h: solData.usd_24h_change || 0,
+      priceChangePercent24h: solData.usd_24h_change || 0,
+      marketCap: solData.usd_market_cap || 0,
+      volume24h: solData.usd_24h_vol || 0,
+      lastUpdated: Date.now()
+    }
+    
+    console.log('✅ [PRODUCTION] SOL price fetched:', priceData.price)
+    
+    // Cache the result
+    const cacheKey = 'SOL'
+    this.priceCache.set(cacheKey, priceData)
+    
+    return priceData
+  }
+
+  // Get SOL price from proxy (development)
+  private async getSOLPriceFromProxy(): Promise<PriceData> {
+    // Rate limiting - wait if we've made a request too recently
+    const now = Date.now()
+    const timeSinceLastRequest = now - this.lastRequestTime
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest
+      console.log(`⏳ Rate limiting: waiting ${waitTime}ms before next request`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+    }
+    this.lastRequestTime = Date.now()
+
+    const url = `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`
+    console.log('🔍 [DEV] Fetching SOL price via proxy:', url)
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      signal: AbortSignal.timeout(10000)
+    })
+    
+    console.log('📡 [DEV] Proxy response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available')
+      console.error('❌ [DEV] Proxy API error response:', errorText)
+      throw new Error(`Proxy API error! Status: ${response.status}. Details: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    const solData = data.solana
+    
+    const priceData: PriceData = {
+      price: solData.usd || 0,
+      priceChange24h: solData.usd_24h_change || 0,
+      priceChangePercent24h: solData.usd_24h_change || 0,
+      marketCap: solData.usd_market_cap || 0,
+      volume24h: solData.usd_24h_vol || 0,
+      lastUpdated: Date.now()
+    }
+    
+    console.log('✅ [DEV] SOL price fetched via proxy:', priceData.price)
+    
+    // Cache the result
+    const cacheKey = 'SOL'
+    this.priceCache.set(cacheKey, priceData)
+    
+    return priceData
+  }
+
+  // Get SOL price from Jupiter API (Solana-specific, very reliable)
+  private async getSOLPriceFromJupiter(): Promise<PriceData> {
+    // Jupiter Price API v6 - more reliable endpoint
+    const SOL_MINT = import.meta.env.VITE_SOL_MINT || 'So11111111111111111111111111111111111111112'
+    
+    // Use the correct Jupiter API endpoint based on environment
+    const baseUrl = this.IS_DEVELOPMENT 
+      ? this.JUPITER_BASE_URL 
+      : 'https://price.jup.ag/v6'
+    
+    const USDC_MINT = import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+    const url = `${baseUrl}/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}` // vs USDC
+    console.log('🚀 [JUPITER] Fetching SOL price:', url)
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'FloppFun/1.0.0'
+      },
+      signal: AbortSignal.timeout(8000) // Shorter timeout for Jupiter
+    })
+    
+    console.log('📡 [JUPITER] Response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available')
+      console.error('❌ [JUPITER] API error response:', errorText)
+      throw new Error(`Jupiter API error! Status: ${response.status}. Details: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log('📊 [JUPITER] Raw response:', data)
+    
+    if (!data.data?.[SOL_MINT]) {
+      throw new Error('Invalid Jupiter response format - no SOL data found')
+    }
+    
+    const solData = data.data[SOL_MINT]
+    const price = parseFloat(solData.price) || 0
+    
+    const priceData: PriceData = {
+      price: price,
+      priceChange24h: 0, // Jupiter doesn't provide 24h change (we can calculate later)
+      priceChangePercent24h: 0, // Jupiter doesn't provide 24h change
+      marketCap: 0, // Jupiter focuses on price, not market cap
+      volume24h: 0, // Jupiter doesn't provide volume
+      lastUpdated: Date.now()
+    }
+    
+    console.log(`✅ [JUPITER] SOL price fetched successfully: $${priceData.price}`)
+    
+    // Cache the successful result
+    const cacheKey = 'SOL'
+    this.priceCache.set(cacheKey, priceData)
+    
+    return priceData
   }
 
   // Get token price from Birdeye API (supports SPL tokens)
@@ -188,22 +350,20 @@ class PriceOracleService {
       }
     }
 
-    // In development, show error instead of fake data
-    if (this.IS_DEVELOPMENT) {
-      console.warn('🚫 Token price unavailable in development (API access blocked)')
-      return null // Return null to indicate price unavailable
-    }
-
     try {
-      // Get API key from environment
+      // Prioritize Jupiter for all tokens (Solana-native, more reliable)
+      console.log(`🚀 [JUPITER] Fetching token price for ${mintAddress}`)
+      const jupiterPrice = await this.getTokenPriceFromJupiter(mintAddress)
+      if (jupiterPrice) {
+        return jupiterPrice
+      }
+      
+      console.warn(`Jupiter failed for token ${mintAddress}, trying Birdeye as fallback`)
+      
+      // Fallback to Birdeye if Jupiter fails
       const apiKey = import.meta.env.VITE_BIRDEYE_API_KEY
       
       if (!apiKey || apiKey === 'demo' || apiKey === 'your_birdeye_api_key_here') {
-        // No valid API key, try Jupiter API as alternative
-        const jupiterPrice = await this.getTokenPriceFromJupiter(mintAddress)
-        if (jupiterPrice) {
-          return jupiterPrice
-        }
         throw new Error('No valid Birdeye API key configured and Jupiter API failed')
       }
       
@@ -357,11 +517,27 @@ class PriceOracleService {
     return Math.abs(hash)
   }
 
-  // Alternative: Get token price from Jupiter API (free, no API key required)
+  // Get token price from Jupiter API (Solana-native, free, no API key required)
   private async getTokenPriceFromJupiter(mintAddress: string): Promise<TokenPriceData | null> {
     try {
-      // Use Jupiter Price API v2 - correct endpoint
-      const response = await fetch(`https://lite-api.jup.ag/price/v2?ids=${mintAddress}`)
+      // Use the correct Jupiter API endpoint based on environment
+      const baseUrl = this.IS_DEVELOPMENT 
+        ? this.JUPITER_BASE_URL 
+        : 'https://price.jup.ag/v6'
+      
+      // Use USDC as base currency for token prices
+      const usdcMint = import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      const url = `${baseUrl}/price?ids=${mintAddress}&vsToken=${usdcMint}`
+      
+      console.log(`🚀 [JUPITER] Fetching token price: ${url}`)
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'FloppFun/1.0.0'
+        },
+        signal: AbortSignal.timeout(8000)
+      })
       
       if (!response.ok) {
         throw new Error(`Jupiter API error: ${response.status}`)
@@ -385,23 +561,28 @@ class PriceOracleService {
         
         this.priceCache.set(`token_${mintAddress}`, priceData)
         
-        // Try to get token metadata from Jupiter Token API
+        // Try to get token metadata from Jupiter Token List
         let symbol = 'UNKNOWN'
         let name = 'Unknown Token'
         
         try {
-          const tokenMetaResponse = await fetch(`https://tokens.jup.ag/token/${mintAddress}`)
-          if (tokenMetaResponse.ok) {
-            const tokenMeta = await tokenMetaResponse.json()
-            symbol = tokenMeta.symbol || symbol
-            name = tokenMeta.name || name
-            apiHealthMonitor.recordSuccess('token_metadata')
-          } else {
-            apiHealthMonitor.recordFailure('token_metadata', `HTTP ${tokenMetaResponse.status}`)
+          const tokenListUrl = import.meta.env.VITE_JUPITER_TOKEN_LIST_URL || 'https://tokens.jup.ag/tokens'
+          const tokenListResponse = await fetch(`${tokenListUrl}?tags=verified`)
+          if (tokenListResponse.ok) {
+            const tokenList = await tokenListResponse.json()
+            const tokenInfo = tokenList.find((token: any) => token.address === mintAddress)
+            if (tokenInfo) {
+              symbol = tokenInfo.symbol || symbol
+              name = tokenInfo.name || name
+              apiHealthMonitor.recordSuccess('token_metadata')
+            }
           }
         } catch (metaError) {
-          apiHealthMonitor.recordFailure('token_metadata', metaError instanceof Error ? metaError.message : 'Unknown error')
+          console.warn('Failed to fetch token metadata from Jupiter:', metaError)
+          apiHealthMonitor.recordFailure('token_metadata', 'Network error')
         }
+        
+        console.log(`✅ [JUPITER] Token price fetched: ${symbol} = $${price}`)
         
         return {
           mint: mintAddress,

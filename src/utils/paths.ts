@@ -7,9 +7,9 @@
  * This handles the difference between development and production environments
  */
 export function getBasePath(): string {
-  // Check if VITE_BASE_URL is set from environment
-  if (import.meta.env.VITE_BASE_URL) {
-    return import.meta.env.VITE_BASE_URL
+  // Check if VITE_BASE_PATH is set from environment
+  if (import.meta.env.VITE_BASE_PATH) {
+    return import.meta.env.VITE_BASE_PATH
   }
   
   // Check if Vite's BASE_URL is available

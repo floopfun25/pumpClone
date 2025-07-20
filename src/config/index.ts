@@ -17,33 +17,47 @@ export const config = {
     anonKey: getEnvVar('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc')
   },
   
-  // Solana blockchain configuration - FORCED TO DEVNET
+  // Solana blockchain configuration
   solana: {
-    rpcUrl: 'https://api.devnet.solana.com', // Completely hardcoded - no env vars
-    network: 'devnet' as const, // Completely hardcoded - no env vars
+    network: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') as 'devnet' | 'mainnet',
+    rpcUrl: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet' 
+      ? getEnvVar('VITE_MAINNET_RPC_URL', 'https://api.mainnet-beta.solana.com')
+      : getEnvVar('VITE_DEVNET_RPC_URL', 'https://api.devnet.solana.com'),
     commitment: 'confirmed' as const
   },
   
-  // FloppFun Program Addresses (Devnet)
+  // FloppFun Program Addresses (environment-specific)
   programs: {
-    // Bonding curve program (placeholder - will be replaced when deployed)
-    bondingCurve: '11111111111111111111111111111111',
-    // Token factory program (placeholder)
-    tokenFactory: '11111111111111111111111111111111',
-    // Platform fee collection (placeholder)
-    feeCollector: '11111111111111111111111111111111',
-    // Metadata program (Metaplex)
-    metadata: 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
+    // Bonding curve program
+    bondingCurve: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_BONDING_CURVE_PROGRAM', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_BONDING_CURVE_PROGRAM', '11111111111111111111111111111111'),
+    // Token factory program
+    tokenFactory: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_TOKEN_FACTORY_PROGRAM', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_TOKEN_FACTORY_PROGRAM', '11111111111111111111111111111111'),
+    // Platform fee collection
+    feeCollector: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_FEE_COLLECTOR', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_FEE_COLLECTOR', '11111111111111111111111111111111'),
+    // Metadata program (Metaplex - same on all networks)
+    metadata: getEnvVar('VITE_METADATA_PROGRAM', 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
   },
   
-  // Platform Configuration
+  // Platform Configuration (environment-specific)
   platform: {
-    // Platform fee collection wallet (devnet) - using System Program ID as placeholder
-    feeWallet: '11111111111111111111111111111111',
+    // Platform fee collection wallet
+    feeWallet: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_FEE_WALLET', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_FEE_WALLET', '11111111111111111111111111111111'),
     // Authority wallet for program operations
-    authority: '11111111111111111111111111111111',
+    authority: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_AUTHORITY', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_AUTHORITY', '11111111111111111111111111111111'),
     // Treasury for rewards and incentives
-    treasury: '11111111111111111111111111111111'
+    treasury: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
+      ? getEnvVar('VITE_MAINNET_TREASURY', '11111111111111111111111111111111')
+      : getEnvVar('VITE_DEVNET_TREASURY', '11111111111111111111111111111111')
   },
   
   // Application constants
