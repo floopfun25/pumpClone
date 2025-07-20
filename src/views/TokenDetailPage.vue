@@ -80,262 +80,68 @@
           <!-- Left Column: Chart & Comments (2/3 width) -->
           <div class="lg:col-span-2 space-y-6 md:space-y-6 space-y-4">
             <!-- Price Chart -->
-            <TradingViewChart 
-              v-if="token?.id" 
-              :token-id="token.id"
-              :token-symbol="token.symbol"
-              :mint-address="token.mint_address"
-              class="mobile-chart"
-            />
+            <ErrorBoundary 
+              title="Chart Loading Error" 
+              message="The price chart couldn't load properly."
+              show-reload
+            >
+              <TradingViewChart 
+                v-if="token?.id" 
+                :token-id="token.id"
+                :token-symbol="token.symbol"
+                :mint-address="token.mint_address"
+                class="mobile-chart"
+              />
+            </ErrorBoundary>
 
             <!-- Mobile Trading Interface - Show under chart on mobile only -->
             <div class="lg:hidden mobile-trading-section">
-              <!-- Trading Interface - Binance Style -->
-              <div class="bg-binance-card rounded-xl border border-binance-border p-6 mobile-trading-card">
-                <!-- Buy/Sell Toggle -->
-                <div class="grid grid-cols-2 gap-2 mb-4">
-                  <button 
-                    :class="[
-                      'py-3 px-4 text-base font-medium rounded-lg transition-colors',
-                      tradeType === 'buy' 
-                        ? 'bg-binance-green text-white' 
-                        : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
-                    ]"
-                    @click="tradeType = 'buy'"
-                  >
-                    buy
-                  </button>
-                  <button 
-                    :class="[
-                      'py-3 px-4 text-base font-medium rounded-lg transition-colors',
-                      tradeType === 'sell' 
-                        ? 'bg-binance-red text-white' 
-                        : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
-                    ]"
-                    @click="tradeType = 'sell'"
-                  >
-                    sell
-                  </button>
-                </div>
-
-                <!-- Balance -->
-                <div class="text-base text-binance-gray mb-4">
-                  balance: <span class="font-medium text-white">{{ walletStore.isConnected ? '0.0000 SOL' : 'Connect wallet' }}</span>
-                </div>
-
-                <!-- Amount Input -->
-                <div class="mb-4">
-                  <div class="flex items-center border border-binance-border rounded-lg bg-trading-elevated">
-                    <input
-                      v-model="tradeAmount"
-                      type="number"
-                      placeholder="0.00"
-                      class="flex-1 px-4 py-3 bg-transparent text-white focus:outline-none text-base"
-                      step="0.001"
-                      min="0"
-                      @input="calculateTradePreview"
-                    />
-                    <span class="px-4 py-3 text-base text-binance-gray border-l border-binance-border">
-                      {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Trade Preview -->
-                <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 bg-trading-elevated rounded-lg border border-binance-border">
-                  <div class="space-y-2 text-base">
-                    <div class="flex justify-between">
-                      <span class="text-binance-gray">
-                        {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
-                      </span>
-                      <span class="font-medium text-white">
-                        {{ tradeType === 'buy' 
-                          ? `${tradePreview.tokensReceived.toFixed(6)} ${tokenSymbol}`
-                          : `${Math.abs(tradePreview.solSpent).toFixed(6)} SOL`
-                        }}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-binance-gray">Price impact:</span>
-                      <span :class="[
-                        'font-medium',
-                        Math.abs(tradePreview.priceImpact) > 5 ? 'text-binance-red' : 'text-white'
-                      ]">
-                        {{ tradePreview.priceImpact.toFixed(2) }}%
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-binance-gray">New price:</span>
-                      <span class="font-medium text-white">
-                        {{ tradePreview.newPrice.toFixed(9) }} SOL
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-binance-gray">Platform fee:</span>
-                      <span class="font-medium text-white">
-                        {{ tradePreview.platformFee.toFixed(6) }} SOL
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Quick Amount Buttons -->
-                <div class="grid grid-cols-4 gap-2 mb-4">
-                  <button 
-                    v-for="amount in ['0.1', '0.5', '1', 'max']" 
-                    :key="amount"
-                    @click="setQuickAmount(amount)"
-                    class="py-3 px-2 text-sm bg-trading-elevated text-binance-gray border border-binance-border rounded hover:bg-trading-surface hover:text-white transition-colors"
-                  >
-                    {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
-                  </button>
-                </div>
-
-                <!-- Trade Button -->
-                <button
-                  @click="executeTrade"
-                  :disabled="!canTrade"
-                  class="w-full py-4 px-4 font-semibold text-lg rounded-lg transition-all duration-200 active:scale-95"
-                  :class="[
-                    tradeType === 'buy' 
-                      ? 'bg-binance-green hover:bg-trading-buy text-white' 
-                      : 'bg-binance-red hover:bg-trading-sell text-white',
-                    !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
-                  ]"
-                >
-                  {{ tradeType === 'buy' ? 'Buy' : 'Sell' }} {{ tokenSymbol }}
-                </button>
-              </div>
+              <ErrorBoundary 
+                title="Trading Interface Error" 
+                message="The trading interface couldn't load properly."
+              >
+                <TradingInterface
+                  :token-symbol="tokenSymbol"
+                  :bonding-curve-state="bondingCurveState"
+                  :wallet-balance="walletStore.balance"
+                  :token-balance="userTokenBalance"
+                  @trade="handleTrade"
+                  @connect-wallet="connectWallet"
+                />
+              </ErrorBoundary>
             </div>
 
             <!-- Comments Section -->
-            <TokenComments
-              v-if="token?.id"
-              :token-id="token.id"
-              :token-creator="token.creator?.wallet_address"
-              @connect-wallet="connectWallet"
-              class="mobile-comments"
-            />
+            <ErrorBoundary 
+              title="Comments Loading Error" 
+              message="The comments section couldn't load properly."
+            >
+              <TokenComments
+                v-if="token?.id"
+                :token-id="token.id"
+                :token-creator="token.creator?.wallet_address"
+                @connect-wallet="connectWallet"
+                class="mobile-comments"
+              />
+            </ErrorBoundary>
           </div>
 
           <!-- Right Sidebar: Trading & Token Info (1/3 width) - Desktop Only -->
           <div class="hidden lg:block space-y-4 mobile-sidebar">
-            <!-- Trading Interface - Binance Style -->
-            <div class="bg-binance-card rounded-xl border border-binance-border p-6 md:p-4 mobile-trading-card">
-              <!-- Buy/Sell Toggle -->
-              <div class="grid grid-cols-2 gap-2 md:gap-1 mb-4">
-                <button 
-                  :class="[
-                    'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
-                    tradeType === 'buy' 
-                      ? 'bg-binance-green text-white' 
-                      : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
-                  ]"
-                  @click="tradeType = 'buy'"
-                >
-                  buy
-                </button>
-                <button 
-                  :class="[
-                    'py-3 md:py-2 px-4 text-base md:text-sm font-medium rounded-lg transition-colors',
-                    tradeType === 'sell' 
-                      ? 'bg-binance-red text-white' 
-                      : 'bg-trading-elevated text-binance-gray hover:text-white hover:bg-trading-surface border border-binance-border'
-                  ]"
-                  @click="tradeType = 'sell'"
-                >
-                  sell
-                </button>
-              </div>
-
-              <!-- Balance -->
-              <div class="text-base md:text-sm text-binance-gray mb-4">
-                balance: <span class="font-medium text-white">{{ walletStore.isConnected ? `${walletStore.balance.toFixed(4)} SOL` : 'Connect wallet' }}</span>
-              </div>
-
-              <!-- Amount Input -->
-              <div class="mb-4">
-                <div class="flex items-center border border-binance-border rounded-lg bg-trading-elevated">
-                  <input
-                    v-model="tradeAmount"
-                    type="number"
-                    placeholder="0.00"
-                    class="flex-1 px-4 py-3 md:py-2 bg-transparent text-white focus:outline-none text-base md:text-sm"
-                    step="0.001"
-                    min="0"
-                    @input="calculateTradePreview"
-                  />
-                  <span class="px-4 py-3 md:py-2 text-base md:text-sm text-binance-gray border-l border-binance-border">
-                    {{ tradeType === 'buy' ? 'SOL' : tokenSymbol }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Trade Preview -->
-              <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 md:p-3 bg-trading-elevated rounded-lg border border-binance-border">
-                <div class="space-y-2 text-base md:text-sm">
-                  <div class="flex justify-between">
-                    <span class="text-binance-gray">
-                      {{ tradeType === 'buy' ? 'Tokens received:' : 'SOL received:' }}
-                    </span>
-                    <span class="font-medium text-white">
-                      {{ tradeType === 'buy' 
-                        ? `${tradePreview.tokensReceived.toFixed(6)} ${tokenSymbol}`
-                        : `${Math.abs(tradePreview.solSpent).toFixed(6)} SOL`
-                      }}
-                    </span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-binance-gray">Price impact:</span>
-                    <span :class="[
-                      'font-medium',
-                      Math.abs(tradePreview.priceImpact) > 5 ? 'text-binance-red' : 'text-white'
-                    ]">
-                      {{ tradePreview.priceImpact.toFixed(2) }}%
-                    </span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-binance-gray">New price:</span>
-                    <span class="font-medium text-white">
-                      {{ tradePreview.newPrice.toFixed(9) }} SOL
-                    </span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-binance-gray">Platform fee:</span>
-                    <span class="font-medium text-white">
-                      {{ tradePreview.platformFee.toFixed(6) }} SOL
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Quick Amount Buttons -->
-              <div class="grid grid-cols-4 gap-2 mb-4">
-                <button 
-                  v-for="amount in ['0.1', '0.5', '1', 'max']" 
-                  :key="amount"
-                  @click="setQuickAmount(amount)"
-                  class="py-3 md:py-2 px-2 text-sm md:text-xs bg-trading-elevated text-binance-gray border border-binance-border rounded hover:bg-trading-surface hover:text-white transition-colors"
-                >
-                  {{ amount }} {{ amount !== 'max' ? 'SOL' : '' }}
-                </button>
-              </div>
-
-              <!-- Trade Button -->
-              <button
-                @click="executeTrade"
-                :disabled="!canTrade"
-                class="w-full py-4 md:py-3 px-4 font-semibold text-lg md:text-base rounded-lg transition-all duration-200 active:scale-95"
-                :class="[
-                  tradeType === 'buy' 
-                    ? 'bg-binance-green hover:bg-trading-buy text-white' 
-                    : 'bg-binance-red hover:bg-trading-sell text-white',
-                  !canTrade ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'
-                ]"
-              >
-                {{ tradeType === 'buy' ? 'Buy' : 'Sell' }} {{ tokenSymbol }}
-              </button>
-            </div>
+            <!-- Trading Interface -->
+            <ErrorBoundary 
+              title="Trading Interface Error" 
+              message="The trading interface couldn't load properly."
+            >
+              <TradingInterface
+                :token-symbol="tokenSymbol"
+                :bonding-curve-state="bondingCurveState"
+                :wallet-balance="walletStore.balance"
+                :token-balance="userTokenBalance"
+                @trade="handleTrade"
+                @connect-wallet="connectWallet"
+              />
+            </ErrorBoundary>
 
             <!-- Token Info Card -->
             <div class="bg-binance-card rounded-xl border border-binance-border p-6 md:p-4 mobile-info-card">
@@ -374,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, watchEffect, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PublicKey } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
@@ -382,16 +188,12 @@ import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { solanaProgram } from '@/services/solanaProgram'
-import { marketAnalyticsService, formatRSI, formatSentiment, formatRiskLevel, type TokenAnalytics } from '@/services/marketAnalytics'
-import { formatVolume } from '@/services/priceOracle'
+import { marketAnalyticsService, type TokenAnalytics } from '@/services/marketAnalytics'
 import TokenComments from '@/components/token/TokenComments.vue'
-import SocialShare from '@/components/social/SocialShare.vue'
-import DirectMessages from '@/components/social/DirectMessages.vue'
 import TradingViewChart from '@/components/charts/TradingViewChart.vue'
-import EnhancedTradingInterface from '@/components/token/EnhancedTradingInterface.vue'
-import BondingCurveProgress from '@/components/token/BondingCurveProgress.vue'
+import TradingInterface from '@/components/token/TradingInterface.vue'
+import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
-import { SolanaProgram } from '@/services/solanaProgram'
 import { RealTimePriceService, type RealPriceData } from '@/services/realTimePriceService'
 
 const route = useRoute()
@@ -402,8 +204,6 @@ const authStore = useAuthStore()
 
 // State
 const loading = ref(true)
-const tradeType = ref<'buy' | 'sell'>('buy')
-const tradeAmount = ref('')
 const error = ref('')
 
 // Real token data from Supabase
@@ -421,12 +221,12 @@ const bondingProgress = ref<any>(null)
 const lastPriceUpdate = ref<Date>(new Date())
 const priceUnsubscribe = ref<(() => void) | null>(null)
 
-// Trade preview state
-const tradePreview = ref<any>(null)
-
 // Watchlist state
 const isInWatchlist = ref(false)
 const watchlistLoading = ref(false)
+
+// User token balance (for trading)
+const userTokenBalance = ref(0)
 
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
@@ -464,12 +264,7 @@ const priceChangeColor = computed(() => {
   return change >= 0 ? 'text-pump-green' : 'text-pump-red'
 })
 
-// Computed for trading validation
-const canTrade = computed(() => {
-  if (!walletStore.isConnected) return false
-  if (!tradeAmount.value || parseFloat(tradeAmount.value) <= 0) return false
-  return true
-})
+
 
 /**
  * Connect wallet handler
@@ -515,10 +310,9 @@ const authenticateUserWithWallet = async () => {
 }
 
 /**
- * Execute trade
- * Integrated with Solana blockchain via solanaProgram service
+ * Handle trade from TradingInterface component
  */
-const executeTrade = async () => {
+const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, preview: any }) => {
   if (!walletStore.isConnected) {
     uiStore.showToast({
       type: 'error',
@@ -533,16 +327,6 @@ const executeTrade = async () => {
       type: 'error',
       title: 'Token Not Found',
       message: 'Token information is not available'
-    })
-    return
-  }
-
-  const amount = parseFloat(tradeAmount.value)
-  if (!amount || amount <= 0) {
-    uiStore.showToast({
-      type: 'error',
-      title: 'Invalid Amount',
-      message: 'Please enter a valid amount'
     })
     return
   }
@@ -564,51 +348,12 @@ const executeTrade = async () => {
     await walletStore.updateBalance()
 
     const mintAddress = new PublicKey(token.value.mint_address)
-    
-    // Get current bonding curve state for calculations
-    const currentState = bondingCurveState.value
-    if (!currentState) {
-      throw new Error('Bonding curve state not available')
-    }
-
-    // Calculate expected trade result using bonding curve math
-    let tradeResult: any
-    if (tradeType.value === 'buy') {
-      tradeResult = BondingCurveService.calculateBuyTrade(
-        amount,
-        currentState.virtualSolReserves,
-        currentState.virtualTokenReserves,
-        currentState.realTokenReserves
-      )
-      
-      // Show trade preview to user
-      console.log('💰 Buy Preview:', {
-        solSpent: amount,
-        tokensReceived: tradeResult.tokensReceived,
-        newPrice: tradeResult.newPrice,
-        priceImpact: tradeResult.priceImpact.toFixed(2) + '%'
-      })
-    } else {
-      tradeResult = BondingCurveService.calculateSellTrade(
-        amount,
-        currentState.virtualSolReserves,
-        currentState.virtualTokenReserves,
-        currentState.realTokenReserves
-      )
-      
-      // Show trade preview to user
-      console.log('💰 Sell Preview:', {
-        tokensSpent: amount,
-        solReceived: tradeResult.solSpent,
-        newPrice: tradeResult.newPrice,
-        priceImpact: tradeResult.priceImpact.toFixed(2) + '%'
-      })
-    }
+    const { type, amount, preview } = tradeData
 
     // Check if price impact is too high (>10%)
-    if (Math.abs(tradeResult.priceImpact) > 10) {
+    if (preview && Math.abs(preview.priceImpact) > 10) {
       const confirmed = confirm(
-        `Warning: High price impact of ${tradeResult.priceImpact.toFixed(2)}%. Continue?`
+        `Warning: High price impact of ${preview.priceImpact.toFixed(2)}%. Continue?`
       )
       if (!confirmed) {
         uiStore.setLoading(false)
@@ -618,14 +363,14 @@ const executeTrade = async () => {
 
     let signature: string
 
-    if (tradeType.value === 'buy') {
+    if (type === 'buy') {
       // Execute buy transaction
       signature = await solanaProgram.buyTokens(mintAddress, amount)
       
       uiStore.showToast({
         type: 'success',
         title: 'Buy Order Successful! 🎉',
-        message: `Bought ${tradeResult.tokensReceived.toFixed(6)} ${tokenSymbol.value} for ${amount} SOL`
+        message: `Bought ${preview?.tokensReceived?.toFixed(6) || 'tokens'} ${tokenSymbol.value} for ${amount} SOL`
       })
     } else {
       // Execute sell transaction
@@ -634,16 +379,10 @@ const executeTrade = async () => {
       uiStore.showToast({
         type: 'success',
         title: 'Sell Order Successful! 💰',
-        message: `Sold ${amount} ${tokenSymbol.value} for ${Math.abs(tradeResult.solSpent).toFixed(6)} SOL`
+        message: `Sold ${amount} ${tokenSymbol.value} for ${Math.abs(preview?.solSpent || 0).toFixed(6)} SOL`
       })
     }
 
-    // Clear the trade amount
-    tradeAmount.value = ''
-    
-    // Manually decrease SOL balance for UI feedback
-    walletStore.walletState.balance -= amount
-    
     // Trigger immediate price update
     await RealTimePriceService.forceUpdate(token.value.id)
     
@@ -658,7 +397,10 @@ const executeTrade = async () => {
     // Refresh token data to show updated stats
     await loadTokenData()
     
-    console.log(`✅ ${tradeType.value} transaction completed:`, signature)
+    // Update user token balance
+    await loadUserTokenBalance()
+    
+    console.log(`✅ ${type} transaction completed:`, signature)
     
   } catch (error: any) {
     console.error('Trade failed:', error)
@@ -713,6 +455,26 @@ const loadTopHolders = async () => {
 }
 
 /**
+ * Load user's token balance for trading
+ */
+const loadUserTokenBalance = async () => {
+  if (!walletStore.isConnected || !token.value?.mint_address) {
+    userTokenBalance.value = 0
+    return
+  }
+
+  try {
+    // TODO: Implement actual token balance loading from blockchain
+    // For now, set to 0 as placeholder
+    userTokenBalance.value = 0
+    console.log('📊 User token balance loaded:', userTokenBalance.value)
+  } catch (error) {
+    console.error('❌ Failed to load user token balance:', error)
+    userTokenBalance.value = 0
+  }
+}
+
+/**
  * Load token data from Supabase
  */
 const loadTokenData = async () => {
@@ -756,6 +518,9 @@ const loadTokenData = async () => {
     
     // Load real top holders data from database
     await loadTopHolders()
+    
+    // Load user token balance for trading
+    await loadUserTokenBalance()
     
     // Format transactions for display
     recentTrades.value = transactions.map((tx: any) => ({
@@ -872,6 +637,8 @@ const handleTradeExecuted = (result: any) => {
   loadTokenData()
   // Also refresh top holders since holdings may have changed
   loadTopHolders()
+  // Refresh user token balance
+  loadUserTokenBalance()
 }
 
 const loadBondingCurveData = async () => {
@@ -950,17 +717,7 @@ const refreshChart = () => {
   }
 }
 
-/**
- * Set quick amount for trading
- */
-const setQuickAmount = (amount: string) => {
-  if (amount === 'max') {
-    // TODO: Set to maximum available balance
-    tradeAmount.value = '1.0'
-  } else {
-    tradeAmount.value = amount
-  }
-}
+
 
 /**
  * Computed property for real-time price display
@@ -972,39 +729,7 @@ const currentPrice = computed(() => {
   return Number(token.value?.current_price) || 0
 })
 
-/**
- * Calculate trade preview for live price impact
- */
-const calculateTradePreview = () => {
-  const amount = parseFloat(tradeAmount.value)
-  if (!amount || amount <= 0 || !bondingCurveState.value) {
-    tradePreview.value = null
-    return
-  }
 
-  try {
-    const currentState = bondingCurveState.value
-    
-    if (tradeType.value === 'buy') {
-      tradePreview.value = BondingCurveService.calculateBuyTrade(
-        amount,
-        currentState.virtualSolReserves,
-        currentState.virtualTokenReserves,
-        currentState.realTokenReserves
-      )
-    } else {
-      tradePreview.value = BondingCurveService.calculateSellTrade(
-        amount,
-        currentState.virtualSolReserves,
-        currentState.virtualTokenReserves,
-        currentState.realTokenReserves
-      )
-    }
-  } catch (error) {
-    console.warn('Failed to calculate trade preview:', error)
-    tradePreview.value = null
-  }
-}
 
 /**
  * Check if token is in user's watchlist
@@ -1124,14 +849,13 @@ watch(() => authStore.isAuthenticated, () => {
   checkWatchlistStatus()
 })
 
-// Recalculate trade preview when trade type changes
-watch(() => tradeType.value, () => {
-  calculateTradePreview()
-})
-
-// Recalculate trade preview when bonding curve state updates
-watch(() => bondingCurveState.value, () => {
-  calculateTradePreview()
+// Load user token balance when wallet connection changes
+watch(() => walletStore.isConnected, () => {
+  if (walletStore.isConnected) {
+    loadUserTokenBalance()
+  } else {
+    userTokenBalance.value = 0
+  }
 })
 
 // Component cleanup will be handled by Vue's lifecycle
