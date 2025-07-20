@@ -46,6 +46,15 @@ const router = createRouter({
       }
     },
     {
+      path: '/debug',
+      name: 'config-debug',
+      component: () => import('@/views/ConfigDebugPage.vue'),
+      meta: {
+        title: 'Configuration Debug - FloppFun',
+        description: 'Debug and verify current app configuration'
+      }
+    },
+    {
       path: '/token/:mintAddress',
       name: 'token-detail',
       component: () => import('@/views/TokenDetailPage.vue'),

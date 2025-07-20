@@ -219,10 +219,18 @@ const fetchTransactions = async () => {
         })
         
         if (tx && tx.meta && !tx.meta.err) {
-          // Calculate SOL change for this wallet
-          const preBalance = tx.meta.preBalances[0] || 0
-          const postBalance = tx.meta.postBalances[0] || 0
-          const change = (postBalance - preBalance) / LAMPORTS_PER_SOL
+          // Calculate balance change - check all accounts for our fee wallet
+          let change = 0
+          for (let i = 0; i < tx.meta.preBalances.length; i++) {
+            const preBalance = tx.meta.preBalances[i] || 0
+            const postBalance = tx.meta.postBalances[i] || 0
+            const accountChange = (postBalance - preBalance) / LAMPORTS_PER_SOL
+            
+            // If this account received SOL, it's likely our fee wallet
+            if (accountChange > 0) {
+              change = Math.max(change, accountChange)
+            }
+          }
           
           if (change > 0) { // Only show incoming transactions (fees)
             txDetails.push({

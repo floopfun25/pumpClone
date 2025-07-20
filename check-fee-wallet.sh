@@ -6,8 +6,9 @@
 echo "💰 FloppFun Fee Wallet Monitor"
 echo "================================"
 
-FEE_WALLET="D45ywEm23MkXT6hLLopWgTmnCoyF2XKooFdGFaF75tWK"
-NETWORK="devnet"
+# Read from .env file to stay in sync
+FEE_WALLET=$(grep "VITE_DEVNET_FEE_WALLET" .env | cut -d'=' -f2)
+NETWORK=$(grep "VITE_SOLANA_NETWORK" .env | cut -d'=' -f2)
 
 echo "📍 Fee Wallet: $FEE_WALLET"
 echo "🌐 Network: $NETWORK"
