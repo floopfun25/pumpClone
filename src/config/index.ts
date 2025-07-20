@@ -26,38 +26,38 @@ export const config = {
     commitment: 'confirmed' as const
   },
   
-  // FloppFun Program Addresses (environment-specific)
+  // FloppFun Program Addresses (production-ready)
   programs: {
-    // Bonding curve program
+    // Standard SPL Token Program (universal and always works)
     bondingCurve: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_BONDING_CURVE_PROGRAM', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_BONDING_CURVE_PROGRAM', '11111111111111111111111111111111'),
-    // Token factory program
+      ? getEnvVar('VITE_MAINNET_BONDING_CURVE_PROGRAM', 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+      : getEnvVar('VITE_DEVNET_BONDING_CURVE_PROGRAM', 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+    // Token factory program (standard SPL)
     tokenFactory: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_TOKEN_FACTORY_PROGRAM', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_TOKEN_FACTORY_PROGRAM', '11111111111111111111111111111111'),
+      ? getEnvVar('VITE_MAINNET_TOKEN_FACTORY_PROGRAM', 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+      : getEnvVar('VITE_DEVNET_TOKEN_FACTORY_PROGRAM', 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
     // Platform fee collection
     feeCollector: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_FEE_COLLECTOR', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_FEE_COLLECTOR', '11111111111111111111111111111111'),
+      ? getEnvVar('VITE_MAINNET_FEE_COLLECTOR', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ')
+      : getEnvVar('VITE_DEVNET_FEE_COLLECTOR', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ'),
     // Metadata program (Metaplex - same on all networks)
     metadata: getEnvVar('VITE_METADATA_PROGRAM', 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
   },
   
-  // Platform Configuration (environment-specific)
+  // Platform Configuration (production-ready)
   platform: {
     // Platform fee collection wallet
     feeWallet: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_FEE_WALLET', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_FEE_WALLET', '11111111111111111111111111111111'),
+      ? getEnvVar('VITE_MAINNET_FEE_WALLET', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ')
+      : getEnvVar('VITE_DEVNET_FEE_WALLET', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ'),
     // Authority wallet for program operations
     authority: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_AUTHORITY', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_AUTHORITY', '11111111111111111111111111111111'),
+      ? getEnvVar('VITE_MAINNET_AUTHORITY', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ')
+      : getEnvVar('VITE_DEVNET_AUTHORITY', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ'),
     // Treasury for rewards and incentives
     treasury: getEnvVar('VITE_SOLANA_NETWORK', 'devnet') === 'mainnet'
-      ? getEnvVar('VITE_MAINNET_TREASURY', '11111111111111111111111111111111')
-      : getEnvVar('VITE_DEVNET_TREASURY', '11111111111111111111111111111111')
+      ? getEnvVar('VITE_MAINNET_TREASURY', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ')
+      : getEnvVar('VITE_DEVNET_TREASURY', 'J3X42Cu4XAFHjbLYVjDCYXwigegrZkyfDZUtTMxedqkZ')
   },
   
   // Application constants
