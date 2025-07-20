@@ -19,7 +19,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Creates a trigger that fires after a new user is inserted into auth.users
+-- Creates a trigger that fires after a anew user is inserted into auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -72,27 +72,11 @@ BEGIN
     --     RAISE EXCEPTION 'Unauthorized: You can only migrate your own user data';
     END IF;
 
-    RAISE NOTICE 'Migrating user: old_id=%, new_id=%', old_user_id_param, new_user_id_param;
-
-    -- Before update: Check if old_user_id_param exists in public.users
-    PERFORM 1 FROM public.users WHERE id = old_user_id_param;
-    IF NOT FOUND THEN
-        RAISE WARNING 'migrate_single_user: old_user_id_param % not found in public.users before update.', old_user_id_param;
-        RETURN false; -- Or handle as appropriate if it should always exist
-    END IF;
-
     -- Step 1: Update the ID of the existing user record
     -- This is the correct way to migrate a user without violating foreign key constraints
     UPDATE public.users
     SET id = new_user_id_param
     WHERE id = old_user_id_param;
-
-    -- After update: Check if new_user_id_param now exists in public.users
-    PERFORM 1 FROM public.users WHERE id = new_user_id_param;
-    IF NOT FOUND THEN
-        RAISE WARNING 'migrate_single_user: new_user_id_param % not found in public.users after update!', new_user_id_param;
-        -- Consider re-inserting if update failed, but this indicates a deeper issue
-    END IF;
 
     -- Step 2: Delete the old user entry from auth.users
     -- The new user from signInAnonymously is now linked to the existing public.users profile
