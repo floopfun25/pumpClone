@@ -37,6 +37,15 @@ const router = createRouter({
       }
     },
     {
+      path: '/feeWallet',
+      name: 'fee-wallet',
+      component: () => import('@/views/FeeWalletPage.vue'),
+      meta: {
+        title: 'Fee Wallet Monitor - FloppFun',
+        description: 'Monitor platform revenue and fee collection'
+      }
+    },
+    {
       path: '/token/:mintAddress',
       name: 'token-detail',
       component: () => import('@/views/TokenDetailPage.vue'),

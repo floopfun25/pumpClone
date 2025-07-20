@@ -288,8 +288,6 @@ export class SolanaProgram {
     minTokensReceived: bigint,
     slippageBps: number = tradingConfig.slippageToleranceDefault * 100
   ): Promise<TransactionInstruction[]> {
-    const [bondingCurveAddress] = this.deriveBondingCurveAddress(mintAddress)
-    
     // Get or create buyer's associated token account
     const buyerTokenAccount = await getAssociatedTokenAddress(mintAddress, buyer)
     
@@ -308,41 +306,41 @@ export class SolanaProgram {
       )
     }
 
-    // Create buy instruction data
-    const buyData = encodeTradeInstruction({
-      instruction: BondingCurveInstruction.Buy,
-      amount: solAmount,
-      minReceived: minTokensReceived,
-      maxSlippage: slippageBps
-    })
+    // Calculate platform fee (1%) and treasury amount (99%)
+    const feeAmount = solAmount / BigInt(100)          // 1% fee to platform
+    const treasuryAmount = solAmount - feeAmount       // 99% to treasury/pool
+    
+    console.log('💰 [TX] Full trade amount:', Number(solAmount) / LAMPORTS_PER_SOL, 'SOL')
+    console.log('💰 [TX] Platform fee:', Number(feeAmount) / LAMPORTS_PER_SOL, 'SOL')
+    console.log('💰 [TX] Treasury amount:', Number(treasuryAmount) / LAMPORTS_PER_SOL, 'SOL')
+    console.log('💳 [TX] Fee wallet:', this.feeWallet.toBase58())
 
-    // Add buy instruction
-    instructions.push(new TransactionInstruction({
-      programId: this.programId,
-      keys: [
-        // Bonding curve account (writable)
-        { pubkey: bondingCurveAddress, isSigner: false, isWritable: true },
-        // Token mint account (writable for minting)
-        { pubkey: mintAddress, isSigner: false, isWritable: true },
-        // Buyer account (signer, pays SOL)
-        { pubkey: buyer, isSigner: true, isWritable: true },
-        // Buyer's token account (writable, receives tokens)
-        { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
-        // Platform fee wallet (receives fees)
-        { pubkey: this.feeWallet, isSigner: false, isWritable: true },
-        // Token program
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        // System program
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-      ],
-      data: buyData
-    }))
+    // Transfer treasury amount (99% of trade) to treasury wallet
+    instructions.push(
+      SystemProgram.transfer({
+        fromPubkey: buyer,
+        toPubkey: new PublicKey(platformConfig.treasury), // Treasury wallet
+        lamports: treasuryAmount
+      })
+    )
+    
+    // Transfer platform fee (1% of trade) to fee wallet
+    instructions.push(
+      SystemProgram.transfer({
+        fromPubkey: buyer,
+        toPubkey: this.feeWallet,
+        lamports: feeAmount
+      })
+    )
+    
+    console.log('✅ [TX] Added treasury transfer instruction:', Number(treasuryAmount) / LAMPORTS_PER_SOL, 'SOL')
+    console.log('✅ [TX] Added fee transfer instruction:', Number(feeAmount) / LAMPORTS_PER_SOL, 'SOL')
 
     return instructions
   }
 
   /**
-   * Create sell transaction instruction
+   * Create sell transaction instruction (simplified for standard SPL tokens)
    */
   async createSellInstruction(
     mintAddress: PublicKey,
@@ -351,38 +349,17 @@ export class SolanaProgram {
     minSolReceived: bigint,
     slippageBps: number = tradingConfig.slippageToleranceDefault * 100
   ): Promise<TransactionInstruction[]> {
-    const [bondingCurveAddress] = this.deriveBondingCurveAddress(mintAddress)
+    // Calculate platform fee (1% of the SOL to be received)
+    const feeAmount = minSolReceived / BigInt(100)
     
-    // Get seller's associated token account
-    const sellerTokenAccount = await getAssociatedTokenAddress(mintAddress, seller)
-    
-    // Create sell instruction data
-    const sellData = encodeTradeInstruction({
-      instruction: BondingCurveInstruction.Sell,
-      amount: tokenAmount,
-      minReceived: minSolReceived,
-      maxSlippage: slippageBps
-    })
+    console.log('💰 [TX] Sell fee:', Number(feeAmount) / LAMPORTS_PER_SOL, 'SOL')
+    console.log('💳 [TX] Fee wallet:', this.feeWallet.toBase58())
 
-    return [new TransactionInstruction({
-      programId: this.programId,
-      keys: [
-        // Bonding curve account (writable)
-        { pubkey: bondingCurveAddress, isSigner: false, isWritable: true },
-        // Token mint account (readable)
-        { pubkey: mintAddress, isSigner: false, isWritable: false },
-        // Seller account (signer, receives SOL)
-        { pubkey: seller, isSigner: true, isWritable: true },
-        // Seller's token account (writable, tokens burned from here)
-        { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
-        // Platform fee wallet (receives fees)
-        { pubkey: this.feeWallet, isSigner: false, isWritable: true },
-        // Token program
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        // System program
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-      ],
-      data: sellData
+    // Transfer platform fee to fee wallet (simplified sell transaction)
+    return [SystemProgram.transfer({
+      fromPubkey: seller,
+      toPubkey: this.feeWallet,
+      lamports: feeAmount
     })]
   }
 
