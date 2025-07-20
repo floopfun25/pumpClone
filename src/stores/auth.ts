@@ -63,8 +63,15 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       isLoading.value = true
       
+      console.log('Auth: 🚀 Starting user initialization...')
+      console.log('Auth: 🔍 Checking wallet connection state:', {
+        isConnected: walletStore.isConnected,
+        walletAddress: walletStore.walletAddress
+      })
+      
       // If wallet is not connected, clear auth state and return
       if (!walletStore.isConnected || !walletStore.walletAddress) {
+        console.log('Auth: ❌ Wallet not connected, clearing auth state')
         user.value = null
         isAuthenticated.value = false
         return
@@ -72,52 +79,97 @@ export const useAuthStore = defineStore('auth', () => {
 
       // If already authenticated with the same wallet, no need to reinitialize
       if (isAuthenticated.value && user.value?.wallet_address === walletStore.walletAddress) {
+        console.log('Auth: ✅ Already authenticated with same wallet, skipping initialization')
         return
       }
 
       // Prevent re-entrant calls to avoid race conditions
       if (isInitializing) {
-        console.log('Auth: Initialization already in progress, skipping.');
+        console.log('Auth: ⚠️ Initialization already in progress, skipping.');
         return;
       }
 
-      console.log('Auth: Starting user initialization...')
+      console.log('Auth: 🔧 Starting user initialization for wallet:', walletStore.walletAddress)
       isInitializing = true
 
       // Check for existing Supabase session
+      console.log('Auth: 🔍 Checking for existing Supabase session...')
       const session = await SupabaseAuth.getSession()
+      
+      console.log('Auth: 📋 Session check result:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        userMetadata: session?.user?.user_metadata
+      })
+      
       if (session?.user) {
         // Restore user from existing session
         const sessionWalletAddress = SupabaseAuth.getWalletAddressFromUser(session.user)
+        console.log('Auth: 🔍 Session wallet address:', sessionWalletAddress)
+        console.log('Auth: 🔍 Current wallet address:', walletStore.walletAddress)
+        
         if (sessionWalletAddress === walletStore.walletAddress) {
+          console.log('Auth: ✅ Session wallet matches current wallet, looking up user profile...')
+          
           const existingUser = await SupabaseService.getUserByWallet(sessionWalletAddress)
+          console.log('Auth: 👤 User lookup result:', {
+            found: !!existingUser,
+            userId: existingUser?.id,
+            walletAddress: existingUser?.wallet_address
+          })
+          
           if (existingUser) {
             user.value = existingUser
             isAuthenticated.value = true
             supabaseUser.value = session.user
             supabaseSession.value = session
-            console.log('Auth: User restored from session')
+            console.log('Auth: ✅ User restored from session:', existingUser.id)
             return
+          } else {
+            console.log('Auth: ⚠️ No user profile found for session wallet, will need to create/sign in')
           }
+        } else {
+          console.log('Auth: ⚠️ Session wallet does not match current wallet, session will be cleared')
         }
+      } else {
+        console.log('Auth: ℹ️ No existing Supabase session found')
       }
 
       // If no valid session, try to get user by wallet address
+      console.log('Auth: 🔍 Looking for existing user by wallet address...')
       const existingUser = await SupabaseService.getUserByWallet(walletStore.walletAddress)
+      
+      console.log('Auth: 👤 Existing user lookup result:', {
+        found: !!existingUser,
+        userId: existingUser?.id,
+        walletAddress: existingUser?.wallet_address,
+        username: existingUser?.username
+      })
+      
       if (existingUser) {
         // Sign in with wallet to create session
+        console.log('Auth: 🔐 Found existing user, attempting to sign in with wallet...')
         await signInWithWallet(walletStore.walletAddress)
-        console.log('Auth: User signed in during initialization')
+        console.log('Auth: ✅ User signed in during initialization')
+      } else {
+        console.log('Auth: ℹ️ No existing user found for this wallet address')
       }
-    } catch (error) {
-      console.error('Failed to initialize user:', error)
+    } catch (error: any) {
+      console.error('Auth: ❌ Failed to initialize user:', error)
+      console.error('Auth: 📊 Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      })
       // Don't throw error, just clear auth state
       user.value = null
       isAuthenticated.value = false
     } finally {
       isLoading.value = false
       isInitializing = false
-      console.log('Auth: User initialization finished.');
+      console.log('Auth: 🏁 User initialization finished.');
     }
   }
 

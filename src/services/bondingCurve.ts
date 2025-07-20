@@ -80,7 +80,7 @@ export class BondingCurveService {
   // Enhanced bonding curve parameters for pump.fun style
   private static readonly INITIAL_VIRTUAL_SOL_RESERVES = BigInt(bondingCurveConfig.initialVirtualSolReserves) // 30 SOL in lamports
   private static readonly INITIAL_REAL_TOKEN_RESERVES = 793100000 // ~793M tokens
-  private static readonly TARGET_SOL_RAISED = 85 // 85 SOL to graduate
+  private static readonly TARGET_SOL_RAISED = bondingCurveConfig.graduationSolTarget // This should be in lamports, consistent with sol_amount
   private static readonly PLATFORM_FEE = 0.01 // 1% platform fee
 
   /**

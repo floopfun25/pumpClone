@@ -381,6 +381,8 @@ export class SupabaseService {
    */
   static async getUserByWallet(walletAddress: string) {
     try {
+      console.log('🔍 [SUPABASE] Starting user lookup for wallet:', walletAddress)
+      
       // First try exact match
       const { data: exactMatch, error: exactError } = await supabase
         .from('users')
@@ -388,26 +390,46 @@ export class SupabaseService {
         .eq('wallet_address', walletAddress)
         .single()
 
+      console.log('🔍 [SUPABASE] Exact match result:', {
+        found: !!exactMatch,
+        error: exactError?.message,
+        errorCode: exactError?.code,
+        userData: exactMatch ? {
+          id: exactMatch.id,
+          wallet_address: exactMatch.wallet_address,
+          username: exactMatch.username
+        } : null
+      })
+
       if (exactMatch) {
+        console.log('✅ [SUPABASE] Found exact match for wallet')
         return exactMatch
       }
 
       // If no exact match and address seems truncated, try partial matching
       if (walletAddress.includes('...')) {
-        console.log('🔍 Trying partial wallet address matching for:', walletAddress)
+        console.log('🔍 [SUPABASE] Trying partial wallet address matching for:', walletAddress)
         
         const parts = walletAddress.split('...')
         if (parts.length === 2) {
           const prefix = parts[0]
           const suffix = parts[1]
           
+          console.log('🔍 [SUPABASE] Partial match criteria:', { prefix, suffix })
+          
           const { data: partialMatches, error: partialError } = await supabase
             .from('users')
             .select('*')
             .ilike('wallet_address', `${prefix}%${suffix}`)
 
+          console.log('🔍 [SUPABASE] Partial match result:', {
+            found: !!(partialMatches && partialMatches.length > 0),
+            count: partialMatches?.length || 0,
+            error: partialError?.message
+          })
+
           if (partialMatches && partialMatches.length > 0) {
-            console.log('✅ Found partial match:', partialMatches[0])
+            console.log('✅ [SUPABASE] Found partial match:', partialMatches[0])
             return partialMatches[0]
           }
         }
@@ -416,26 +438,46 @@ export class SupabaseService {
       // If still no match, try to find by prefix only (first 4 chars)
       if (walletAddress.length >= 4) {
         const prefix = walletAddress.substring(0, 4)
+        console.log('🔍 [SUPABASE] Trying prefix match with:', prefix)
+        
         const { data: prefixMatches, error: prefixError } = await supabase
           .from('users')
           .select('*')
           .ilike('wallet_address', `${prefix}%`)
 
+        console.log('🔍 [SUPABASE] Prefix match result:', {
+          found: !!(prefixMatches && prefixMatches.length > 0),
+          count: prefixMatches?.length || 0,
+          error: prefixError?.message
+        })
+
         if (prefixMatches && prefixMatches.length === 1) {
-          console.log('✅ Found prefix match:', prefixMatches[0])
+          console.log('✅ [SUPABASE] Found unique prefix match:', prefixMatches[0])
           return prefixMatches[0]
         } else if (prefixMatches && prefixMatches.length > 1) {
-          console.log('⚠️ Multiple users found with same prefix:', prefixMatches)
+          console.log('⚠️ [SUPABASE] Multiple users found with same prefix:', prefixMatches.map(u => ({
+            id: u.id,
+            wallet_address: u.wallet_address,
+            username: u.username
+          })))
         }
       }
 
       if (exactError && exactError.code !== 'PGRST116') {
+        console.error('❌ [SUPABASE] Unexpected error during exact match lookup:', exactError)
         throw exactError
       }
 
+      console.log('❌ [SUPABASE] No user found for wallet address:', walletAddress)
       return null
-    } catch (error) {
-      console.error('Failed to get user by wallet:', error)
+    } catch (error: any) {
+      console.error('❌ [SUPABASE] Failed to get user by wallet:', error)
+      console.error('❌ [SUPABASE] Error details:', {
+        message: error?.message || 'Unknown error',
+        code: error?.code || 'No code',
+        details: error?.details || 'No details',
+        hint: error?.hint || 'No hint'
+      })
       return null
     }
   }

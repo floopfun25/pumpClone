@@ -29,6 +29,9 @@ DROP POLICY IF EXISTS "Allow public read access on user_holdings" ON public.user
 DROP POLICY IF EXISTS "Allow users to manage their holdings" ON public.user_holdings;
 DROP POLICY IF EXISTS "Users can view their own holdings" ON public.user_holdings;
 DROP POLICY IF EXISTS "Users can manage their own holdings" ON public.user_holdings;
+DROP POLICY IF EXISTS "Users can insert their own holdings" ON public.user_holdings;
+DROP POLICY IF EXISTS "Users can update their own holdings" ON public.user_holdings;
+DROP POLICY IF EXISTS "Users can delete their own holdings" ON public.user_holdings;
 
 -- Drop token_comments table policies
 DROP POLICY IF EXISTS "Allow public read access on token_comments" ON public.token_comments;
@@ -50,6 +53,7 @@ DROP POLICY IF EXISTS "Allow public read access on token_price_history" ON publi
 DROP POLICY IF EXISTS "Allow authenticated users to insert price data" ON public.token_price_history;
 DROP POLICY IF EXISTS "Anyone can view price history" ON public.token_price_history;
 DROP POLICY IF EXISTS "Service role can insert price data" ON public.token_price_history;
+DROP POLICY IF EXISTS "Authenticated users can insert price data" ON public.token_price_history;
 
 -- Drop conversations table policies
 DROP POLICY IF EXISTS "Allow users to view their conversations" ON public.conversations;
@@ -88,7 +92,7 @@ CREATE POLICY "Anyone can view tokens" ON public.tokens
 -- Only authenticated users can create tokens as themselves
 CREATE POLICY "Authenticated users can create tokens as themselves" ON public.tokens
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     auth.uid() = creator_id
   );
 
@@ -104,21 +108,26 @@ CREATE POLICY "Anyone can view transactions" ON public.transactions
 -- Users can only create transactions for themselves
 CREATE POLICY "Users can create their own transactions" ON public.transactions
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     auth.uid() = user_id
   );
 
 -- SECURE USER HOLDINGS POLICIES
--- Users can only view their own holdings
+-- Users can only view their own holdings.
 CREATE POLICY "Users can view their own holdings" ON public.user_holdings
   FOR SELECT USING (auth.uid() = user_id);
 
--- Users can only create/update their own holdings
-CREATE POLICY "Users can manage their own holdings" ON public.user_holdings
-  FOR ALL USING (
-    auth.uid() IS NOT NULL AND 
-    auth.uid() = user_id
-  );
+-- Users can only insert their own holdings.
+CREATE POLICY "Users can insert their own holdings" ON public.user_holdings
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Users can only update their own holdings.
+CREATE POLICY "Users can update their own holdings" ON public.user_holdings
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Users can only delete their own holdings.
+CREATE POLICY "Users can delete their own holdings" ON public.user_holdings
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- SECURE COMMENTS POLICIES
 -- Anyone can view comments (public discussion)
@@ -128,7 +137,7 @@ CREATE POLICY "Anyone can view comments" ON public.token_comments
 -- Only authenticated users can create comments as themselves
 CREATE POLICY "Authenticated users can create their own comments" ON public.token_comments
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     auth.uid() = user_id
   );
 
@@ -147,7 +156,7 @@ CREATE POLICY "Anyone can view comment likes" ON public.comment_likes
 -- Users can only create/delete their own likes
 CREATE POLICY "Users can manage their own likes" ON public.comment_likes
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     auth.uid() = user_id
   );
 
@@ -159,9 +168,9 @@ CREATE POLICY "Users can delete their own likes" ON public.comment_likes
 CREATE POLICY "Anyone can view price history" ON public.token_price_history
   FOR SELECT USING (true);
 
--- Only service role can insert price data (automated systems)
-CREATE POLICY "Service role can insert price data" ON public.token_price_history
-  FOR INSERT WITH CHECK (auth.role() = 'service_role');
+-- Authenticated users can insert price data after a trade
+CREATE POLICY "Authenticated users can insert price data" ON public.token_price_history
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- SECURE CONVERSATIONS POLICIES
 -- Users can only view conversations they participate in
@@ -173,7 +182,7 @@ CREATE POLICY "Users can view their conversations" ON public.conversations
 -- Users can create conversations with others
 CREATE POLICY "Users can create conversations" ON public.conversations
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     (auth.uid() = user1_id OR auth.uid() = user2_id)
   );
 
@@ -187,12 +196,12 @@ CREATE POLICY "Users can view their messages" ON public.messages
 -- Users can only send messages as themselves
 CREATE POLICY "Users can send their own messages" ON public.messages
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL AND 
+    auth.uid() IS NOT NULL AND
     auth.uid() = sender_id
   );
 
 -- SECURE WATCHLIST POLICIES (only if table exists)
-DO $$ 
+DO $$
 BEGIN
   -- Check if user_watchlist table exists
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_watchlist') THEN
@@ -231,7 +240,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.conversations TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.messages TO authenticated;
 
 -- Grant watchlist permissions only if table exists
-DO $$ 
+DO $$
 BEGIN
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_watchlist') THEN
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_watchlist TO authenticated;

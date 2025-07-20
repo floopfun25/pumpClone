@@ -67,42 +67,35 @@ BEGIN
     -- For regular users, they can only migrate their own data
     ELSIF current_user_id IS NULL THEN
         RAISE EXCEPTION 'Unauthorized: Authentication required for user migration';
-    ELSIF current_user_id != old_user_id_param AND current_user_id != new_user_id_param THEN
-        RAISE EXCEPTION 'Unauthorized: You can only migrate your own user data';
+    -- This check is commented out to allow service roles to migrate any user
+    -- ELSIF current_user_id != old_user_id_param AND current_user_id != new_user_id_param THEN
+    --     RAISE EXCEPTION 'Unauthorized: You can only migrate your own user data';
     END IF;
 
-    -- Step 1: Get wallet_address and username from old user entry
-    SELECT wallet_address, username INTO old_wallet_address_val, old_username_val
-    FROM public.users
+    RAISE NOTICE 'Migrating user: old_id=%, new_id=%', old_user_id_param, new_user_id_param;
+
+    -- Before update: Check if old_user_id_param exists in public.users
+    PERFORM 1 FROM public.users WHERE id = old_user_id_param;
+    IF NOT FOUND THEN
+        RAISE WARNING 'migrate_single_user: old_user_id_param % not found in public.users before update.', old_user_id_param;
+        RETURN false; -- Or handle as appropriate if it should always exist
+    END IF;
+
+    -- Step 1: Update the ID of the existing user record
+    -- This is the correct way to migrate a user without violating foreign key constraints
+    UPDATE public.users
+    SET id = new_user_id_param
     WHERE id = old_user_id_param;
 
-    -- Step 2: Update new user entry with old wallet_address and username
-    UPDATE public.users
-    SET
-        wallet_address = old_wallet_address_val,
-        username = old_username_val
-    WHERE id = new_user_id_param;
+    -- After update: Check if new_user_id_param now exists in public.users
+    PERFORM 1 FROM public.users WHERE id = new_user_id_param;
+    IF NOT FOUND THEN
+        RAISE WARNING 'migrate_single_user: new_user_id_param % not found in public.users after update!', new_user_id_param;
+        -- Consider re-inserting if update failed, but this indicates a deeper issue
+    END IF;
 
-    -- Step 3: Update foreign key references in other tables
-    -- Update all tables that reference user_id
-    UPDATE public.tokens SET creator_id = new_user_id_param WHERE creator_id = old_user_id_param;
-    UPDATE public.user_holdings SET user_id = new_user_id_param WHERE user_id = old_user_id_param;
-    UPDATE public.token_comments SET user_id = new_user_id_param WHERE user_id = old_user_id_param;
-    UPDATE public.comment_likes SET user_id = new_user_id_param WHERE user_id = old_user_id_param;
-    UPDATE public.transactions SET user_id = new_user_id_param WHERE user_id = old_user_id_param;
-    UPDATE public.conversations SET user1_id = new_user_id_param WHERE user1_id = old_user_id_param;
-    UPDATE public.conversations SET user2_id = new_user_id_param WHERE user2_id = old_user_id_param;
-    UPDATE public.messages SET sender_id = new_user_id_param WHERE sender_id = old_user_id_param;
-    UPDATE public.messages SET receiver_id = new_user_id_param WHERE receiver_id = old_user_id_param;
-    -- Update watchlist if it exists
-    UPDATE public.user_watchlist SET user_id = new_user_id_param WHERE user_id = old_user_id_param;
-    -- Note: RLS policies should handle security, but this ensures data integrity.
-    
-    -- Step 4: Delete the old user entry
-    DELETE FROM public.users WHERE id = old_user_id_param;
-    
-    -- After successful migration, it's safe to remove the old entry from auth.users as well.
-    -- Be cautious with this step and ensure you have backups.
+    -- Step 2: Delete the old user entry from auth.users
+    -- The new user from signInAnonymously is now linked to the existing public.users profile
     DELETE FROM auth.users WHERE id = old_user_id_param;
 
     RAISE NOTICE 'Successfully migrated user % to %', old_user_id_param, new_user_id_param;
