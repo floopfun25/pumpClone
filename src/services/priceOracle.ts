@@ -128,23 +128,9 @@ class PriceOracleService {
       console.error('Jupiter API failed:', errorMsg)
     }
     
-    // Try CoinGecko as second choice
-    try {
-      let price: PriceData
-      if (!this.IS_DEVELOPMENT) {
-        // Production: Use direct API calls (no proxy)
-        price = await this.getSOLPriceFromRealAPI()
-      } else {
-        // Development: Use proxy
-        price = await this.getSOLPriceFromProxy()
-      }
-      this.priceCache.set(cacheKey, price)
-      return price
-    } catch (coinGeckoError) {
-      const errorMsg = coinGeckoError instanceof Error ? coinGeckoError.message : 'Unknown error'
-      errors.push(`CoinGecko: ${errorMsg}`)
-      console.error('CoinGecko also failed:', errorMsg)
-    }
+    // Skip CoinGecko (proxies disabled due to network restrictions)
+    // Go directly to alternative APIs that work in restricted environments
+    console.log('🔄 [DEV] Skipping CoinGecko proxy (disabled), trying alternative APIs...')
 
     // Try alternative APIs for regions with crypto restrictions
     console.log('🌐 [FALLBACK] Trying alternative APIs for restricted regions...')
@@ -381,10 +367,8 @@ class PriceOracleService {
     // Jupiter Price API v6 - more reliable endpoint
     const SOL_MINT = import.meta.env.VITE_SOL_MINT || 'So11111111111111111111111111111111111111112'
     
-    // Use the correct Jupiter API endpoint based on environment
-    const baseUrl = this.IS_DEVELOPMENT 
-      ? this.JUPITER_BASE_URL 
-      : 'https://price.jup.ag/v6'
+    // Skip proxy in development due to network restrictions, use direct API
+    const baseUrl = 'https://price.jup.ag/v6' // Always use direct API now
     
     const USDC_MINT = import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
     const url = `${baseUrl}/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}` // vs USDC

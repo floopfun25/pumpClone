@@ -24,7 +24,9 @@ export default defineConfig({
     port: 3000,
     host: true, // Important for Docker container access
     proxy: {
-      // Proxy CoinGecko API calls to bypass CORS in development
+      // DISABLED: CoinGecko proxy (SSL/TLS issues in network environment)
+      // Using direct alternative APIs instead (CoinPaprika, CoinLore)
+      /*
       '/api/coingecko': {
         target: process.env.VITE_COINGECKO_API_URL || 'https://api.coingecko.com/api/v3',
         changeOrigin: true,
@@ -48,6 +50,7 @@ export default defineConfig({
           });
         }
       },
+      */
       // Proxy CoinPaprika API (alternative, more reliable)
       '/api/coinpaprika': {
         target: process.env.VITE_COINPAPRIKA_API_URL || 'https://api.coinpaprika.com/v1',
@@ -58,7 +61,9 @@ export default defineConfig({
           'Accept': 'application/json'
         }
       },
-      // Proxy Jupiter API (Solana-specific, very reliable)
+      // DISABLED: Jupiter proxy (DNS resolution fails in network environment)
+      // App now uses alternative APIs directly (CoinPaprika works!)
+      /*
       '/api/jupiter': {
         target: process.env.VITE_JUPITER_API_URL || 'https://price.jup.ag/v6',
         changeOrigin: true,
@@ -69,6 +74,7 @@ export default defineConfig({
           'User-Agent': 'FloppFun/1.0.0'
         }
       },
+      */
       // Proxy Birdeye API calls  
       '/api/birdeye': {
         target: process.env.VITE_BIRDEYE_API_URL || 'https://public-api.birdeye.so/defi',
