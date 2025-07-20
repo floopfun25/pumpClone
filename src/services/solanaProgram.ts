@@ -476,6 +476,10 @@ export class SolanaProgram {
       console.log('✅ Database updated with real transaction data')
       console.log('📊 Tokens received:', Number(tokensReceived) / Math.pow(10, 9))
       
+      // 💰 Refresh wallet balance immediately after successful transaction
+      await walletService.updateBalance()
+      console.log('💰 Wallet balance refreshed after buy transaction')
+      
       return signature // REAL transaction signature
       
     } catch (error: any) {
@@ -587,6 +591,10 @@ export class SolanaProgram {
       console.log('✅ Database updated with real transaction data')
       console.log('💰 SOL received:', Number(actualSolReceived) / LAMPORTS_PER_SOL)
       
+      // 💰 Refresh wallet balance immediately after successful transaction
+      await walletService.updateBalance()
+      console.log('💰 Wallet balance refreshed after sell transaction')
+      
       return signature // REAL transaction signature
       
     } catch (error: any) {
@@ -626,48 +634,67 @@ export class SolanaProgram {
     
     // Record transaction in database (with error handling)
     try {
-      await supabase.from('transactions').insert({
+      const txData = {
         signature, // REAL blockchain signature
         token_id: token.id,
         user_id: userId,
         transaction_type: 'buy',
-        sol_amount: Math.round(solAmount * LAMPORTS_PER_SOL), // Convert to lamports
-        token_amount: Math.round(tokensReceived),
+        sol_amount: Math.round(solAmount * LAMPORTS_PER_SOL), // Convert to lamports as BIGINT
+        token_amount: Math.round(tokensReceived * Math.pow(10, 9)), // Convert to token lamports (9 decimals)
         price_per_token: newPrice,
         platform_fee: Math.round(solAmount * 0.01 * LAMPORTS_PER_SOL),
-        status: 'confirmed', // Use 'confirmed' instead of 'completed'
+        status: 'confirmed',
         block_time: new Date().toISOString()
+      }
+      
+      console.log('💾 Saving transaction data:', {
+        sol_amount: txData.sol_amount,
+        token_amount: txData.token_amount,
+        platform_fee: txData.platform_fee
       })
-    } catch (error) {
+      
+      await supabase.from('transactions').insert(txData)
+      console.log('✅ Transaction saved to database')
+    } catch (error: any) {
       console.warn('⚠️ Transaction record failed:', error)
+      console.warn('Error details:', error?.message || 'Unknown error')
       // Continue - this doesn't block trading
     }
     
     // Store price history (with error handling)
     try {
-      await supabase.from('token_price_history').insert({
+      const priceData = {
         token_id: token.id,
         price: newPrice,
         volume: solAmount,
         market_cap: newMarketCap,
         timestamp: new Date().toISOString()
-      })
-    } catch (error) {
+      }
+      
+      console.log('💾 Saving price history:', priceData)
+      await supabase.from('token_price_history').insert(priceData)
+      console.log('✅ Price history saved successfully')
+    } catch (error: any) {
       console.warn('⚠️ Price history failed:', error)
+      console.warn('Error details:', error?.message || 'Unknown error')
       // Continue - this doesn't block trading
     }
     
     // Update token statistics (simplified)
     try {
-      await supabase.from('tokens').update({
+      const tokenUpdateData = {
         current_price: newPrice,
         market_cap: newMarketCap,
         volume_24h: (token.volume_24h || 0) + solAmount,
         last_trade_at: new Date().toISOString()
-        // Remove virtual_reserves fields that may not exist
-      }).eq('id', token.id)
-    } catch (error) {
+      }
+      
+      console.log('💾 Updating token stats:', tokenUpdateData)
+      await supabase.from('tokens').update(tokenUpdateData).eq('id', token.id)
+      console.log('✅ Token stats updated successfully')
+    } catch (error: any) {
       console.warn('⚠️ Token update failed:', error)
+      console.warn('Error details:', error?.message || 'Unknown error')
       // Continue - this doesn't block trading
     }
     
@@ -680,10 +707,19 @@ export class SolanaProgram {
         .eq('token_id', token.id)
         .single()
 
+      const tokenAmountLamports = Math.round(tokensReceived * Math.pow(10, 9)) // Convert to token lamports
+
       if (existingHolding) {
         // Update existing holding (simplified)
-        const currentAmount = parseFloat(existingHolding.amount || '0')
-        const newAmount = currentAmount + tokensReceived
+        const currentAmount = parseInt(existingHolding.amount || '0')
+        const newAmount = currentAmount + tokenAmountLamports
+
+        console.log('💾 Updating user holding:', {
+          currentAmount,
+          tokensReceived,
+          tokenAmountLamports,
+          newAmount
+        })
 
         await supabase
           .from('user_holdings')
@@ -694,16 +730,24 @@ export class SolanaProgram {
           .eq('id', existingHolding.id)
       } else {
         // Create new holding (simplified)
+        console.log('💾 Creating new user holding:', {
+          userId,
+          tokenId: token.id,
+          amount: tokenAmountLamports
+        })
+
         await supabase
           .from('user_holdings')
           .insert({
             user_id: userId,
             token_id: token.id,
-            amount: tokensReceived.toString()
+            amount: tokenAmountLamports.toString()
           })
       }
-    } catch (error) {
+      console.log('✅ User holdings updated successfully')
+    } catch (error: any) {
       console.warn('⚠️ User holdings update failed:', error)
+      console.warn('Error details:', error?.message || 'Unknown error')
       // Continue - trading still works even if database fails
     }
   }

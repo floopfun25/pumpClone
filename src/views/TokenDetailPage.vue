@@ -561,6 +561,10 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
     // Update user token balance
     await loadUserTokenBalance()
     
+    // 💰 CRITICAL: Refresh wallet SOL balance after transaction
+    await walletStore.updateBalance()
+    console.log('💰 Wallet balance refreshed after trade')
+    
     console.log(`✅ ${type} transaction completed:`, signature)
     
   } catch (error: any) {
