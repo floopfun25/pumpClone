@@ -215,6 +215,42 @@ export class SolanaProgram {
   }
 
   /**
+   * Get bonding curve data from database (for standard SPL tokens)
+   */
+  async getBondingCurveFromDatabase(mintAddress: string): Promise<BondingCurveAccount | null> {
+    try {
+      const { data: tokenData, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('mint_address', mintAddress)
+        .single()
+
+      if (error || !tokenData) {
+        console.log('Token not found in database for:', mintAddress)
+        return null
+      }
+
+      // Convert database data to BondingCurveAccount format
+      return {
+        discriminator: Buffer.from([]), // Not needed for database approach
+        mintAddress: new PublicKey(mintAddress),
+        creator: new PublicKey(tokenData.creator || platformConfig.authority),
+        virtualTokenReserves: BigInt(tokenData.virtual_token_reserves || tokenData.total_supply || 1000000000),
+        virtualSolReserves: BigInt(tokenData.virtual_sol_reserves || 1073000000), // Default from your logs
+        realTokenReserves: BigInt(tokenData.real_token_reserves || 0),
+        realSolReserves: BigInt(tokenData.real_sol_reserves || 0),
+        tokenTotalSupply: BigInt(tokenData.total_supply || 1000000000),
+        graduated: tokenData.graduated || false,
+        createdAt: BigInt(new Date(tokenData.created_at).getTime()),
+        bumpSeed: 255 // Default bump seed
+      }
+    } catch (error) {
+      console.error('Failed to get bonding curve from database:', error)
+      return null
+    }
+  }
+
+  /**
    * Create initialize bonding curve instruction
    */
   async createInitializeInstruction(
@@ -371,8 +407,8 @@ export class SolanaProgram {
       throw new Error(`Maximum trade amount is ${tradingConfig.maxTradeAmount / LAMPORTS_PER_SOL} SOL`)
     }
 
-    // Get bonding curve state from blockchain
-    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
+    // Get bonding curve state from database (since we're using standard SPL tokens)
+    const bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
     if (!bondingCurve) {
       throw new Error('Bonding curve not found for this token')
     }
@@ -437,13 +473,13 @@ export class SolanaProgram {
       
       console.log('✅ Transaction confirmed!')
       
-      // 6. Get updated bonding curve state from blockchain
-      const updatedBondingCurve = await this.getBondingCurveAccount(mintAddress)
+      // 6. Get updated bonding curve state from database
+      const updatedBondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
       if (!updatedBondingCurve) {
         throw new Error('Failed to get updated bonding curve state')
       }
       
-      // 7. Calculate actual tokens received (from blockchain state)
+      // 7. Calculate actual tokens received (from database state)
       const actualTokensReceived = bondingCurve.virtualTokenReserves - updatedBondingCurve.virtualTokenReserves
       
       // 8. Update database with REAL transaction data
@@ -482,8 +518,8 @@ export class SolanaProgram {
     // Convert token amount to proper decimals
     const tokenAmountWithDecimals = BigInt(Math.floor(tokenAmount * Math.pow(10, 9))) // 9 decimals
 
-    // Get bonding curve state from blockchain
-    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
+    // Get bonding curve state from database (since we're using standard SPL tokens)
+    const bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
     if (!bondingCurve) {
       throw new Error('Bonding curve not found for this token')
     }
@@ -548,13 +584,13 @@ export class SolanaProgram {
       
       console.log('✅ Transaction confirmed!')
       
-      // 6. Get updated bonding curve state from blockchain
-      const updatedBondingCurve = await this.getBondingCurveAccount(mintAddress)
+      // 6. Get updated bonding curve state from database
+      const updatedBondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
       if (!updatedBondingCurve) {
         throw new Error('Failed to get updated bonding curve state')
       }
       
-      // 7. Calculate actual SOL received (from blockchain state)
+      // 7. Calculate actual SOL received (from database state)
       const actualSolReceived = updatedBondingCurve.virtualSolReserves - bondingCurve.virtualSolReserves
       
       // 8. Update database with REAL transaction data
