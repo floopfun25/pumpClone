@@ -2,7 +2,6 @@ import {
   generateAuthChallenge, 
   verifyAuthChallenge, 
   isValidSolanaAddress,
-  generateSessionToken 
 } from '@/utils/crypto'
 import { SupabaseService } from './supabase'
 import { supabase } from './supabase'

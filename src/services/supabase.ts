@@ -107,10 +107,13 @@ export interface Database {
           platform_fee: number
           status: string
           block_time: string | null
-          created_at: string
+          created_at: string,
+          updated_at?: string | null
         }
-        Insert: Omit<Database['public']['Tables']['transactions']['Row'], 'id' | 'created_at'>
-        Update: Partial<Database['public']['Tables']['transactions']['Insert']>
+        Insert: Omit<Database['public']['Tables']['transactions']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          updated_at?: string | null
+        }
+        Update: Partial<Omit<Database['public']['Tables']['transactions']['Row'], 'id' | 'created_at'>>
       }
       user_holdings: {
         Row: {
@@ -118,25 +121,26 @@ export interface Database {
           user_id: string
           token_id: string
           amount: string
-          average_price: number
+          average_price: number | null
           created_at: string
-          updated_at: string
-          total_invested: number
-          last_updated: string
+          updated_at: string | null
+          total_invested: number | null
+          last_updated: string | null
         },
         Insert: {
           id?: string
           user_id: string
           token_id: string
           amount: string
-          average_price: number
-          total_invested: number
+          average_price?: number | null
+          total_invested?: number | null
         },
         Update: {
           amount?: string
-          average_price?: number
-          total_invested?: number
-          last_updated?: string
+          average_price?: number | null
+          total_invested?: number | null
+          last_updated?: string | null
+          updated_at?: string | null
         }
       }
       user_shares: {
@@ -147,6 +151,7 @@ export interface Database {
           platform: string
           shared_at: string
           created_at: string
+          updated_at?: string | null
         }
         Insert: {
           id?: number
@@ -155,6 +160,45 @@ export interface Database {
           platform: string
           shared_at?: string
           created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          updated_at?: string | null
+        }
+      }
+      token_comments: {
+        Row: {
+          id: number
+          token_id: string
+          user_id: string
+          content: string
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          token_id: string
+          user_id: string
+          content: string
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: Partial<Omit<Database['public']['Tables']['token_comments']['Row'], 'id' | 'created_at'>>
+      }
+      comment_likes: {
+        Row: {
+          id: number
+          comment_id: number
+          user_id: string
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          comment_id: number
+          user_id: string
+          created_at?: string
+          updated_at?: string | null
         }
         Update: {}
       }
@@ -400,95 +444,16 @@ export class SupabaseService {
    */
   static async getUserByWallet(walletAddress: string) {
     try {
-      console.log('🔍 [SUPABASE] Starting user lookup for wallet:', walletAddress)
-      
-      // First try exact match
-      const { data: exactMatch, error: exactError } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress)
         .single()
 
-      console.log('🔍 [SUPABASE] Exact match result:', {
-        found: !!exactMatch,
-        error: exactError?.message,
-        errorCode: exactError?.code,
-        userData: exactMatch ? {
-          id: exactMatch.id,
-          wallet_address: exactMatch.wallet_address,
-          username: exactMatch.username
-        } : null
-      })
-
-      if (exactMatch) {
-        console.log('✅ [SUPABASE] Found exact match for wallet')
-        return exactMatch
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error
       }
-
-      // If no exact match and address seems truncated, try partial matching
-      if (walletAddress.includes('...')) {
-        console.log('🔍 [SUPABASE] Trying partial wallet address matching for:', walletAddress)
-        
-        const parts = walletAddress.split('...')
-        if (parts.length === 2) {
-          const prefix = parts[0]
-          const suffix = parts[1]
-          
-          console.log('🔍 [SUPABASE] Partial match criteria:', { prefix, suffix })
-          
-          const { data: partialMatches, error: partialError } = await supabase
-            .from('users')
-            .select('*')
-            .ilike('wallet_address', `${prefix}%${suffix}`)
-
-          console.log('🔍 [SUPABASE] Partial match result:', {
-            found: !!(partialMatches && partialMatches.length > 0),
-            count: partialMatches?.length || 0,
-            error: partialError?.message
-          })
-
-          if (partialMatches && partialMatches.length > 0) {
-            console.log('✅ [SUPABASE] Found partial match:', partialMatches[0])
-            return partialMatches[0]
-          }
-        }
-      }
-
-      // If still no match, try to find by prefix only (first 4 chars)
-      if (walletAddress.length >= 4) {
-        const prefix = walletAddress.substring(0, 4)
-        console.log('🔍 [SUPABASE] Trying prefix match with:', prefix)
-        
-        const { data: prefixMatches, error: prefixError } = await supabase
-          .from('users')
-          .select('*')
-          .ilike('wallet_address', `${prefix}%`)
-
-        console.log('🔍 [SUPABASE] Prefix match result:', {
-          found: !!(prefixMatches && prefixMatches.length > 0),
-          count: prefixMatches?.length || 0,
-          error: prefixError?.message
-        })
-
-        if (prefixMatches && prefixMatches.length === 1) {
-          console.log('✅ [SUPABASE] Found unique prefix match:', prefixMatches[0])
-          return prefixMatches[0]
-        } else if (prefixMatches && prefixMatches.length > 1) {
-          console.log('⚠️ [SUPABASE] Multiple users found with same prefix:', prefixMatches.map(u => ({
-            id: u.id,
-            wallet_address: u.wallet_address,
-            username: u.username
-          })))
-        }
-      }
-
-      if (exactError && exactError.code !== 'PGRST116') {
-        console.error('❌ [SUPABASE] Unexpected error during exact match lookup:', exactError)
-        throw exactError
-      }
-
-      console.log('❌ [SUPABASE] No user found for wallet address:', walletAddress)
-      return null
+      return data
     } catch (error: any) {
       console.error('❌ [SUPABASE] Failed to get user by wallet:', error)
       console.error('❌ [SUPABASE] Error details:', {
