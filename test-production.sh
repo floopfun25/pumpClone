@@ -35,6 +35,16 @@ else
     echo -e "${YELLOW}⚠️  Copy devnet-config.env to .env.local${NC}"
 fi
 
+# Test 1b: Check for API Keys (critical for Phase 1)
+echo "🔑 Test 1b: Checking for external API keys..."
+if [ -f ".env.local" ]; then
+    if grep -q "VITE_BIRDEYE_API_KEY" .env.local; then
+        echo -e "${GREEN}✅ Birdeye API key found in config${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Missing VITE_BIRDEYE_API_KEY. Real-time price data will fail.${NC}"
+    fi
+fi
+
 # Test 2: Check fee wallet
 echo ""
 echo "💰 Test 2: Checking fee wallet..."

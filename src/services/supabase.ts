@@ -139,6 +139,25 @@ export interface Database {
           last_updated?: string
         }
       }
+      user_shares: {
+        Row: {
+          id: number
+          user_id: string
+          content_url: string
+          platform: string
+          shared_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          content_url: string
+          platform: string
+          shared_at?: string
+          created_at?: string
+        }
+        Update: {}
+      }
     }
   }
 }
@@ -2594,6 +2613,52 @@ export class SupabaseService {
     } catch (error) {
       console.error('❌ Error fixing duplicate user:', error)
       return false
+    }
+  }
+
+  /**
+   * Records a share event for a user.
+   * It gracefully handles cases where a share has already been recorded.
+   */
+  static async recordShare(userId: string, contentUrl: string, platform: string) {
+    try {
+      const { error } = await supabase
+        .from('user_shares')
+        .insert({
+          user_id: userId,
+          content_url: contentUrl,
+          platform: platform,
+        })
+
+      // Error code '23505' is for a unique_violation. We can safely ignore it,
+      // as it just means the user has already shared this content on this platform.
+      if (error && error.code !== '23505') {
+        throw error
+      }
+
+      return { success: true, alreadyExists: !!(error && error.code === '23505') }
+    } catch (error) {
+      console.error('Failed to record share:', error)
+      return { success: false, error }
+    }
+  }
+
+  /**
+   * Gets the number of times a user has shared a specific content URL across all platforms.
+   */
+  static async getUserShareCount(userId: string, contentUrl: string): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from('user_shares')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('content_url', contentUrl)
+
+      if (error) throw error
+      return count || 0
+    } catch (error) {
+      console.error('Failed to get user share count:', error)
+      return 0
     }
   }
 }

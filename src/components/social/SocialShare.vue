@@ -1,5 +1,6 @@
 <template>
-  <div class="social-share">
+  <!-- Add a ref to the root element -->
+  <div class="social-share" ref="shareRoot">
     <!-- Share Button -->
     <button
       @click="toggleDropdown"
@@ -162,6 +163,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { SupabaseService } from '@/services/supabase'
 
 interface ShareData {
   title: string
@@ -202,6 +204,7 @@ const copied = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
 const linkInput = ref<HTMLInputElement | null>(null)
+const shareRoot = ref<HTMLElement | null>(null) // Ref for the root element
 const userShareCount = ref(0)
 
 // Computed
@@ -343,13 +346,19 @@ const useTemplate = (template: ShareTemplate) => {
   })
 }
 
-const trackShare = (platform: string) => {
-  // Track share analytics
-  userShareCount.value += 1
-  
+const trackShare = async (platform: string) => {
   // Log share event (could be sent to analytics service)
   console.log(`Shared ${props.contentType} on ${platform}:`, props.shareData.title)
-  
+
+  // If user is authenticated, record the share in the database
+  if (authStore.isAuthenticated && authStore.user) {
+    const result = await SupabaseService.recordShare(authStore.user.id, props.shareData.url, platform)
+    if (result.success && !result.alreadyExists) {
+      // Only increment the count if it was a new, unique share
+      userShareCount.value += 1
+    }
+  }
+
   // Close dropdown after sharing
   closeDropdown()
 }
@@ -366,26 +375,25 @@ const showToastMessage = (message: string) => {
 // Handle click outside
 const handleClickOutside = (event: Event) => {
   const target = event.target as HTMLElement
-  if (showDropdown.value && !target.closest('.social-share')) {
+  if (showDropdown.value && shareRoot.value && !shareRoot.value.contains(target)) {
     closeDropdown()
   }
 }
 
 // Lifecycle
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  
-  // Load user share count (from localStorage for now)
-  const shareKey = `share-count-${props.shareData.url}`
-  userShareCount.value = parseInt(localStorage.getItem(shareKey) || '0')
+  document.addEventListener('click', handleClickOutside);
+
+  // If user is logged in, fetch their share count from the database
+  if (authStore.isAuthenticated && authStore.user) {
+    SupabaseService.getUserShareCount(authStore.user.id, props.shareData.url).then(count => {
+      userShareCount.value = count;
+    });
+  }
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  
-  // Save user share count
-  const shareKey = `share-count-${props.shareData.url}`
-  localStorage.setItem(shareKey, userShareCount.value.toString())
+  document.removeEventListener('click', handleClickOutside);
 })
 </script>
 

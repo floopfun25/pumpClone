@@ -84,22 +84,6 @@ export function verifyAuthChallenge(
 }
 
 /**
- * Generate a session token from verified authentication
- * @deprecated This is not a secure JWT and should be replaced with a proper implementation.
- * It does not contain user information and is just a random string.
- * A real implementation should use a library like 'jsonwebtoken' and sign it with a secret.
- * Example:
- * import jwt from 'jsonwebtoken';
- * const payload = { sub: userId, aud: 'authenticated', ...otherClaims };
- * const token = jwt.sign(payload, process.env.SUPABASE_JWT_SECRET);
- */
-export function generateSessionToken(): string {
-  const tokenBytes = new Uint8Array(32)
-  crypto.getRandomValues(tokenBytes)
-  return bs58.encode(tokenBytes)
-}
-
-/**
  * Validate wallet address format
  */
 export function isValidSolanaAddress(address: string): boolean {
