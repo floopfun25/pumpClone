@@ -3,7 +3,13 @@
     <!-- Chart Header -->
     <div class="flex items-center justify-between p-4 border-b border-[#2b3139] bg-[#1e2329]">
       <!-- Token Info -->
-      <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
+      <div class="flex items-center gap-3">
+        <h3 class="text-white font-medium">{{ tokenSymbol }}/SOL</h3>
+        <div v-if="isLive" class="flex items-center gap-1">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-xs text-green-500">LIVE</span>
+        </div>
+      </div>
       
       <!-- OHLC Data -->
       <div v-if="priceData.length > 0" class="flex items-center gap-3" style="font-size: 10px;">
@@ -29,9 +35,28 @@
         <span :class="['text-lg font-bold', priceChangeColor]">
           ${{ convertToUSD(currentPrice).toFixed(8) }}
         </span>
+        <span v-if="priceChange24h !== 0" :class="['text-sm', priceChangeColor]">
+          ({{ priceChange24h >= 0 ? '+' : '' }}{{ priceChange24h.toFixed(2) }}%)
+        </span>
       </div>
 
       <div class="flex items-center gap-4">
+        <!-- Technical Indicators Toggle -->
+        <div class="flex items-center gap-2">
+          <button
+            @click="toggleIndicators"
+            :class="[
+              'px-2 py-1 text-xs rounded transition-colors',
+              showIndicators 
+                ? 'bg-[#f0b90b] text-[#0b0e11]' 
+                : 'bg-[#2b3139] text-[#d1d4dc] hover:bg-[#3c4043]'
+            ]"
+            title="Toggle Technical Indicators"
+          >
+            📊
+          </button>
+        </div>
+        
         <!-- Timeframe Selection -->
         <div class="flex items-center">
           <select 
@@ -49,6 +74,20 @@
             </option>
           </select>
         </div>
+        
+        <!-- Fullscreen Toggle -->
+        <button
+          @click="toggleFullscreen"
+          class="p-1 text-[#848e9c] hover:text-[#d1d4dc] transition-colors"
+          title="Toggle Fullscreen"
+        >
+          <svg v-if="!isFullscreen" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -57,7 +96,7 @@
       <!-- Enhanced Lightweight Charts -->
       <div 
         :class="[
-          isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
+          isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[400px] md:h-[500px]'
         ]"
       >
         <!-- Chart Area -->
@@ -73,22 +112,38 @@
         <div class="flex flex-col items-center gap-3">
           <div class="w-8 h-8 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin"></div>
           <span class="text-sm text-[#848e9c]">{{ loadingMessage }}</span>
+          <div class="text-xs text-[#848e9c] opacity-75">Loading {{ selectedTimeframe }} data...</div>
         </div>
       </div>
       
       <!-- Error State -->
       <div v-if="error && !loading" class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20">
-        <div class="text-center">
+        <div class="text-center max-w-sm">
           <div class="text-[#f6465d] text-lg mb-2">⚠️ Chart Error</div>
           <div class="text-xs text-[#848e9c] mb-4">{{ error }}</div>
           <div class="flex gap-2 justify-center">
             <button 
-              @click="initChart" 
+              @click="retryChart" 
               class="px-4 py-2 text-sm bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
             >
               Retry Chart
             </button>
+            <button 
+              @click="useFallbackData" 
+              class="px-4 py-2 text-sm bg-[#f0b90b] text-[#0b0e11] rounded hover:bg-[#d4a017] transition-colors"
+            >
+              Use Demo Data
+            </button>
           </div>
+        </div>
+      </div>
+      
+      <!-- No Data State -->
+      <div v-if="!loading && !error && priceData.length === 0" class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20">
+        <div class="text-center">
+          <div class="text-4xl mb-2">📈</div>
+          <div class="text-[#848e9c] text-sm mb-2">No price data available</div>
+          <div class="text-[#848e9c] text-xs opacity-75">Start trading to see price movements</div>
         </div>
       </div>
     </div>
@@ -99,8 +154,22 @@
         <div class="flex items-center gap-4">
           <span class="text-[#848e9c]">Volume: <span class="text-[#d1d4dc]">{{ formatVolume(totalVolume) }}</span></span>
           <span class="text-[#848e9c]">Market Cap: <span class="text-[#d1d4dc]">${{ formatMarketCap(marketCap) }}</span></span>
+          <span v-if="lastUpdate" class="text-[#848e9c]">Updated: {{ lastUpdate }}</span>
         </div>
-
+        
+        <!-- Chart Controls -->
+        <div class="flex items-center gap-2">
+          <button
+            @click="refreshChart"
+            :disabled="loading"
+            class="p-1 text-[#848e9c] hover:text-[#d1d4dc] transition-colors disabled:opacity-50"
+            title="Refresh Chart"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -138,6 +207,12 @@ const currentPrice = ref(0)
 const totalVolume = ref(0)
 const marketCap = ref(0)
 const solPriceUSD = ref(0) // Store current SOL price for conversion
+
+// Enhanced chart state
+const isLive = ref(false)
+const showIndicators = ref(false)
+const lastUpdate = ref('')
+const priceChange24h = ref(0)
 
 // Chart configuration
 const selectedTimeframe = ref('24h')
@@ -224,6 +299,9 @@ const setupRealTimePriceUpdates = async () => {
       // Update current price display (price comes in SOL, will be converted to USD in template)
       currentPrice.value = realPriceData.price
       marketCap.value = realPriceData.marketCap
+      priceChange24h.value = realPriceData.priceChange24h || 0
+      isLive.value = true
+      lastUpdate.value = new Date().toLocaleTimeString()
       
       // Get updated chart data for current timeframe
       const chartData = RealTimePriceService.getChartData(props.tokenId, selectedTimeframe.value)
@@ -284,19 +362,30 @@ const initLightweightChart = async () => {
   // Create chart with proper configuration
   lightweightChart = createChart(chartContainer.value, {
     width: chartContainer.value.clientWidth,
-    height: 500,
+    height: chartContainer.value.clientHeight || 500,
     layout: {
       background: { type: ColorType.Solid, color: '#0b0e11' },
       textColor: '#d1d4dc',
+      fontSize: 12,
     },
     grid: {
-      vertLines: { color: '#1e2329' },
-      horzLines: { color: '#1e2329' }
+      vertLines: { color: '#1e2329', style: 1 },
+      horzLines: { color: '#1e2329', style: 1 }
     },
     crosshair: {
       mode: 1,
-      vertLine: { color: '#848e9c' },
-      horzLine: { color: '#848e9c' }
+      vertLine: { 
+        color: '#848e9c',
+        width: 1,
+        style: 2,
+        labelBackgroundColor: '#2b3139'
+      },
+      horzLine: { 
+        color: '#848e9c',
+        width: 1,
+        style: 2,
+        labelBackgroundColor: '#2b3139'
+      }
     },
     rightPriceScale: {
       borderColor: '#2b3139',
@@ -305,11 +394,34 @@ const initLightweightChart = async () => {
         top: 0.1,
         bottom: 0.2,
       },
+      autoScale: true,
     },
     timeScale: {
       borderColor: '#2b3139',
       timeVisible: true,
-      secondsVisible: false
+      secondsVisible: false,
+      rightOffset: 12,
+      barSpacing: 3,
+      minBarSpacing: 1,
+      fixLeftEdge: true,
+      lockVisibleTimeRangeOnResize: true,
+      rightBarStaysOnScroll: true,
+      visible: true,
+      tickMarkFormatter: (time: number) => {
+        const date = new Date(time * 1000)
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    },
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+      horzTouchDrag: true,
+      vertTouchDrag: true,
+    },
+    handleScale: {
+      axisPressedMouseMove: true,
+      mouseWheel: true,
+      pinch: true,
     }
   })
 
@@ -465,6 +577,15 @@ const loadRealChartData = async () => {
     totalVolume.value = chartData.reduce((sum, candle) => sum + (candle.volume || 0), 0)
     marketCap.value = bondingCurveState.marketCap
     
+    // Calculate 24h price change
+    if (chartData.length > 1) {
+      const firstCandle = chartData[0]
+      const lastCandle = chartData[chartData.length - 1]
+      priceChange24h.value = ((lastCandle.close - firstCandle.open) / firstCandle.open) * 100
+    }
+    
+    lastUpdate.value = new Date().toLocaleTimeString()
+    
   } catch (err: any) {
     console.error('Failed to load chart data:', err)
     error.value = `Failed to load chart data: ${err.message}`
@@ -510,6 +631,104 @@ const loadRealChartData = async () => {
 }
 
 // Chart controls
+
+// Calculate simple moving average
+const calculateSMA = (data: any[], period: number): number[] => {
+  if (data.length < period) return []
+  
+  const sma = []
+  for (let i = period - 1; i < data.length; i++) {
+    const sum = data.slice(i - period + 1, i + 1).reduce((acc, candle) => acc + candle.close, 0)
+    sma.push(sum / period)
+  }
+  return sma
+}
+
+// Toggle technical indicators
+const toggleIndicators = () => {
+  showIndicators.value = !showIndicators.value
+  
+  if (showIndicators.value && priceData.value.length > 0) {
+    // Calculate and add moving averages
+    const sma20 = calculateSMA(priceData.value, 20)
+    const sma50 = calculateSMA(priceData.value, 50)
+    
+    console.log('SMA 20:', sma20)
+    console.log('SMA 50:', sma50)
+    
+    // TODO: Add moving average lines to chart
+    // This would require adding LineSeries for the indicators
+  }
+}
+
+// Retry chart initialization
+const retryChart = async () => {
+  error.value = ''
+  await initChart()
+}
+
+// Use fallback demo data
+const useFallbackData = async () => {
+  error.value = ''
+  loading.value = true
+  
+  // Create demo data
+  const now = Date.now()
+  const basePrice = 0.000001
+  const demoData = []
+  
+  for (let i = 0; i < 50; i++) {
+    const time = now - (50 - i) * 5 * 60 * 1000 // 5-minute intervals
+    const price = basePrice * (1 + Math.sin(i * 0.1) * 0.1 + Math.random() * 0.05)
+    const open = price * (1 + (Math.random() - 0.5) * 0.02)
+    const close = price * (1 + (Math.random() - 0.5) * 0.02)
+    const high = Math.max(open, close) * (1 + Math.random() * 0.01)
+    const low = Math.min(open, close) * (1 - Math.random() * 0.01)
+    
+    demoData.push({
+      time: Math.floor(time / 1000),
+      open,
+      high,
+      low,
+      close
+    })
+  }
+  
+  priceData.value = demoData
+  volumeData.value = demoData.map(candle => ({
+    time: candle.time,
+    value: Math.random() * 1000,
+    color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
+  }))
+  
+  currentPrice.value = demoData[demoData.length - 1].close
+  totalVolume.value = 50000
+  marketCap.value = 1000000
+  priceChange24h.value = 5.23
+  lastUpdate.value = new Date().toLocaleTimeString()
+  
+  loading.value = false
+  
+  if (lightweightChart) {
+    addSeries()
+  }
+}
+
+// Refresh chart data
+const refreshChart = async () => {
+  if (loading.value) return
+  
+  loading.value = true
+  await loadRealChartData()
+  
+  if (lightweightChart) {
+    nextTick(() => {
+      addSeries()
+    })
+  }
+  
+  loading.value = false
+}
 
 const setTimeframe = async (timeframe: string) => {
   selectedTimeframe.value = timeframe
@@ -573,9 +792,10 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
+  // Reduced delay for faster loading
   setTimeout(() => {
     initChart()
-  }, 500)
+  }, 100)
 })
 
 onUnmounted(() => {
