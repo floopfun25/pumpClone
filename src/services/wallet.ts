@@ -421,6 +421,7 @@ export const disconnectPhantomMobile = async (): Promise<void> => {
     )
 
     // Clear local state
+    mobileWalletState.isConnecting = false; // Explicitly reset connection state
     mobileWalletState.connectionData = null
     clearConnectionData()
 
@@ -860,6 +861,7 @@ class WalletService {
     this._internalConnected.value = false
     this._connecting.value = false
     this._disconnecting.value = false
+    mobileWalletState.isConnecting = false; // Ensure mobile connection state is also reset
     this.currentWallet.value = null
     localStorage.removeItem('walletName')
     clearConnectionData()
