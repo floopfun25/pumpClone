@@ -1,5 +1,5 @@
 <template>
-  <div class="tradingview-chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden">
+  <div class="lightweight-chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden">
     <!-- Chart Header -->
     <div class="flex items-center justify-between p-4 border-b border-[#2b3139] bg-[#1e2329]">
       <!-- Token Info -->
@@ -32,6 +32,23 @@
       </div>
 
       <div class="flex items-center gap-4">
+        <!-- Chart Type Selection -->
+        <div class="flex items-center">
+          <select 
+            v-model="chartType"
+            @change="setChartType(chartType)"
+            class="px-3 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded focus:outline-none focus:border-[#f0b90b] transition-colors min-w-[80px]"
+          >
+            <option 
+              v-for="type in chartTypes" 
+              :key="type.value"
+              :value="type.value"
+              class="bg-[#2b3139] text-[#d1d4dc]"
+            >
+              {{ type.label }}
+            </option>
+          </select>
+        </div>
         <!-- Timeframe Selection -->
         <div class="flex items-center">
           <select 
@@ -49,31 +66,13 @@
             </option>
           </select>
         </div>
-        
-
       </div>
     </div>
 
     <!-- Chart Container -->
     <div class="relative">
-      <!-- TradingView Widget (Primary) -->
+      <!-- Enhanced Lightweight Charts -->
       <div 
-        v-if="!useFallback"
-        ref="tradingViewContainer" 
-        :class="[
-          'tradingview-widget-container',
-          isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
-        ]"
-      >
-        <div 
-          :id="chartId"
-          class="tradingview-widget w-full h-full"
-        ></div>
-      </div>
-
-      <!-- Enhanced Lightweight Charts (Fallback) -->
-      <div 
-        v-else
         :class="[
           isFullscreen ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4' : 'h-[500px]'
         ]"
@@ -91,13 +90,6 @@
         <div class="flex flex-col items-center gap-3">
           <div class="w-8 h-8 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin"></div>
           <span class="text-sm text-[#848e9c]">{{ loadingMessage }}</span>
-          <button 
-            v-if="showFallbackOption"
-            @click="switchToFallback"
-            class="mt-2 px-3 py-1 text-xs bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
-          >
-            Use Enhanced Chart Instead
-          </button>
         </div>
       </div>
       
@@ -136,50 +128,24 @@ import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { createChart, ColorType, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries } from 'lightweight-charts'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 
-// TypeScript declarations
-declare global {
-  interface Window {
-    TradingView: any
-  }
-  var TradingView: any
-}
-
 interface Props {
   tokenId: string
   tokenSymbol: string
   mintAddress: string
 }
 
-interface DrawingTool {
-  id: string
-  name: string
-  icon: string
-}
-
-interface Drawing {
-  id: string
-  type: string
-  points: { x: number; y: number; price: number; time: number }[]
-  color: string
-}
-
 const props = defineProps<Props>()
 
 // Chart state
-const tradingViewContainer = ref<HTMLElement>()
 const chartContainer = ref<HTMLElement>()
-const drawingCanvas = ref<HTMLCanvasElement>()
 const loading = ref(true)
 const loadingMessage = ref('Initializing chart...')
 const error = ref('')
 const isFullscreen = ref(false)
-const useFallback = ref(true) // Always use enhanced chart
-const showFallbackOption = ref(false)
-const chartId = ref(`chart_${Math.random().toString(36).substr(2, 9)}`)
 
 // Chart instances
 let lightweightChart: any = null
-let candlestickSeries: any = null
+let mainSeries: any = null
 let volumeSeries: any = null
 
 // Chart data
@@ -190,14 +156,6 @@ const totalVolume = ref(0)
 const marketCap = ref(0)
 const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
 const solPriceUSD = ref(0) // Store current SOL price for conversion
-
-// Drawing tools state
-const selectedTool = ref('cursor')
-const drawings = ref<Drawing[]>([])
-const isDrawing = ref(false)
-const currentDrawing = ref<Drawing | null>(null)
-const canvasWidth = ref(800)
-const canvasHeight = ref(500)
 
 // Chart configuration
 const selectedTimeframe = ref('24h')
@@ -215,16 +173,9 @@ const timeframes = [
 ]
 
 const chartTypes = [
-  { label: 'Candles', value: 'candlestick' }
-]
-
-const drawingTools: DrawingTool[] = [
-  { id: 'cursor', name: 'Cursor', icon: '🖱️' },
-  { id: 'trendline', name: 'Trend Line', icon: '📈' },
-  { id: 'horizontal', name: 'Horizontal Line', icon: '➖' },
-  { id: 'vertical', name: 'Vertical Line', icon: '|' },
-  { id: 'rectangle', name: 'Rectangle', icon: '▭' },
-  { id: 'fibonacci', name: 'Fibonacci', icon: '🌀' }
+  { label: 'Candles', value: 'candlestick' },
+  { label: 'Line', value: 'line' },
+  { label: 'Area', value: 'area' },
 ]
 
 // Computed
@@ -276,7 +227,6 @@ const initChart = async () => {
     
     error.value = `Chart initialization failed: ${err.message}`
     loading.value = false
-    showFallbackOption.value = false
   }
 }
 
@@ -332,9 +282,9 @@ const setupRealTimePriceUpdates = async () => {
         }))
         
         // Update chart if using lightweight charts
-        if (useFallback.value && lightweightChart && candlestickSeries) {
+        if (lightweightChart && mainSeries) {
           if (chartType.value === 'candlestick') {
-            candlestickSeries.setData(priceData.value)
+            mainSeries.setData(priceData.value)
           } else if (chartType.value === 'line') {
             const lineData = priceData.value.map(candle => ({
               time: candle.time,
@@ -342,7 +292,7 @@ const setupRealTimePriceUpdates = async () => {
             })).filter(item => item.value > 0)
             
             if (lineData.length > 0) {
-              candlestickSeries.setData(lineData)
+              mainSeries.setData(lineData)
             }
           } else if (chartType.value === 'area') {
             const areaData = priceData.value.map(candle => ({
@@ -351,7 +301,7 @@ const setupRealTimePriceUpdates = async () => {
             })).filter(item => item.value > 0)
             
             if (areaData.length > 0) {
-              candlestickSeries.setData(areaData)
+              mainSeries.setData(areaData)
             }
           }
         }
@@ -413,9 +363,6 @@ const initLightweightChart = async () => {
     throw error
   }
   
-  // Setup canvas for drawings
-  setupDrawingCanvas()
-
   loading.value = false
 }
 
@@ -423,13 +370,13 @@ const addSeries = () => {
   if (!lightweightChart) return
 
   // Remove existing series
-  if (candlestickSeries) {
+  if (mainSeries) {
     try {
-      lightweightChart.removeSeries(candlestickSeries)
+      lightweightChart.removeSeries(mainSeries)
     } catch (error) {
-      console.warn('Error removing candlestick series:', error)
+      console.warn('Error removing main series:', error)
     }
-    candlestickSeries = null
+    mainSeries = null
   }
   
   if (volumeSeries) {
@@ -445,7 +392,7 @@ const addSeries = () => {
     // Add new series based on type using correct v5 API
     if (chartType.value === 'candlestick') {
       // Add candlestick series using correct API
-      candlestickSeries = lightweightChart.addSeries(CandlestickSeries, {
+      mainSeries = lightweightChart.addSeries(CandlestickSeries, {
         upColor: '#2ebd85',
         downColor: '#f6465d',
         borderUpColor: '#2ebd85',
@@ -460,7 +407,7 @@ const addSeries = () => {
       })
       
       if (priceData.value.length > 0) {
-        candlestickSeries.setData(priceData.value)
+        mainSeries.setData(priceData.value)
       }
       
       // Add volume histogram series using correct API
@@ -481,7 +428,7 @@ const addSeries = () => {
       }
     } else if (chartType.value === 'line') {
       // Add line series using correct API
-      candlestickSeries = lightweightChart.addSeries(LineSeries, {
+      mainSeries = lightweightChart.addSeries(LineSeries, {
         color: '#2ebd85',
         lineWidth: 2,
         priceFormat: {
@@ -497,11 +444,11 @@ const addSeries = () => {
       })).filter(item => item.value > 0)
       
       if (lineData.length > 0) {
-        candlestickSeries.setData(lineData)
+        mainSeries.setData(lineData)
       }
     } else if (chartType.value === 'area') {
       // Add area series using correct API
-      candlestickSeries = lightweightChart.addSeries(AreaSeries, {
+      mainSeries = lightweightChart.addSeries(AreaSeries, {
         topColor: 'rgba(46, 189, 133, 0.4)',
         bottomColor: 'rgba(46, 189, 133, 0.05)',
         lineColor: '#2ebd85',
@@ -519,7 +466,7 @@ const addSeries = () => {
       })).filter(item => item.value > 0)
       
       if (areaData.length > 0) {
-        candlestickSeries.setData(areaData)
+        mainSeries.setData(areaData)
       }
     }
   } catch (error) {
@@ -649,133 +596,10 @@ const loadRealChartData = async () => {
   }
 }
 
-// Drawing functionality
-const setupDrawingCanvas = () => {
-  if (!drawingCanvas.value || !chartContainer.value) return
-  
-  const container = chartContainer.value
-  canvasWidth.value = container.clientWidth
-  canvasHeight.value = container.clientHeight
-  
-  const canvas = drawingCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  
-  // Set canvas size
-  canvas.width = canvasWidth.value
-  canvas.height = canvasHeight.value
-  
-  // Enable pointer events for drawing
-  canvas.style.pointerEvents = 'auto'
-}
-
-const onMouseDown = (event: MouseEvent) => {
-  if (selectedTool.value === 'cursor') return
-  
-  isDrawing.value = true
-  const rect = chartContainer.value?.getBoundingClientRect()
-  if (!rect) return
-  
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
-  
-  // Start new drawing
-  currentDrawing.value = {
-    id: Date.now().toString(),
-    type: selectedTool.value,
-    points: [{ x, y, price: 0, time: 0 }],
-    color: '#f0b90b'
-  }
-}
-
-const onMouseMove = (event: MouseEvent) => {
-  if (!isDrawing.value || !currentDrawing.value) return
-  
-  const rect = chartContainer.value?.getBoundingClientRect()
-  if (!rect) return
-  
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
-  
-  // Update drawing
-  if (currentDrawing.value.points.length === 1) {
-    currentDrawing.value.points.push({ x, y, price: 0, time: 0 })
-  } else {
-    currentDrawing.value.points[1] = { x, y, price: 0, time: 0 }
-  }
-  
-  drawCanvas()
-}
-
-const onMouseUp = () => {
-  if (!isDrawing.value || !currentDrawing.value) return
-  
-  // Finalize drawing
-  drawings.value.push({ ...currentDrawing.value })
-  currentDrawing.value = null
-  isDrawing.value = false
-  
-  drawCanvas()
-}
-
-const onChartClick = (event: MouseEvent) => {
-  if (selectedTool.value !== 'cursor') return
-  // Handle click events for cursor tool
-}
-
-const drawCanvas = () => {
-  const canvas = drawingCanvas.value
-  if (!canvas) return
-  
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  
-  // Clear canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  
-  // Draw all drawings
-  const allDrawings = [...drawings.value]
-  if (currentDrawing.value) {
-    allDrawings.push(currentDrawing.value)
-  }
-  
-  allDrawings.forEach((drawing: Drawing) => {
-    if (!drawing || drawing.points.length < 2) return
-    
-    ctx.strokeStyle = drawing.color
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    
-    const [start, end] = drawing.points
-    
-    switch (drawing.type) {
-      case 'trendline':
-        ctx.moveTo(start.x, start.y)
-        ctx.lineTo(end.x, end.y)
-        break
-      case 'horizontal':
-        ctx.moveTo(0, start.y)
-        ctx.lineTo(canvas.width, start.y)
-        break
-      case 'vertical':
-        ctx.moveTo(start.x, 0)
-        ctx.lineTo(start.x, canvas.height)
-        break
-      case 'rectangle':
-        const width = end.x - start.x
-        const height = end.y - start.y
-        ctx.rect(start.x, start.y, width, height)
-        break
-    }
-    
-    ctx.stroke()
-  })
-}
-
 // Chart controls
 const setChartType = (type: string) => {
   chartType.value = type as any
-  if (useFallback.value && lightweightChart) {
+  if (lightweightChart) {
     addSeries()
   }
 }
@@ -791,48 +615,22 @@ const setTimeframe = async (timeframe: string) => {
   await loadRealChartData()
   
   // Force chart update
-  if (useFallback.value && lightweightChart) {
+  if (lightweightChart) {
     nextTick(() => {
       addSeries()
     })
   }
 }
 
-const selectDrawingTool = (toolId: string) => {
-  selectedTool.value = toolId
-}
-
-const clearDrawings = () => {
-  drawings.value = []
-  currentDrawing.value = null
-  drawCanvas()
-}
-
-const switchToFallback = () => {
-  useFallback.value = true
-  showFallbackOption.value = false
-  error.value = ''
-  
-  // Initialize lightweight chart
-  nextTick(async () => {
-    await initLightweightChart()
-    // Set up real-time price updates for fallback chart
-    setupRealTimePriceUpdates()
-  })
-}
-
-// TradingView functions removed - we now use only the enhanced chart
-
 const toggleFullscreen = () => {
   isFullscreen.value = !isFullscreen.value
   
   nextTick(() => {
-    if (useFallback.value && lightweightChart) {
+    if (lightweightChart) {
       lightweightChart.resize(
         chartContainer.value?.clientWidth || 800,
         chartContainer.value?.clientHeight || 500
       )
-      setupDrawingCanvas()
     }
   })
 }
@@ -893,7 +691,7 @@ defineExpose({
 </script>
 
 <style scoped>
-.tradingview-chart-container {
+.lightweight-chart-container {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -904,19 +702,6 @@ defineExpose({
 
 .chart-area.cursor {
   cursor: default;
-}
-
-.tradingview-widget-container {
-  position: relative;
-}
-
-.tradingview-widget {
-  background: #0b0e11;
-}
-
-.tradingview-widget-container.fixed,
-.chart-area.fixed {
-  background: #0b0e11;
 }
 
 @keyframes spin {

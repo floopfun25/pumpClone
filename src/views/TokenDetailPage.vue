@@ -85,7 +85,7 @@
               message="The price chart couldn't load properly."
               show-reload
             >
-              <TradingViewChart 
+              <TokenChart 
                 ref="chartComponentRef"
                 v-if="token?.id" 
                 :token-id="token.id"
@@ -191,7 +191,7 @@ import { useAuthStore } from '@/stores/auth'
 import { solanaProgram } from '@/services/solanaProgram'
 import { marketAnalyticsService, type TokenAnalytics } from '@/services/marketAnalytics'
 import TokenComments from '@/components/token/TokenComments.vue'
-import TradingViewChart from '@/components/charts/TradingViewChart.vue'
+import TokenChart from '@/components/charts/TokenChart.vue'
 import TradingInterface from '@/components/token/TradingInterface.vue'
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
@@ -879,7 +879,7 @@ const loadBondingCurveData = async () => {
   }
 }
 
-const chartComponentRef = ref<InstanceType<typeof TradingViewChart> | null>(null);
+const chartComponentRef = ref<InstanceType<typeof TokenChart> | null>(null);
 
 /**
  * Force chart to reload data
