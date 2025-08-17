@@ -884,6 +884,12 @@ onUnmounted(() => {
     lightweightChart.remove()
   }
 })
+
+// Expose functions to parent component
+defineExpose({
+  setTimeframe,
+  selectedTimeframe
+})
 </script>
 
 <style scoped>
@@ -929,4 +935,4 @@ onUnmounted(() => {
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-</style> 
+</style>

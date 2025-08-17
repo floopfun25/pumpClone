@@ -86,6 +86,7 @@
               show-reload
             >
               <TradingViewChart 
+                ref="chartComponentRef"
                 v-if="token?.id" 
                 :token-id="token.id"
                 :token-symbol="token.symbol"
@@ -878,25 +879,26 @@ const loadBondingCurveData = async () => {
   }
 }
 
+const chartComponentRef = ref<InstanceType<typeof TradingViewChart> | null>(null);
+
 /**
  * Force chart to reload data
  */
 const refreshChart = () => {
-  if (!token.value?.id) return
+  if (!token.value?.id) return;
+
   // Clear cache and force re-fetch
-  RealTimePriceService.clearCacheForToken(token.value.id)
-  
-  // Find chart component and call its reload method
-  // This is a bit of a hack, a better way would be to use an event bus
-  // or a shared state management solution for this.
-  const chart = document.querySelector('.tradingview-chart-container')
-  if (chart && (chart as any).__vue_app__) {
-    const chartInstance = (chart as any).__vue_app__.config.globalProperties.$parent
-    if (chartInstance && typeof chartInstance.setTimeframe === 'function') {
-      chartInstance.setTimeframe(chartInstance.selectedTimeframe)
-    }
+  RealTimePriceService.clearCacheForToken(token.value.id);
+
+  // Call the child component's method directly via the ref
+  if (chartComponentRef.value) {
+    // Re-apply the currently selected timeframe to force a refresh
+    chartComponentRef.value.setTimeframe(chartComponentRef.value.selectedTimeframe);
+    console.log('✅ Chart refresh triggered via component ref.');
+  } else {
+    console.warn('⚠️ Could not refresh chart: component ref not available.');
   }
-}
+};
 
 
 
