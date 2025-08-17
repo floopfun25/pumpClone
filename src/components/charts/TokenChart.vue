@@ -32,23 +32,6 @@
       </div>
 
       <div class="flex items-center gap-4">
-        <!-- Chart Type Selection -->
-        <div class="flex items-center">
-          <select 
-            v-model="chartType"
-            @change="setChartType(chartType)"
-            class="px-3 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded focus:outline-none focus:border-[#f0b90b] transition-colors min-w-[80px]"
-          >
-            <option 
-              v-for="type in chartTypes" 
-              :key="type.value"
-              :value="type.value"
-              class="bg-[#2b3139] text-[#d1d4dc]"
-            >
-              {{ type.label }}
-            </option>
-          </select>
-        </div>
         <!-- Timeframe Selection -->
         <div class="flex items-center">
           <select 
@@ -125,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { createChart, ColorType, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries } from 'lightweight-charts'
+import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 
 interface Props {
@@ -154,7 +137,6 @@ const volumeData = ref<any[]>([])
 const currentPrice = ref(0)
 const totalVolume = ref(0)
 const marketCap = ref(0)
-const chartType = ref<'candlestick' | 'line' | 'area'>('candlestick')
 const solPriceUSD = ref(0) // Store current SOL price for conversion
 
 // Chart configuration
@@ -172,11 +154,7 @@ const timeframes = [
   { label: '30D', value: '30d' }
 ]
 
-const chartTypes = [
-  { label: 'Candles', value: 'candlestick' },
-  { label: 'Line', value: 'line' },
-  { label: 'Area', value: 'area' },
-]
+
 
 // Computed
 const priceChangeColor = computed(() => {
@@ -283,27 +261,7 @@ const setupRealTimePriceUpdates = async () => {
         
         // Update chart if using lightweight charts
         if (lightweightChart && mainSeries) {
-          if (chartType.value === 'candlestick') {
-            mainSeries.setData(priceData.value)
-          } else if (chartType.value === 'line') {
-            const lineData = priceData.value.map(candle => ({
-              time: candle.time,
-              value: Number(candle.close) || 0
-            })).filter(item => item.value > 0)
-            
-            if (lineData.length > 0) {
-              mainSeries.setData(lineData)
-            }
-          } else if (chartType.value === 'area') {
-            const areaData = priceData.value.map(candle => ({
-              time: candle.time,
-              value: Number(candle.close) || 0
-            })).filter(item => item.value > 0)
-            
-            if (areaData.length > 0) {
-              mainSeries.setData(areaData)
-            }
-          }
+          mainSeries.setData(priceData.value)
         }
       }
     })
@@ -389,85 +347,40 @@ const addSeries = () => {
   }
 
   try {
-    // Add new series based on type using correct v5 API
-    if (chartType.value === 'candlestick') {
-      // Add candlestick series using correct API
-      mainSeries = lightweightChart.addSeries(CandlestickSeries, {
-        upColor: '#2ebd85',
-        downColor: '#f6465d',
-        borderUpColor: '#2ebd85',
-        borderDownColor: '#f6465d',
-        wickUpColor: '#2ebd85',
-        wickDownColor: '#f6465d',
-        priceFormat: {
-          type: 'price',
-          precision: 8,
-          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
-        },
-      })
-      
-      if (priceData.value.length > 0) {
-        mainSeries.setData(priceData.value)
-      }
-      
-      // Add volume histogram series using correct API
-      volumeSeries = lightweightChart.addSeries(HistogramSeries, {
-        color: '#26a69a',
-        priceFormat: {
-          type: 'volume',
-        },
-        priceScaleId: '', // Set as an overlay
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0.0,
-        },
-      })
-      
-      if (volumeData.value.length > 0) {
-        volumeSeries.setData(volumeData.value)
-      }
-    } else if (chartType.value === 'line') {
-      // Add line series using correct API
-      mainSeries = lightweightChart.addSeries(LineSeries, {
-        color: '#2ebd85',
-        lineWidth: 2,
-        priceFormat: {
-          type: 'price',
-          precision: 8,
-          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
-        },
-      })
-      
-      const lineData = priceData.value.map(candle => ({
-        time: candle.time,
-        value: Number(candle.close) || 0
-      })).filter(item => item.value > 0)
-      
-      if (lineData.length > 0) {
-        mainSeries.setData(lineData)
-      }
-    } else if (chartType.value === 'area') {
-      // Add area series using correct API
-      mainSeries = lightweightChart.addSeries(AreaSeries, {
-        topColor: 'rgba(46, 189, 133, 0.4)',
-        bottomColor: 'rgba(46, 189, 133, 0.05)',
-        lineColor: '#2ebd85',
-        lineWidth: 2,
-        priceFormat: {
-          type: 'price',
-          precision: 8,
-          formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
-        },
-      })
-      
-      const areaData = priceData.value.map(candle => ({
-        time: candle.time,
-        value: Number(candle.close) || 0
-      })).filter(item => item.value > 0)
-      
-      if (areaData.length > 0) {
-        mainSeries.setData(areaData)
-      }
+    // Add candlestick series using correct API
+    mainSeries = lightweightChart.addSeries(CandlestickSeries, {
+      upColor: '#2ebd85',
+      downColor: '#f6465d',
+      borderUpColor: '#2ebd85',
+      borderDownColor: '#f6465d',
+      wickUpColor: '#2ebd85',
+      wickDownColor: '#f6465d',
+      priceFormat: {
+        type: 'price',
+        precision: 8,
+        formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
+      },
+    })
+    
+    if (priceData.value.length > 0) {
+      mainSeries.setData(priceData.value)
+    }
+    
+    // Add volume histogram series using correct API
+    volumeSeries = lightweightChart.addSeries(HistogramSeries, {
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '', // Set as an overlay
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0.0,
+      },
+    })
+    
+    if (volumeData.value.length > 0) {
+      volumeSeries.setData(volumeData.value)
     }
   } catch (error) {
     console.error('Error creating chart series:', error)
@@ -597,12 +510,6 @@ const loadRealChartData = async () => {
 }
 
 // Chart controls
-const setChartType = (type: string) => {
-  chartType.value = type as any
-  if (lightweightChart) {
-    addSeries()
-  }
-}
 
 const setTimeframe = async (timeframe: string) => {
   selectedTimeframe.value = timeframe

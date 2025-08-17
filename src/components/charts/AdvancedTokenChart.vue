@@ -38,22 +38,7 @@
           </button>
         </div>
         
-        <!-- Chart Type Selector -->
-        <div class="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1">
-          <button
-            v-for="chartType in chartTypes"
-            :key="chartType.value"
-            @click="setChartType(chartType.value)"
-            :class="[
-              'px-3 py-1 text-sm rounded-md transition-colors',
-              selectedChartType === chartType.value
-                ? 'bg-primary-500 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            ]"
-          >
-            {{ chartType.label }}
-          </button>
-        </div>
+
         
         <!-- Refresh & Settings -->
         <button
@@ -222,7 +207,7 @@ const error = ref('')
 // Data state
 const chartData = ref<CandlestickData[]>([])
 const selectedTimeframe = ref('24h')
-const selectedChartType = ref('candlestick')
+const selectedChartType = ref<'candlestick'>('candlestick')
 const lastUpdateTime = ref('')
 
 // Real-time subscription
@@ -247,9 +232,7 @@ const timeframes = [
   { label: '30D', value: '30d' }
 ]
 
-const chartTypes = [
-  { label: '📊 Candlestick', value: 'candlestick' }
-]
+
 
 // Computed properties
 const hasData = computed(() => chartData.value.length > 0)
@@ -329,14 +312,8 @@ const drawChart = () => {
     ctx.stroke()
   }
   
-  // Draw chart based on type
-  if (selectedChartType.value === 'candlestick') {
-    drawCandlesticks(ctx, chartWidth, chartHeight, padding, minPrice, priceRange)
-  } else if (selectedChartType.value === 'line') {
-    drawLine(ctx, chartWidth, chartHeight, padding, minPrice, priceRange)
-  } else if (selectedChartType.value === 'area') {
-    drawArea(ctx, chartWidth, chartHeight, padding, minPrice, priceRange)
-  }
+  // Draw candlestick chart
+  drawCandlesticks(ctx, chartWidth, chartHeight, padding, minPrice, priceRange)
   
   // Draw price labels
   drawPriceLabels(ctx, width, height, padding, minPrice, maxPrice)
@@ -373,63 +350,7 @@ const drawCandlesticks = (ctx: CanvasRenderingContext2D, chartWidth: number, cha
   })
 }
 
-const drawLine = (ctx: CanvasRenderingContext2D, chartWidth: number, chartHeight: number, padding: number, minPrice: number, priceRange: number) => {
-  if (chartData.value.length === 0) return
-  
-  ctx.strokeStyle = '#3b82f6'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  
-  chartData.value.forEach((candle, index) => {
-    const x = padding + (index * chartWidth) / (chartData.value.length - 1)
-    const y = padding + chartHeight - ((candle.close - minPrice) / priceRange) * chartHeight
-    
-    if (index === 0) {
-      ctx.moveTo(x, y)
-    } else {
-      ctx.lineTo(x, y)
-    }
-  })
-  
-  ctx.stroke()
-}
 
-const drawArea = (ctx: CanvasRenderingContext2D, chartWidth: number, chartHeight: number, padding: number, minPrice: number, priceRange: number) => {
-  if (chartData.value.length === 0) return
-  
-  // Create gradient
-  const gradient = ctx.createLinearGradient(0, padding, 0, padding + chartHeight)
-  gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)')
-  gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)')
-  
-  ctx.fillStyle = gradient
-  ctx.beginPath()
-  
-  // Start from bottom-left
-  const firstX = padding
-  const bottomY = padding + chartHeight
-  ctx.moveTo(firstX, bottomY)
-  
-  // Draw line to first point
-  const firstY = padding + chartHeight - ((chartData.value[0].close - minPrice) / priceRange) * chartHeight
-  ctx.lineTo(firstX, firstY)
-  
-  // Draw the price line
-  chartData.value.forEach((candle, index) => {
-    const x = padding + (index * chartWidth) / (chartData.value.length - 1)
-    const y = padding + chartHeight - ((candle.close - minPrice) / priceRange) * chartHeight
-    ctx.lineTo(x, y)
-  })
-  
-  // Close the area
-  const lastX = padding + chartWidth
-  ctx.lineTo(lastX, bottomY)
-  ctx.closePath()
-  ctx.fill()
-  
-  // Draw the line on top
-  drawLine(ctx, chartWidth, chartHeight, padding, minPrice, priceRange)
-}
 
 const drawPriceLabels = (ctx: CanvasRenderingContext2D, width: number, height: number, padding: number, minPrice: number, maxPrice: number) => {
   ctx.fillStyle = '#6b7280'
@@ -588,11 +509,7 @@ const setTimeframe = async (timeframe: string) => {
   await loadChartData()
 }
 
-const setChartType = async (type: string) => {
-  selectedChartType.value = type
-  await nextTick()
-  drawChart()
-}
+
 
 const refreshChart = async () => {
   await loadChartData()
