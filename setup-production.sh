@@ -260,22 +260,12 @@ cp src/services/solanaProgram.production.ts src/services/solanaProgram.ts
 
 print_success "Production trading system implemented"
 
-# Step 10: Update config to use real program addresses
-print_status "⚙️ Updating program configuration..."
+# Step 10: Finalize Configuration
+print_status "⚙️ Finalizing program configuration..."
 
-# Update the config file with real program ID
-CONFIG_FILE="src/config/index.ts"
-
-# Backup original config
-cp "$CONFIG_FILE" "${CONFIG_FILE}.backup"
-
-# Replace placeholder program ID with real one
-sed -i.bak "s/11111111111111111111111111111111/$PROGRAM_ID/g" "$CONFIG_FILE"
-
-# Clean up
-rm -f "${CONFIG_FILE}.bak"
-
-print_success "Configuration updated with real program addresses"
+print_warning "The bonding curve program ID has been saved to .env.production."
+print_warning "Ensure your application code (e.g., src/config/index.ts) reads this value from environment variables (import.meta.env.VITE_DEVNET_BONDING_CURVE_PROGRAM)."
+print_success "Configuration is ready for production build."
 
 # Step 11: Generate summary
 print_status "📋 Generating deployment summary..."

@@ -436,6 +436,24 @@ const authenticateUserWithWallet = async () => {
 }
 
 /**
+ * Pre-trade checks and authentication
+ */
+async function prepareForTrade(): Promise<boolean> {
+  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
+    uiStore.showToast({ type: 'info', title: 'Setting up trading...', message: 'Preparing your wallet for trading...' });
+    try {
+      await authenticateForTrading();
+      uiStore.showToast({ type: 'success', title: 'Ready to Trade!', message: 'Your wallet is now set up for trading.' });
+      return true;
+    } catch (authError: any) {
+      uiStore.showToast({ type: 'error', title: 'Setup Failed', message: authError.message || 'Failed to set up trading. Please try again.' });
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Handle trade from TradingInterface component
  */
 const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, preview: any }) => {
@@ -457,39 +475,8 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
     return
   }
 
-  // Check if user is authenticated with Supabase (required for trading)
-  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
-    try {
-      console.log('🔐 [TRADE] User not authenticated, starting authentication process...')
-      console.log('🔍 [TRADE] Auth state:', {
-        isAuthenticated: authStore.isAuthenticated,
-        hasSupabaseUser: !!authStore.supabaseUser,
-        walletAddress: walletStore.walletAddress
-      })
-      
-      uiStore.showToast({
-        type: 'info',
-        title: 'Setting up trading...',
-        message: 'Preparing your wallet for trading...'
-      })
-      
-      // Try the simple authentication method first (better for mobile)
-      await authenticateForTrading()
-      
-      uiStore.showToast({
-        type: 'success',
-        title: 'Ready to Trade!',
-        message: 'Your wallet is now set up for trading.'
-      })
-    } catch (authError: any) {
-      console.error('❌ Failed to authenticate for trading:', authError)
-      uiStore.showToast({
-        type: 'error',
-        title: 'Setup Failed',
-        message: authError.message || 'Failed to set up trading. Please try again.'
-      })
-      return
-    }
+  if (!(await prepareForTrade())) {
+    return; // Stop if authentication fails
   }
 
   // Check if token has graduated
@@ -503,7 +490,7 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
   }
 
   try {
-    uiStore.setLoading(true)
+    uiStore.setLoading(true);
     
     // Make sure balance is fresh before trade
     await walletStore.updateBalance()
@@ -544,22 +531,8 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
       })
     }
 
-    // Trigger immediate price update
-    await RealTimePriceService.forceUpdate(token.value.id)
-    
-    // Refresh bonding curve data immediately after trade
-    await loadBondingCurveData()
-
-    // Refresh chart data
-    if (token.value?.id) {
-      RealTimePriceService.clearCacheForToken(token.value.id)
-    }
-    
-    // Refresh token data to show updated stats
-    await loadTokenData()
-    
-    // Update user token balance
-    await loadUserTokenBalance()
+    // After a successful trade, refresh all relevant data
+    await refreshAllTokenData();
     
     // 💰 CRITICAL: Refresh wallet SOL balance after transaction
     await walletStore.updateBalance()
@@ -614,6 +587,21 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
 }
 
 /**
+ * Refreshes all data related to the token after a state change like a trade.
+ */
+async function refreshAllTokenData() {
+  if (!token.value?.id) return;
+  console.log('🔄 Refreshing all token data...');
+  await Promise.all([
+    RealTimePriceService.forceUpdate(token.value.id),
+    loadBondingCurveData(),
+    loadTokenData(), // This also loads recent trades and holders
+    loadUserTokenBalance(),
+  ]);
+  RealTimePriceService.clearCacheForToken(token.value.id); // For chart
+}
+
+/**
  * Load real top holders data from database
  */
 const loadTopHolders = async () => {
@@ -645,33 +633,25 @@ const loadTopHolders = async () => {
  * Load user's token balance for trading
  */
 const loadUserTokenBalance = async () => {
-  if (!walletStore.isConnected || !token.value?.mint_address) {
-    userTokenBalance.value = 0
-    return
-  }
-
-  // Skip loading if user is not authenticated with Supabase
-  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
-    console.log('📊 Skipping token balance loading - user not authenticated with Supabase')
+  if (!walletStore.isConnected || !walletStore.walletAddress || !token.value?.mint_address) {
     userTokenBalance.value = 0
     return
   }
 
   try {
-    // TODO: Implement actual token balance loading from blockchain
-    // For now, try to get user holdings from database as a starting point
-    try {
-      const holdings = await SupabaseService.getUserHoldings(authStore.supabaseUser.id)
-      const tokenHolding = holdings.find(h => h.token_id === token.value?.id)
-      userTokenBalance.value = tokenHolding?.balance || 0
-      console.log('📊 User token balance loaded from database:', userTokenBalance.value)
-    } catch (dbError) {
-      console.warn('Failed to load balance from database, using 0:', dbError)
-      userTokenBalance.value = 0
-    }
+    console.log('📊 Loading user token balance from blockchain...');
+    const userPublicKey = new PublicKey(walletStore.walletAddress);
+    const mintPublicKey = new PublicKey(token.value.mint_address);
+
+    // Use the new method from solanaProgram service
+    const balance = await solanaProgram.getUserTokenBalance(mintPublicKey, userPublicKey);
+    
+    userTokenBalance.value = balance;
+    console.log('✅ User token balance loaded from blockchain:', balance);
+
   } catch (error) {
-    console.error('❌ Failed to load user token balance:', error)
-    userTokenBalance.value = 0
+    console.error('❌ Failed to load user token balance from blockchain:', error);
+    userTokenBalance.value = 0; // Reset balance on error
   }
 }
 
