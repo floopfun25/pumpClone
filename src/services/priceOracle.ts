@@ -1,5 +1,6 @@
 import { PublicKey } from '@solana/web3.js'
 import { apiHealthMonitor } from './apiHealthMonitor'
+import { supabase } from './supabase'
 
 export interface PriceData {
   price: number
@@ -46,7 +47,7 @@ class PriceOracleService {
   private readonly COINPAPRIKA_BASE_URL = import.meta.env.DEV ? '/api/coinpaprika' : (import.meta.env.VITE_COINPAPRIKA_API_URL || 'https://api.coinpaprika.com/v1')
   private readonly BIRDEYE_BASE_URL = import.meta.env.DEV ? '/api/birdeye' : (import.meta.env.VITE_BIRDEYE_API_URL || 'https://public-api.birdeye.so/defi')
   private readonly JUPITER_BASE_URL = import.meta.env.DEV ? '/api/jupiter' : (import.meta.env.VITE_JUPITER_API_URL || 'https://price.jup.ag/v6')
-  private readonly JUPITER_FALLBACK_URL = 'https://quote-api.jup.ag/v6' // Alternative Jupiter endpoint
+  private readonly JUPITER_FALLBACK_URL = 'https://public.jup.ag/v6' // Alternative Jupiter endpoint for price API
   
   // Additional fallback APIs for regions with restrictions
   private readonly ALTERNATIVE_APIS = [
@@ -119,12 +120,12 @@ class PriceOracleService {
 
     // Try Jupiter first (Solana-native, most reliable)
     try {
-      const price = await this.getSOLPriceFromJupiter()
+      const price = await this._fetchJupiterPrice()
       this.priceCache.set(cacheKey, price)
       return price
     } catch (jupiterError) {
       const errorMsg = jupiterError instanceof Error ? jupiterError.message : 'Unknown error'
-      errors.push(`Jupiter: ${errorMsg}`)
+      errors.push(`Jupiter API: ${errorMsg}`)
       console.error('Jupiter API failed:', errorMsg)
     }
     
@@ -136,7 +137,7 @@ class PriceOracleService {
     console.log('🌐 [FALLBACK] Trying alternative APIs for restricted regions...')
     for (const api of this.ALTERNATIVE_APIS) {
       try {
-        const price = await this.getSOLPriceFromAlternativeAPI(api)
+        const price = await this._fetchAlternativePrice(api)
         console.log(`✅ [FALLBACK] Success with ${api.name}!`)
         this.priceCache.set(cacheKey, price)
         return price
@@ -157,248 +158,26 @@ class PriceOracleService {
     throw new Error(`All SOL price APIs failed. This indicates network-level blocking of crypto APIs in your region/ISP. Try using a VPN. Errors: ${errors.join(', ')}`)
   }
 
-  // Get SOL price from alternative APIs for restricted regions
-  private async getSOLPriceFromAlternativeAPI(api: { name: string; url: string }): Promise<PriceData> {
-    console.log(`🔄 [ALTERNATIVE] Trying ${api.name}:`, api.url)
-    
-    const response = await fetch(api.url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'FloppFun/1.0.0'
-      },
-      signal: AbortSignal.timeout(8000)
-    })
-
-    if (!response.ok) {
-      throw new Error(`${api.name} API error! Status: ${response.status}`)
-    }
-
-    const data = await response.json()
-    let price: number
-    let change24h = 0
-
-    // Parse different API response formats
-    switch (api.name) {
-      case 'CoinPaprika':
-        price = data.quotes?.USD?.price || data.price_usd
-        change24h = data.quotes?.USD?.percent_change_24h || 0
-        break
-      case 'CryptoCompare':
-        price = data.USD
-        break
-      case 'Binance':
-        price = parseFloat(data.price)
-        break
-      case 'Kraken':
-        // Kraken returns nested object
-        const pair = Object.keys(data.result)[0]
-        price = parseFloat(data.result[pair].c[0]) // 'c' is current price array
-        break
-      case 'CoinCap':
-        price = parseFloat(data.data.priceUsd)
-        change24h = parseFloat(data.data.changePercent24Hr) || 0
-        break
-      case 'CoinLore':
-        price = parseFloat(data[0].price_usd)
-        change24h = parseFloat(data[0].percent_change_24h) || 0
-        break
-      default:
-        throw new Error(`Unknown API format for ${api.name}`)
-    }
-
-    if (!price || isNaN(price)) {
-      throw new Error(`Invalid price data from ${api.name}`)
-    }
-
-    return {
-      price,
-      priceChange24h: 0, // Absolute change not available from all sources
-      priceChangePercent24h: change24h,
-      marketCap: 0, // Not available from all sources
-      volume24h: 0, // Not available from all sources
-      lastUpdated: Date.now()
-    }
-  }
-
-  // Get SOL price from CoinPaprika API (fallback)
-  private async getSOLPriceFromCoinPaprika(): Promise<PriceData> {
-    const url = `${this.COINPAPRIKA_BASE_URL}/tickers/sol-solana`
-    console.log('🔍 Fetching SOL price from CoinPaprika:', url)
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(10000)
-    })
-    
-    console.log('📡 CoinPaprika response status:', response.status, response.statusText)
-    
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'No error details available')
-      console.error('❌ CoinPaprika API error response:', errorText)
-      throw new Error(`CoinPaprika API error! Status: ${response.status} ${response.statusText}. Details: ${errorText}`)
-    }
-    
-    const data = await response.json()
-    
-    if (!data.quotes?.USD) {
-      throw new Error('Invalid CoinPaprika response format')
-    }
-    
-    const quote = data.quotes.USD
-    const priceData: PriceData = {
-      price: quote.price || 0,
-      priceChange24h: quote.percent_change_24h || 0,
-      priceChangePercent24h: quote.percent_change_24h || 0,
-      marketCap: quote.market_cap || 0,
-      volume24h: quote.volume_24h || 0,
-      lastUpdated: Date.now()
-    }
-    
-    console.log('✅ CoinPaprika SOL price fetched successfully:', priceData.price)
-    
-    // Cache the successful result
-    const cacheKey = 'SOL'
-    this.priceCache.set(cacheKey, priceData)
-    
-    return priceData
-  }
-
-
-
-  // Get SOL price from real API (production)
-  private async getSOLPriceFromRealAPI(): Promise<PriceData> {
-    // Use CoinGecko directly in production (no proxy)
-    const url = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true'
-    console.log('🔍 [PRODUCTION] Fetching SOL price from CoinGecko:', url)
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'FloppFun/1.0.0'
-      },
-      signal: AbortSignal.timeout(10000)
-    })
-    
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error! Status: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    const solData = data.solana
-    
-    const priceData: PriceData = {
-      price: solData.usd || 0,
-      priceChange24h: solData.usd_24h_change || 0,
-      priceChangePercent24h: solData.usd_24h_change || 0,
-      marketCap: solData.usd_market_cap || 0,
-      volume24h: solData.usd_24h_vol || 0,
-      lastUpdated: Date.now()
-    }
-    
-    console.log('✅ [PRODUCTION] SOL price fetched:', priceData.price)
-    
-    // Cache the result
-    const cacheKey = 'SOL'
-    this.priceCache.set(cacheKey, priceData)
-    
-    return priceData
-  }
-
-  // Get SOL price from proxy (development)
-  private async getSOLPriceFromProxy(): Promise<PriceData> {
-    // Rate limiting - wait if we've made a request too recently
-    const now = Date.now()
-    const timeSinceLastRequest = now - this.lastRequestTime
-    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
-      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest
-      console.log(`⏳ Rate limiting: waiting ${waitTime}ms before next request`)
-      await new Promise(resolve => setTimeout(resolve, waitTime))
-    }
-    this.lastRequestTime = Date.now()
-
-    const url = `${this.COINGECKO_BASE_URL}/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`
-    console.log('🔍 [DEV] Fetching SOL price via proxy:', url)
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
-      signal: AbortSignal.timeout(10000)
-    })
-    
-    console.log('📡 [DEV] Proxy response status:', response.status, response.statusText)
-    
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'No error details available')
-      console.error('❌ [DEV] Proxy API error response:', errorText)
-      throw new Error(`Proxy API error! Status: ${response.status}. Details: ${errorText}`)
-    }
-    
-    const data = await response.json()
-    const solData = data.solana
-    
-    const priceData: PriceData = {
-      price: solData.usd || 0,
-      priceChange24h: solData.usd_24h_change || 0,
-      priceChangePercent24h: solData.usd_24h_change || 0,
-      marketCap: solData.usd_market_cap || 0,
-      volume24h: solData.usd_24h_vol || 0,
-      lastUpdated: Date.now()
-    }
-    
-    console.log('✅ [DEV] SOL price fetched via proxy:', priceData.price)
-    
-    // Cache the result
-    const cacheKey = 'SOL'
-    this.priceCache.set(cacheKey, priceData)
-    
-    return priceData
-  }
-
-  // Get SOL price from Jupiter API (Solana-specific, very reliable)
-  private async getSOLPriceFromJupiter(): Promise<PriceData> {
+  /**
+   * Fetches SOL price from Jupiter, using the proxy.
+   */
+  private async _fetchJupiterPrice(): Promise<PriceData> {
     // Jupiter Price API v6 - more reliable endpoint
     const SOL_MINT = import.meta.env.VITE_SOL_MINT || 'So11111111111111111111111111111111111111112'
-    
-    // Skip proxy in development due to network restrictions, use direct API
-    const baseUrl = 'https://price.jup.ag/v6' // Always use direct API now
-    
     const USDC_MINT = import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-    const url = `${baseUrl}/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}` // vs USDC
-    console.log('🚀 [JUPITER] Fetching SOL price:', url)
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'FloppFun/1.0.0'
-      },
-      signal: AbortSignal.timeout(8000) // Shorter timeout for Jupiter
-    })
-    
-    console.log('📡 [JUPITER] Response status:', response.status, response.statusText)
-    
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'No error details available')
-      console.error('❌ [JUPITER] API error response:', errorText)
-      throw new Error(`Jupiter API error! Status: ${response.status}. Details: ${errorText}`)
+    // Create a list of URLs to try, with the primary first.
+    const urlsToTry = [
+      `https://price.jup.ag/v6/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}`,
+      `${this.JUPITER_FALLBACK_URL}/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}` // Use the fallback URL
+    ]
+
+    const jupiterData = await this._fetchWithFallbacks(urlsToTry);
+    if (!jupiterData?.data?.[SOL_MINT]) {
+      throw new Error('Invalid Jupiter response format - no SOL data found');
     }
     
-    const data = await response.json()
-    console.log('📊 [JUPITER] Raw response:', data)
-    
-    if (!data.data?.[SOL_MINT]) {
-      throw new Error('Invalid Jupiter response format - no SOL data found')
-    }
-    
-    const solData = data.data[SOL_MINT]
+    const solData = jupiterData.data[SOL_MINT]
     const price = parseFloat(solData.price) || 0
     
     const priceData: PriceData = {
@@ -410,14 +189,101 @@ class PriceOracleService {
       lastUpdated: Date.now()
     }
     
-    console.log(`✅ [JUPITER] SOL price fetched successfully: $${priceData.price}`)
-    
-    // Cache the successful result
-    const cacheKey = 'SOL'
-    this.priceCache.set(cacheKey, priceData)
-    
+    console.log(`✅ [JUPITER] SOL price fetched successfully: $${priceData.price}`);
     return priceData
   }
+
+  /**
+   * Fetches SOL price from an alternative API, using the proxy.
+   */
+  private async _fetchAlternativePrice(api: { name: string; url: string }): Promise<PriceData> {
+    const data = await this._fetchWithFallbacks([api.url]);
+    if (!data) {
+      throw new Error(`No data returned from proxy for ${api.name}`);
+    }
+
+    let price: number;
+    let change24h = 0;
+
+    // Parse different API response formats
+    switch (api.name) {
+      case 'CoinPaprika':
+        price = data.quotes?.USD?.price || data.price_usd;
+        change24h = data.quotes?.USD?.percent_change_24h || 0;
+        break;
+      case 'CryptoCompare':
+        price = data.USD;
+        break;
+      case 'Binance':
+        price = parseFloat(data.price);
+        break;
+      case 'Kraken':
+        const pair = Object.keys(data.result)[0];
+        price = parseFloat(data.result[pair].c[0]);
+        break;
+      case 'CoinCap':
+        price = parseFloat(data.data.priceUsd);
+        change24h = parseFloat(data.data.changePercent24Hr) || 0;
+        break;
+      case 'CoinLore':
+        price = parseFloat(data[0].price_usd);
+        change24h = parseFloat(data[0].percent_change_24h) || 0;
+        break;
+      default:
+        throw new Error(`Unknown API format for ${api.name}`);
+    }
+
+    if (!price || isNaN(price)) {
+      throw new Error(`Invalid price data from ${api.name}`);
+    }
+
+    return {
+      price,
+      priceChange24h: 0,
+      priceChangePercent24h: change24h,
+      marketCap: 0,
+      volume24h: 0,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * A generic helper to fetch data from a list of URLs directly, trying each one until a success.
+   * This replaces the `api-proxy` Edge Function.
+   */
+  private async _fetchWithFallbacks(targetUrls: string[], customHeaders?: Record<string, string>): Promise<any> {
+    console.log(`🚀 [DIRECT FETCH] Fetching directly with fallbacks...`, targetUrls);
+    let lastError: Error | null = null;
+
+    for (const url of targetUrls) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            ...customHeaders,
+          },
+          signal: AbortSignal.timeout(8000), // 8-second timeout
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status} for ${url}`);
+        }
+
+        const data = await response.json();
+        console.log(`✅ [DIRECT FETCH] Success with URL: ${url}`);
+        return data; // Return on first success
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.warn(`❌ [DIRECT FETCH] Failed for URL ${url}:`, lastError.message);
+      }
+    }
+
+    if (lastError) throw lastError;
+    throw new Error('All target URLs failed to return data.');
+  }
+
+
 
   // Get token price from Birdeye API (supports SPL tokens)
   async getTokenPrice(mintAddress: string): Promise<TokenPriceData | null> {
@@ -450,44 +316,28 @@ class PriceOracleService {
         throw new Error('No valid Birdeye API key configured and Jupiter API failed')
       }
       
-      // Try Birdeye API first
-      const response = await fetch(
-        `${this.BIRDEYE_BASE_URL}/price?address=${mintAddress}`,
-        {
-          headers: {
-            'X-API-KEY': apiKey
-          }
-        }
-      )
+      // Route Birdeye API call through our proxy to handle CORS and centralize requests
+      const birdeyeUrl = `${this.BIRDEYE_BASE_URL}/price?address=${mintAddress}`;
+      const data = await this._fetchWithFallbacks([birdeyeUrl], { 'X-API-KEY': apiKey });
       
-      if (response.ok) {
-        const data = await response.json()
+      if (data?.success && data.data) {
+        apiHealthMonitor.recordSuccess('birdeye');
         
-        if (data.success && data.data) {
-          apiHealthMonitor.recordSuccess('birdeye')
-          
-          const priceData: PriceData = {
-            price: data.data.value || 0,
-            priceChange24h: data.data.priceChange24h || 0,
-            priceChangePercent24h: ((data.data.priceChange24h || 0) / (data.data.value || 1)) * 100,
-            lastUpdated: Date.now()
-          }
-          
-          this.priceCache.set(cacheKey, priceData)
-          
-          return {
-            mint: mintAddress,
-            symbol: data.data.symbol || 'UNKNOWN',
-            name: data.data.name || 'Unknown Token',
-            ...priceData
-          }
-        }
-      } else if (response.status === 401) {
-        apiHealthMonitor.recordFailure('birdeye', 'Authentication failed')
-        apiHealthMonitor.recordFallback('birdeye', 'mock_price', 'Authentication failed', mintAddress)
-      } else {
-        apiHealthMonitor.recordFailure('birdeye', `HTTP ${response.status}`)
-        apiHealthMonitor.recordFallback('birdeye', 'mock_price', `HTTP ${response.status}`, mintAddress)
+        const priceData: PriceData = {
+          price: data.data.value || 0,
+          priceChange24h: data.data.priceChange24h || 0,
+          priceChangePercent24h: ((data.data.priceChange24h || 0) / (data.data.value || 1)) * 100,
+          lastUpdated: Date.now()
+        };
+        
+        this.priceCache.set(cacheKey, priceData);
+        
+        return {
+          mint: mintAddress,
+          symbol: data.data.symbol || 'UNKNOWN',
+          name: data.data.name || 'Unknown Token',
+          ...priceData
+        };
       }
 
       // Generate price using bonding curve data or fallback
@@ -502,6 +352,13 @@ class PriceOracleService {
       }
       
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMsg.includes('401')) {
+        apiHealthMonitor.recordFailure('birdeye', 'Authentication failed');
+      } else {
+        apiHealthMonitor.recordFailure('birdeye', `API Error: ${errorMsg}`);
+      }
+
       // Generate price using bonding curve data or fallback
       const bondingCurvePrice = await this.generateBondingCurvePrice(mintAddress)
       this.priceCache.set(cacheKey, bondingCurvePrice)
@@ -603,36 +460,25 @@ class PriceOracleService {
   // Get token price from Jupiter API (Solana-native, free, no API key required)
   private async getTokenPriceFromJupiter(mintAddress: string): Promise<TokenPriceData | null> {
     try {
-      // Use the correct Jupiter API endpoint based on environment
-      const baseUrl = this.IS_DEVELOPMENT 
-        ? this.JUPITER_BASE_URL 
-        : 'https://price.jup.ag/v6'
-      
       // Use USDC as base currency for token prices
       const usdcMint = import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      const url = `${baseUrl}/price?ids=${mintAddress}&vsToken=${usdcMint}`
-      
-      console.log(`🚀 [JUPITER] Fetching token price: ${url}`)
-      
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'FloppFun/1.0.0'
-        },
-        signal: AbortSignal.timeout(8000)
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Jupiter API error: ${response.status}`)
+      const urlsToTry = [
+        `https://price.jup.ag/v6/price?ids=${mintAddress}&vsToken=${usdcMint}`,
+        `${this.JUPITER_FALLBACK_URL}/price?ids=${mintAddress}&vsToken=${usdcMint}`
+      ]
+
+      const jupiterData = await this._fetchWithFallbacks(urlsToTry);
+
+      if (!jupiterData) {
+        console.warn('[JUPITER] API proxy returned no data for token:', mintAddress)
+        return null
       }
       
-      const data = await response.json()
-      
       // Jupiter v2 response format: { data: { [mintAddress]: { price: "123.45" } } }
-      if (data.data && data.data[mintAddress]) {
+      if (jupiterData.data && jupiterData.data[mintAddress]) {
         apiHealthMonitor.recordSuccess('jupiter')
         
-        const tokenData = data.data[mintAddress]
+        const tokenData = jupiterData.data[mintAddress]
         const price = parseFloat(tokenData.price) || 0
         
         const priceData: PriceData = {

@@ -381,9 +381,15 @@ export class BondingCurveService {
 
       // Get total SOL raised from transactions
       const transactions = await SupabaseService.getTokenTransactions(tokenId, 1000)
-      const totalSolRaised = transactions
-        .filter(tx => tx.transaction_type === 'buy')
-        .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) // Already in SOL, no conversion needed
+      // Correctly calculate net SOL raised by subtracting sells from buys
+      const totalSolRaised = transactions.reduce((sum, tx) => {
+        if (tx.transaction_type === 'buy') {
+          return sum + (tx.sol_amount || 0)
+        } else if (tx.transaction_type === 'sell') {
+          return sum - (tx.sol_amount || 0)
+        }
+        return sum
+      }, 0)
 
       // Calculate scaling factor based on actual vs default supply
       const actualTotalSupply = token.total_supply || tokenDefaults.totalSupply

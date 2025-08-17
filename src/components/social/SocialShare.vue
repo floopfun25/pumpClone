@@ -33,59 +33,19 @@
       <!-- Social Platforms -->
       <div class="p-4">
         <div class="grid grid-cols-2 gap-3">
-          <!-- Twitter/X -->
+          <!-- Loop through social platforms -->
           <button
-            @click="shareOnTwitter"
+            v-for="platform in socialPlatforms"
+            :key="platform.name"
+            @click="platform.handler"
             class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
           >
-            <div class="w-10 h-10 bg-black dark:bg-white rounded-lg flex items-center justify-center">
-              <span class="text-white dark:text-black font-bold">𝕏</span>
+            <div :class="['w-10 h-10 rounded-lg flex items-center justify-center', platform.bgClass]">
+              <span :class="['text-lg', platform.iconClass]">{{ platform.icon }}</span>
             </div>
             <div class="text-left">
-              <div class="font-medium text-gray-900 dark:text-white">Twitter</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">Share on X</div>
-            </div>
-          </button>
-
-          <!-- Telegram -->
-          <button
-            @click="shareOnTelegram"
-            class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
-          >
-            <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-              <span class="text-white text-lg">✈</span>
-            </div>
-            <div class="text-left">
-              <div class="font-medium text-gray-900 dark:text-white">Telegram</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">Share in groups</div>
-            </div>
-          </button>
-
-          <!-- Discord -->
-          <button
-            @click="shareOnDiscord"
-            class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
-          >
-            <div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center">
-              <span class="text-white text-lg">🎮</span>
-            </div>
-            <div class="text-left">
-              <div class="font-medium text-gray-900 dark:text-white">Discord</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">Share in servers</div>
-            </div>
-          </button>
-
-          <!-- Reddit -->
-          <button
-            @click="shareOnReddit"
-            class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
-          >
-            <div class="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-              <span class="text-white text-lg">🤖</span>
-            </div>
-            <div class="text-left">
-              <div class="font-medium text-gray-900 dark:text-white">Reddit</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">Post to communities</div>
+              <div class="font-medium text-gray-900 dark:text-white">{{ platform.name }}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">{{ platform.description }}</div>
             </div>
           </button>
         </div>
@@ -264,6 +224,41 @@ const shareTemplates = computed((): ShareTemplate[] => {
   
   return baseTemplates[props.contentType] || baseTemplates.general
 })
+
+const socialPlatforms = computed(() => [
+  {
+    name: 'Twitter',
+    description: 'Share on X',
+    icon: '𝕏',
+    bgClass: 'bg-black dark:bg-white',
+    iconClass: 'text-white dark:text-black font-bold',
+    handler: shareOnTwitter
+  },
+  {
+    name: 'Telegram',
+    description: 'Share in groups',
+    icon: '✈',
+    bgClass: 'bg-blue-500',
+    iconClass: 'text-white',
+    handler: shareOnTelegram
+  },
+  {
+    name: 'Discord',
+    description: 'Share in servers',
+    icon: '🎮',
+    bgClass: 'bg-indigo-500',
+    iconClass: 'text-white',
+    handler: shareOnDiscord
+  },
+  {
+    name: 'Reddit',
+    description: 'Post to communities',
+    icon: '🤖',
+    bgClass: 'bg-orange-500',
+    iconClass: 'text-white',
+    handler: shareOnReddit
+  }
+]);
 
 // Methods
 const toggleDropdown = () => {

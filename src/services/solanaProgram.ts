@@ -15,6 +15,7 @@ import {
 } from '@solana/spl-token'
 import { getWalletService } from './wallet'
 import { solanaConfig, programConfig, platformConfig, bondingCurveConfig, tradingConfig } from '@/config'
+import { useAuthStore } from '@/stores/auth' // Assuming you have an auth store
 import { supabase } from './supabase'
 
 const walletService = getWalletService()
@@ -118,231 +119,6 @@ export class SolanaProgram {
     this.connection = new Connection(solanaConfig.rpcUrl, solanaConfig.commitment as Commitment)
     this.programId = new PublicKey(programConfig.bondingCurve)
     this.feeWallet = new PublicKey(platformConfig.feeWallet)
-  }
-
-  /**
-   * Verify current user state and session consistency
-   * Helps debug authentication and database sync issues
-   */
-  private async verifyUserState(): Promise<{
-    sessionUser: any | null,
-    databaseUser: any | null,
-    walletAddress: string | null,
-    consistent: boolean,
-    issues: string[]
-  }> {
-    const issues: string[] = []
-    console.log('🔍 [USER VERIFICATION] Starting user state verification...')
-    
-    // Get current session
-    const { data: { session } } = await supabase.auth.getSession()
-    const sessionUser = session?.user
-    console.log('👤 [USER VERIFICATION] Session user:', {
-      exists: !!sessionUser,
-      id: sessionUser?.id,
-      metadata: sessionUser?.user_metadata
-    })
-    
-    // Get current wallet
-    const walletAddress = walletService.publicKey?.toBase58() || null
-    console.log('👛 [USER VERIFICATION] Wallet address:', walletAddress)
-    
-    // Try to find user in database by session ID
-    let databaseUser = null
-    if (sessionUser) {
-      const { data: sessionDbUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', sessionUser.id)
-        .single()
-      databaseUser = sessionDbUser
-      console.log('👤 [USER VERIFICATION] Session user in DB:', {
-        found: !!sessionDbUser,
-        id: sessionDbUser?.id,
-        wallet: sessionDbUser?.wallet_address
-      })
-    }
-    
-    // Try to find user by wallet address
-    let walletUser = null
-    if (walletAddress) {
-      const { data: fetchedWalletUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .single()
-      walletUser = fetchedWalletUser
-      console.log('👛 [USER VERIFICATION] Wallet user in DB:', {
-        found: !!walletUser,
-        id: walletUser?.id,
-        wallet: walletUser?.wallet_address
-      })
-    }
-    
-    // Check consistency
-    if (!sessionUser) {
-      issues.push('No active session')
-    }
-    
-    if (!walletAddress) {
-      issues.push('No connected wallet')
-    }
-    
-    if (sessionUser && !databaseUser) {
-      issues.push('Session user not found in database')
-    }
-    
-    if (walletAddress && !walletUser) {
-      issues.push('Wallet address not found in database')
-    }
-    
-    if (sessionUser && walletUser && sessionUser.id !== walletUser.id) {
-      issues.push('Session user ID does not match wallet user ID')
-    }
-    
-    if (sessionUser && walletAddress) {
-      const sessionWallet = sessionUser.user_metadata?.wallet_address
-      if (sessionWallet !== walletAddress) {
-        issues.push('Session wallet metadata does not match connected wallet')
-      }
-    }
-    
-    const consistent = issues.length === 0
-    
-    console.log('🔍 [USER VERIFICATION] Verification complete:', {
-      consistent,
-      issues,
-      sessionUserId: sessionUser?.id,
-      databaseUserId: databaseUser?.id,
-      walletUserId: walletUser?.id,
-      walletAddress
-    })
-    
-    return {
-      sessionUser,
-      databaseUser: databaseUser || walletUser,
-      walletAddress,
-      consistent,
-      issues
-    }
-  }
-
-  /**
-   * Fix user state inconsistency by properly migrating existing wallet user to session ID
-   */
-  private async fixUserStateInconsistency(userState: {
-    sessionUser: any | null,
-    databaseUser: any | null,
-    walletAddress: string | null,
-    consistent: boolean,
-    issues: string[]
-  }): Promise<{ success: boolean; error?: string; resolvedUserId?: string }> {
-    try {
-      console.log('🔧 [USER FIX] Starting user state fix...')
-      
-      if (!userState.sessionUser || !userState.walletAddress) {
-        return { success: false, error: 'Cannot fix: session user or wallet address missing' }
-      }
-
-      const sessionUserId = userState.sessionUser.id
-      const walletAddress = userState.walletAddress
-      
-      console.log('🔧 [USER FIX] Session user ID:', sessionUserId)
-      console.log('🔧 [USER FIX] Wallet address:', walletAddress)
-      
-      // Check if session user already exists in database
-      const { data: sessionUserRecord, error: sessionCheckError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', sessionUserId)
-        .single()
-      
-      console.log('🔍 [USER FIX] Session user in database:', {
-        found: !!sessionUserRecord,
-        error: sessionCheckError?.message
-      })
-      
-      if (sessionUserRecord) {
-        console.log('✅ [USER FIX] Session user already exists in database')
-        return { 
-          success: true, 
-          resolvedUserId: sessionUserId,
-          error: undefined 
-        }
-      }
-      
-      // Get existing wallet user data
-      const { data: existingWalletUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .single()
-      
-      console.log('🔍 [USER FIX] Existing wallet user:', {
-        found: !!existingWalletUser,
-        id: existingWalletUser?.id
-      })
-      
-      if (existingWalletUser && existingWalletUser.id !== sessionUserId) {
-        console.log('🔄 [USER FIX] Migrating existing wallet user to session ID...')
-        console.log('🔄 [USER FIX] From:', existingWalletUser.id, '→ To:', sessionUserId)
-
-        // The correct approach is to UPDATE the existing user's ID to the new session ID.
-        // This avoids the "duplicate key" error and is much more efficient.
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ id: sessionUserId })
-          .eq('wallet_address', walletAddress)
-
-        if (updateError) {
-          console.error('❌ [USER FIX] Failed to update user ID:', updateError)
-          // Attempt to handle the case where the session user ID might already exist
-          // even though our initial check failed. This can happen in rare race conditions.
-          if (updateError.code === '23505') { // Unique violation
-             console.warn('⚠️ [USER FIX] Possible race condition: Session user ID may now exist. Re-querying.')
-             const { data: raceUser } = await supabase.from('users').select('id').eq('id', sessionUserId).single();
-             if (raceUser) {
-                console.log('✅ [USER FIX] Race condition confirmed and handled. User now has correct session ID.')
-                return { success: true, resolvedUserId: sessionUserId };
-             }
-          }
-          return { success: false, error: `Failed to update user ID: ${updateError.message}` }
-        }
-
-        console.log('✅ [USER FIX] Successfully migrated user to session ID')
-      } else if (!existingWalletUser) {
-        // No existing user - create new one with session ID
-        console.log('🆕 [USER FIX] Creating new user record with session ID...')
-        const { error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: sessionUserId,
-            wallet_address: walletAddress,
-            username: `user_${walletAddress.slice(0, 6)}`,
-            created_at: new Date().toISOString()
-          })
-        
-        if (createError) {
-          console.error('❌ [USER FIX] Failed to create new user:', createError)
-          return { success: false, error: `Failed to create user: ${createError.message}` }
-        }
-        
-        console.log('✅ [USER FIX] Created new user record successfully')
-      }
-      
-      return { 
-        success: true, 
-        resolvedUserId: sessionUserId,
-        error: undefined 
-      }
-      
-    } catch (error: any) {
-      console.error('❌ [USER FIX] Fix failed:', error)
-      return { 
-        success: false, 
-        error: error?.message || 'Unknown error during user fix' 
-      }
-    }
   }
 
   /**
@@ -602,28 +378,16 @@ export class SolanaProgram {
       solAmount, 
       slippagePercent 
     })
-    
-    // Fix user state inconsistency if needed and get resolved user ID
-    const userState = await this.verifyUserState()
-    let actualUserId: string
-    
-    if (!userState.consistent) {
-      console.log('🔧 [BUY] User state inconsistent - attempting to fix...')
-      const fixResult = await this.fixUserStateInconsistency(userState)
-      if (fixResult.success && fixResult.resolvedUserId) {
-        console.log('✅ [BUY] User state fixed! Using resolved user ID:', fixResult.resolvedUserId)
-        actualUserId = fixResult.resolvedUserId
-      } else {
-        console.error('❌ [BUY] Failed to fix user state:', fixResult.error)
-        throw new Error(`Cannot proceed with transaction: ${fixResult.error}`)
-      }
-    } else if (userState.sessionUser?.id) {
-      // Use session user ID if everything is consistent
-      console.log('✅ [BUY] User state consistent, using session user ID:', userState.sessionUser.id)
-      actualUserId = userState.sessionUser.id
-    } else {
-      throw new Error('Cannot determine user ID for transaction')
+
+    // Get the authenticated user ID from the centralized auth store.
+    // This store is responsible for handling all authentication and state consistency.
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated || !authStore.user?.id) {
+      // The UI should prevent this, but as a safeguard:
+      throw new Error('User not authenticated. Please connect and sign in with your wallet.');
     }
+    const actualUserId = authStore.user.id;
+    console.log('✅ [BUY] Proceeding with consistent user ID from auth store:', actualUserId);
 
     if (!walletService.connected || !walletService.publicKey) {
       throw new Error('Wallet not connected')
@@ -638,8 +402,8 @@ export class SolanaProgram {
       throw new Error(`Maximum trade amount is ${tradingConfig.maxTradeAmount / LAMPORTS_PER_SOL} SOL`)
     }
 
-    // Get bonding curve state from database (since we're using standard SPL tokens)
-    const bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
+    // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
+    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
     if (!bondingCurve) {
       throw new Error('Bonding curve not found for this token')
     }
@@ -717,6 +481,13 @@ export class SolanaProgram {
       
       console.log('📊 Calculated tokens from bonding curve:', Number(tokensReceived) / Math.pow(10, 9))
       
+      // Re-fetch the bonding curve state AFTER the transaction is confirmed
+      // This ensures the database is updated with the absolute final on-chain values.
+      const finalBondingCurve = await this.getBondingCurveAccount(mintAddress);
+      if (!finalBondingCurve) {
+        throw new Error('Failed to fetch final bonding curve state after trade.');
+      }
+
       // 7. Update database with REAL transaction data
       await this.updateDatabaseAfterBuy(
         signature,
@@ -724,7 +495,7 @@ export class SolanaProgram {
         walletService.publicKey.toBase58(),
         Number(solAmountLamports) / LAMPORTS_PER_SOL,
         Number(tokensReceived) / Math.pow(10, 9), // Convert to token units
-        bondingCurve, // Use original bonding curve state
+        finalBondingCurve, // Use the final, post-trade bonding curve state
         actualUserId // Pass the resolved user ID
       )
       
@@ -758,8 +529,8 @@ export class SolanaProgram {
     // Convert token amount to proper decimals
     const tokenAmountWithDecimals = BigInt(Math.floor(tokenAmount * Math.pow(10, 9))) // 9 decimals
 
-    // Get bonding curve state from database (since we're using standard SPL tokens)
-    const bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
+    // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
+    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
     if (!bondingCurve) {
       throw new Error('Bonding curve not found for this token')
     }
@@ -824,14 +595,14 @@ export class SolanaProgram {
       
       console.log('✅ Transaction confirmed!')
       
-      // 6. Get updated bonding curve state from database
-      const updatedBondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
-      if (!updatedBondingCurve) {
-        throw new Error('Failed to get updated bonding curve state')
+      // 6. Re-fetch the bonding curve state AFTER the transaction is confirmed
+      const finalBondingCurve = await this.getBondingCurveAccount(mintAddress);
+      if (!finalBondingCurve) {
+        throw new Error('Failed to fetch final bonding curve state after trade.');
       }
       
       // 7. Calculate actual SOL received (from database state)
-      const actualSolReceived = updatedBondingCurve.virtualSolReserves - bondingCurve.virtualSolReserves
+      const actualSolReceived = Number(bondingCurve.virtualSolReserves - finalBondingCurve.virtualSolReserves);
       
       // 8. Update database with REAL transaction data
       await this.updateDatabaseAfterSell(
@@ -839,8 +610,8 @@ export class SolanaProgram {
         mintAddress.toBase58(),
         walletService.publicKey.toBase58(),
         Number(tokenAmountWithDecimals) / Math.pow(10, 9),
-        Number(actualSolReceived) / LAMPORTS_PER_SOL,
-        updatedBondingCurve
+        actualSolReceived / LAMPORTS_PER_SOL,
+        finalBondingCurve
       )
       
       console.log('✅ Database updated with real transaction data')
@@ -870,248 +641,40 @@ export class SolanaProgram {
     bondingCurve: BondingCurveAccount,
     actualUserId: string
   ) {
-    console.log('🔄 Starting database update after buy transaction')
-    console.log('📊 Transaction details:', {
-      signature,
-      mintAddress,
-      buyerAddress,
-      solAmount,
-      tokensReceived
-    })
-
-    // Get token and user info
-    const { data: token } = await supabase
-      .from('tokens')
-      .select('*')
-      .eq('mint_address', mintAddress)
-      .single()
-      
-    console.log('🎯 Token data retrieved:', token ? `${token.name} (${token.symbol})` : 'Not found')
-    
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    console.log('👤 Using resolved user ID:', actualUserId)
-    console.log('🔗 Session user metadata:', session?.user?.user_metadata)
-    
-    if (!token) {
-      throw new Error('Token not found')
-    }
-    
-    // The actualUserId has already been verified to exist in database
-    console.log('✅ User ID already verified to exist in database')
-    
-    // Calculate new price from blockchain state
-    const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL
-    const newMarketCap = newPrice * token.total_supply
-    
-    console.log('💰 Price calculation:', {
-      newPrice,
-      newMarketCap,
-      virtualSolReserves: Number(bondingCurve.virtualSolReserves),
-      virtualTokenReserves: Number(bondingCurve.virtualTokenReserves)
-    })
-
-    // Record transaction in database (with error handling)
+    console.log('🔄 Starting database update after buy transaction via RPC...');
     try {
-      // Use the passed user ID for all database operations
-      console.log('✅ Using resolved user ID for all database operations:', actualUserId)
+      const { data: token } = await supabase
+        .from('tokens')
+        .select('id, total_supply')
+        .eq('mint_address', mintAddress)
+        .single();
 
-      const txData = {
-        signature, // REAL blockchain signature
-        token_id: token.id,
-        user_id: actualUserId,
-        transaction_type: 'buy',
-        sol_amount: Math.round(solAmount * LAMPORTS_PER_SOL), // Convert to lamports as BIGINT
-        token_amount: Math.round(tokensReceived * Math.pow(10, 9)), // Convert to token lamports (9 decimals)
-        price_per_token: newPrice,
-        platform_fee: Math.round(solAmount * 0.01 * LAMPORTS_PER_SOL),
-        status: 'pending',
-        block_time: new Date().toISOString()
+      if (!token) {
+        throw new Error('Token not found for buy update.');
       }
-      
-      console.log('💾 Saving transaction data:', {
-        sol_amount: txData.sol_amount,
-        token_amount: txData.token_amount,
-        platform_fee: txData.platform_fee,
-        user_id: txData.user_id
-      })
-      
-      const { error } = await supabase.from('transactions').insert(txData)
-      if (error) throw error
-      console.log('✅ Transaction saved to database')
+
+      const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL;
+      const newMarketCap = newPrice * token.total_supply;
+
+      const { error: rpcError } = await supabase.rpc('process_buy_trade', {
+        p_user_id: actualUserId,
+        p_token_id: token.id,
+        p_signature: signature,
+        p_sol_amount: solAmount,
+        p_token_amount: tokensReceived,
+        p_new_price: newPrice,
+        p_new_market_cap: newMarketCap
+      });
+
+      if (rpcError) {
+        console.error('❌ RPC call to process_buy_trade failed:', rpcError);
+        throw rpcError;
+      }
+
+      console.log('✅ Buy transaction processed successfully via RPC.');
     } catch (error: any) {
-      console.error('❌ TRANSACTION SAVE FAILED - ACTUAL ERROR:', error)
-      console.error('❌ Error message:', error?.message || 'Unknown')
-      console.error('❌ Error details:', error?.details || 'No details')
-      console.error('❌ Error hint:', error?.hint || 'No hint')
-      console.error('❌ Data that was being saved:', {
-        signature,
-        token_id: token.id,
-        user_id: actualUserId,
-        transaction_type: 'buy',
-        sol_amount: Math.round(solAmount * LAMPORTS_PER_SOL),
-        token_amount: Math.round(tokensReceived * Math.pow(10, 9)),
-        platform_fee: Math.round(solAmount * 0.01 * LAMPORTS_PER_SOL)
-      })
-      // Continue - this doesn't block trading
-    }
-    
-    // Store price history (with error handling)
-    try {
-      const priceData = {
-        token_id: token.id,
-        price: newPrice,
-        volume: solAmount, // This should be a decimal for price history
-        market_cap: Math.round(newMarketCap),
-        timestamp: new Date().toISOString()
-      }
-      
-      console.log('💾 Saving price history:', priceData)
-      const { error } = await supabase.from('token_price_history').insert(priceData)
-      if (error) throw error
-      console.log('✅ Price history saved successfully')
-    } catch (error: any) {
-      console.error('❌ Price history save failed:', error)
-      console.log('📊 Price history data:', {
-        token_id: token.id,
-        price: newPrice,
-        volume: solAmount,
-        market_cap: Math.round(newMarketCap),
-        timestamp: new Date().toISOString()
-      })
-      // Continue - this doesn't block trading
-    }
-    
-    // Update token statistics (with proper data types for database)
-    try {
-      // FIX: Convert volume to lamports (bigint) to match database schema
-      const currentVolumeLamports = BigInt(token.volume_24h || '0')
-      const newVolumeLamports = currentVolumeLamports + BigInt(Math.round(solAmount * LAMPORTS_PER_SOL))
-      
-      const tokenUpdateData = {
-        current_price: newPrice,
-        market_cap: Math.round(newMarketCap), // Convert to integer for BIGINT field
-        volume_24h: newVolumeLamports.toString(), // Convert to string for bigint field
-        last_trade_at: new Date().toISOString()
-      }
-      
-      console.log('💾 Updating token stats:', {
-        ...tokenUpdateData,
-        volume_24h_explanation: `${currentVolumeLamports} + ${Math.round(solAmount * LAMPORTS_PER_SOL)} = ${newVolumeLamports}`
-      })
-      
-      const { error } = await supabase.from('tokens').update(tokenUpdateData).eq('id', token.id)
-      if (error) throw error
-      console.log('✅ Token stats updated successfully')
-    } catch (error: any) {
-      console.error('❌ TOKEN UPDATE FAILED - ACTUAL ERROR:', error)
-      console.error('❌ Error message:', error?.message || 'Unknown')
-      console.error('❌ Error details:', error?.details || 'No details')
-      console.error('❌ Error hint:', error?.hint || 'No hint')
-      console.error('❌ Current token volume_24h:', token.volume_24h)
-      console.error('❌ SOL amount being added:', solAmount)
-      console.error('❌ Lamports being added:', Math.round(solAmount * LAMPORTS_PER_SOL))
-      // Continue - this doesn't block trading
-    }
-    
-    // Update user holdings (simplified since user state is now consistent)
-    try {
-      // Use the passed user ID (already verified to exist in database)
-      console.log('👤 Using resolved user ID for holdings update:', actualUserId)
-      
-      const currentWalletAddress = walletService.publicKey?.toBase58() || 'unknown'
-      console.log('🔍 Current wallet address:', currentWalletAddress)
-      
-      console.log('🔍 Searching for existing user holdings...')
-      // Try to get existing holding
-      const { data: existingHolding, error: selectError } = await supabase
-        .from('user_holdings')
-        .select('*')
-        .eq('user_id', actualUserId)
-        .eq('token_id', token.id)
-        .single()
-      
-      console.log('📊 Holdings query result:', {
-        found: !!existingHolding,
-        error: selectError?.message,
-        errorCode: selectError?.code
-      })
-      
-      // Note: .single() returns error if no rows found, but that's expected for new users
-      if (selectError && selectError.code !== 'PGRST116') {
-        console.error('❌ Unexpected holdings query error:', selectError)
-        throw selectError
-      }
-
-      const tokenAmountLamports = Math.round(tokensReceived * Math.pow(10, 9)) // Convert to token lamports
-
-      if (existingHolding) {
-        // Update existing holding
-        const currentAmount = parseInt(existingHolding.amount || '0')
-        const newAmount = currentAmount + tokenAmountLamports
-
-        console.log('💾 Updating existing user holding:', {
-          holdingId: existingHolding.id,
-          currentAmount,
-          tokensReceived,
-          tokenAmountLamports,
-          newAmount
-        })
-
-        const { error: updateError } = await supabase
-          .from('user_holdings')
-          .update({
-            amount: newAmount.toString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingHolding.id)
-        
-        if (updateError) {
-          console.error('❌ Holdings update failed:', updateError)
-          throw updateError
-        }
-        console.log('✅ Existing holding updated successfully')
-      } else {
-        // Create new holding
-        console.log('💾 Creating new user holding:', {
-          userId: actualUserId,
-          tokenId: token.id,
-          amount: tokenAmountLamports,
-          walletAddress: currentWalletAddress
-        })
-
-        const { error: insertError } = await supabase
-          .from('user_holdings')
-          .insert({
-            user_id: actualUserId,
-            token_id: token.id,
-            amount: tokenAmountLamports.toString()
-          })
-        
-        if (insertError) {
-          console.error('❌ Holdings insert failed:', insertError)
-          console.error('❌ RLS Policy debugging info:')
-          console.error('  - User ID being inserted:', actualUserId)
-          console.error('  - Token ID being inserted:', token.id)
-          console.error('  - Current user ID:', actualUserId)
-          console.error('  - Session metadata:', session?.user?.user_metadata)
-          throw insertError
-        }
-        console.log('✅ New holding created successfully')
-      }
-      console.log('✅ User holdings updated successfully')
-    } catch (error: any) {
-      console.error('❌ USER HOLDINGS UPDATE FAILED - ACTUAL ERROR:', error)
-      console.error('❌ Error message:', error?.message || 'Unknown')
-      console.error('❌ Error details:', error?.details || 'No details')
-      console.error('❌ Error hint:', error?.hint || 'No hint')
-      console.error('❌ Error code:', error?.code || 'No code')
-      console.error('❌ User ID:', actualUserId)
-      console.error('❌ Token ID:', token.id)
-      console.error('❌ Token amount (lamports):', Math.round(tokensReceived * Math.pow(10, 9)))
-              console.error('❌ User ID:', actualUserId)
-      console.error('❌ Current wallet:', walletService.publicKey?.toBase58())
-      // Continue - trading still works even if database fails
+      console.error('❌ Failed to update database after buy:', error);
+      // Do not re-throw, as the on-chain transaction was successful.
     }
   }
 
@@ -1126,86 +689,37 @@ export class SolanaProgram {
     solReceived: number,
     bondingCurve: BondingCurveAccount
   ) {
-    // Get token and user info
-    const { data: token } = await supabase
-      .from('tokens')
-      .select('*')
-      .eq('mint_address', mintAddress)
-      .single()
-      
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
-    
-    if (!token || !userId) {
-      throw new Error('Token or user not found')
-    }
-    
-    // Calculate new price from blockchain state
-    const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL
-    const newMarketCap = newPrice * token.total_supply
-    
-    // Record transaction in database
-    await supabase.from('transactions').insert({
-      signature, // REAL blockchain signature
-      token_id: token.id,
-      user_id: userId,
-      transaction_type: 'sell',
-      sol_amount: solReceived,
-      token_amount: tokensSold,
-      price_per_token: newPrice,
-      bonding_curve_price: newPrice,
-      platform_fee: solReceived * 0.01,
-      status: 'completed',
-      block_time: new Date().toISOString()
-    })
-    
-    // Store price history
-    await supabase.from('token_price_history').insert({
-      token_id: token.id,
-      price: newPrice,
-      volume: solReceived,
-      market_cap: newMarketCap,
-      timestamp: new Date().toISOString()
-    })
-    
-    // Update token statistics
-    await supabase.from('tokens').update({
-      current_price: newPrice,
-      market_cap: newMarketCap,
-      volume_24h: (token.volume_24h || 0) + solReceived,
-      last_trade_at: new Date().toISOString(),
-      virtual_sol_reserves: bondingCurve.virtualSolReserves.toString(),
-      virtual_token_reserves: bondingCurve.virtualTokenReserves.toString()
-    }).eq('id', token.id)
-    
-    // Update user holdings
-    const { data: holding } = await supabase
-      .from('user_holdings')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('token_id', token.id)
-      .single()
+    console.log('🔄 Starting database update after sell transaction via RPC...');
+    try {
+      const { data: token } = await supabase.from('tokens').select('id, total_supply').eq('mint_address', mintAddress).single();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    if (holding) {
-      const currentAmount = parseFloat(holding.amount)
-      const newAmount = currentAmount - tokensSold
-      
-      if (newAmount <= 0) {
-        // Delete holding if no tokens left
-        await supabase
-          .from('user_holdings')
-          .delete()
-          .eq('id', holding.id)
-      } else {
-        // Update holding amount
-        await supabase
-          .from('user_holdings')
-          .update({
-            amount: newAmount.toString(),
-            last_updated: new Date().toISOString()
-          })
-          .eq('id', holding.id)
+      if (!token || !user) {
+        throw new Error('Token or user not found for sell update.');
       }
+
+      const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL;
+      const newMarketCap = newPrice * token.total_supply;
+
+      const { error: rpcError } = await supabase.rpc('process_sell_trade', {
+        p_user_id: user.id,
+        p_token_id: token.id,
+        p_signature: signature,
+        p_sol_received: solReceived,
+        p_tokens_sold: tokensSold,
+        p_new_price: newPrice,
+        p_new_market_cap: newMarketCap
+      });
+
+      if (rpcError) {
+        console.error('❌ RPC call to process_sell_trade failed:', rpcError);
+        throw rpcError;
+      }
+
+      console.log('✅ Sell transaction processed successfully via RPC.');
+    } catch (error) {
+      console.error('❌ Failed to update database after sell:', error);
+      // Do not re-throw, as the on-chain transaction was successful.
     }
   }
 

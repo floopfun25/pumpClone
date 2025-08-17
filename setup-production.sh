@@ -58,6 +58,31 @@ if ! command -v jq &> /dev/null; then
     fi
 fi
 
+print_status "Checking Supabase CLI..."
+if command -v supabase &> /dev/null; then
+    # The modern Rust-based CLI has a version like "supabase version 1.x.x"
+    # The old Deno-based CLI has a different format.
+    CLI_VERSION=$(supabase --version 2>/dev/null || echo "unknown")
+    if [[ "$CLI_VERSION" == *"supabase version 1."* ]]; then
+        print_success "Supabase CLI is up-to-date ($CLI_VERSION)"
+    else
+        print_warning "Outdated or unknown Supabase CLI detected ($CLI_VERSION). Forcing reinstall..."
+        # Attempt to uninstall, ignore errors if it's not installed via brew
+        brew uninstall supabase supabase/tap/supabase > /dev/null 2>&1 || true
+        brew install supabase/tap/supabase
+        print_success "Supabase CLI reinstalled."
+    fi
+else
+    print_warning "Supabase CLI not found. Installing..."
+    brew install supabase/tap/supabase
+    print_success "Supabase CLI installed."
+fi
+
+if ! docker info &> /dev/null; then
+    print_warning "Docker is not running. You won't be able to test Supabase functions locally."
+    print_warning "Please start Docker Desktop and re-run this script if you need local function testing."
+fi
+
 if [ ${#MISSING_TOOLS[@]} -ne 0 ]; then
     print_error "Missing required tools: ${MISSING_TOOLS[*]}"
     exit 1

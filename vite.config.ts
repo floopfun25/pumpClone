@@ -23,69 +23,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true, // Important for Docker container access
-    proxy: {
-      // DISABLED: CoinGecko proxy (SSL/TLS issues in network environment)
-      // Using direct alternative APIs instead (CoinPaprika, CoinLore)
-      /*
-      '/api/coingecko': {
-        target: process.env.VITE_COINGECKO_API_URL || 'https://api.coingecko.com/api/v3',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/coingecko/, ''),
-        secure: true,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'application/json',
-          'Accept-Language': 'en-US,en;q=0.9'
-        },
-        timeout: 10000,
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-          });
-        }
-      },
-      */
-      // Proxy CoinPaprika API (alternative, more reliable)
-      '/api/coinpaprika': {
-        target: process.env.VITE_COINPAPRIKA_API_URL || 'https://api.coinpaprika.com/v1',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/coinpaprika/, ''),
-        secure: true,
-        headers: {
-          'Accept': 'application/json'
-        }
-      },
-      // DISABLED: Jupiter proxy (DNS resolution fails in network environment)
-      // App now uses alternative APIs directly (CoinPaprika works!)
-      /*
-      '/api/jupiter': {
-        target: process.env.VITE_JUPITER_API_URL || 'https://price.jup.ag/v6',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/jupiter/, ''),
-        secure: true,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'FloppFun/1.0.0'
-        }
-      },
-      */
-      // Proxy Birdeye API calls  
-      '/api/birdeye': {
-        target: process.env.VITE_BIRDEYE_API_URL || 'https://public-api.birdeye.so/defi',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/birdeye/, ''),
-        secure: true,
-        headers: {
-          'User-Agent': 'FloppFun/1.0.0'
-        }
-      }
-    },
+    proxy: {}, // Proxies are now handled by Supabase Edge Functions
     hmr: {
       port: 3001
     }
