@@ -599,7 +599,9 @@ async function refreshAllTokenData() {
     loadTokenData(), // This also loads recent trades and holders
     loadUserTokenBalance(),
   ]);
-  RealTimePriceService.clearCacheForToken(token.value.id); // For chart
+  // Explicitly tell the chart to reload its data.
+  // The refreshChart function already handles cache clearing.
+  refreshChart();
 }
 
 /**
@@ -811,16 +813,6 @@ const copyToClipboard = async (text: string) => {
       message: 'Failed to copy address'
     })
   }
-}
-
-const handleTradeExecuted = (result: any) => {
-  console.log('Trade executed:', result)
-  // Refresh token data, bonding curve state, and top holders
-  loadTokenData()
-  // Also refresh top holders since holdings may have changed
-  loadTopHolders()
-  // Refresh user token balance
-  loadUserTokenBalance()
 }
 
 const loadBondingCurveData = async () => {
