@@ -41,22 +41,6 @@
       </div>
 
       <div class="flex items-center gap-4">
-        <!-- Technical Indicators Toggle -->
-        <div class="flex items-center gap-2">
-          <button
-            @click="toggleIndicators"
-            :class="[
-              'px-2 py-1 text-xs rounded transition-colors',
-              showIndicators 
-                ? 'bg-[#f0b90b] text-[#0b0e11]' 
-                : 'bg-[#2b3139] text-[#d1d4dc] hover:bg-[#3c4043]'
-            ]"
-            title="Toggle Technical Indicators"
-          >
-            📊
-          </button>
-        </div>
-        
         <!-- Timeframe Selection -->
         <div class="flex items-center">
           <select 
@@ -127,12 +111,6 @@
               class="px-4 py-2 text-sm bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
             >
               Retry Chart
-            </button>
-            <button 
-              @click="useFallbackData" 
-              class="px-4 py-2 text-sm bg-[#f0b90b] text-[#0b0e11] rounded hover:bg-[#d4a017] transition-colors"
-            >
-              Use Demo Data
             </button>
           </div>
         </div>
@@ -210,7 +188,6 @@ const solPriceUSD = ref(0) // Store current SOL price for conversion
 
 // Enhanced chart state
 const isLive = ref(false)
-const showIndicators = ref(false)
 const lastUpdate = ref('')
 const priceChange24h = ref(0)
 
@@ -249,7 +226,7 @@ const getSolPriceUSD = async () => {
     const { priceOracleService } = await import('../../services/priceOracle')
     const solPriceData = await priceOracleService.getSOLPrice()
     solPriceUSD.value = solPriceData.price
-    console.log('💰 [CHART] Using SOL price for conversion:', `$${solPriceUSD.value.toFixed(2)}`)
+    console.log('💰 [CHART] Using SOL price for conversion:', `${solPriceUSD.value.toFixed(2)}`)
   } catch (error) {
     console.error('Failed to get SOL price:', error)
     solPriceUSD.value = 140 // Fallback SOL price
@@ -470,7 +447,7 @@ const addSeries = () => {
       priceFormat: {
         type: 'price',
         precision: 8,
-        formatter: (price: number) => `$${convertToUSD(price).toFixed(8)}`,
+        formatter: (price: number) => `${convertToUSD(price).toFixed(8)}`,
       },
     })
     
@@ -589,129 +566,16 @@ const loadRealChartData = async () => {
   } catch (err: any) {
     console.error('Failed to load chart data:', err)
     error.value = `Failed to load chart data: ${err.message}`
-    
-    // Create emergency fallback data
-    const now = Date.now()
-    const fallbackPrice = 0.000001
-    
-    priceData.value = [
-      {
-        time: Math.floor((now - 5 * 60 * 1000) / 1000),
-        open: fallbackPrice,
-        high: fallbackPrice * 1.001,
-        low: fallbackPrice * 0.999,
-        close: fallbackPrice
-      },
-      {
-        time: Math.floor(now / 1000),
-        open: fallbackPrice,
-        high: fallbackPrice * 1.001,
-        low: fallbackPrice * 0.999,
-        close: fallbackPrice
-      }
-    ]
-    
-    volumeData.value = [
-      {
-        time: Math.floor((now - 5 * 60 * 1000) / 1000),
-        value: 0,
-        color: '#2ebd85'
-      },
-      {
-        time: Math.floor(now / 1000),
-        value: 0,
-        color: '#2ebd85'
-      }
-    ]
-    
-    currentPrice.value = fallbackPrice
-    totalVolume.value = 0
-    marketCap.value = 0
+    // No longer creating emergency fallback data, will show error overlay instead.
   }
 }
 
 // Chart controls
 
-// Calculate simple moving average
-const calculateSMA = (data: any[], period: number): number[] => {
-  if (data.length < period) return []
-  
-  const sma = []
-  for (let i = period - 1; i < data.length; i++) {
-    const sum = data.slice(i - period + 1, i + 1).reduce((acc, candle) => acc + candle.close, 0)
-    sma.push(sum / period)
-  }
-  return sma
-}
-
-// Toggle technical indicators
-const toggleIndicators = () => {
-  showIndicators.value = !showIndicators.value
-  
-  if (showIndicators.value && priceData.value.length > 0) {
-    // Calculate and add moving averages
-    const sma20 = calculateSMA(priceData.value, 20)
-    const sma50 = calculateSMA(priceData.value, 50)
-    
-    console.log('SMA 20:', sma20)
-    console.log('SMA 50:', sma50)
-    
-    // TODO: Add moving average lines to chart
-    // This would require adding LineSeries for the indicators
-  }
-}
-
 // Retry chart initialization
 const retryChart = async () => {
   error.value = ''
   await initChart()
-}
-
-// Use fallback demo data
-const useFallbackData = async () => {
-  error.value = ''
-  loading.value = true
-  
-  // Create demo data
-  const now = Date.now()
-  const basePrice = 0.000001
-  const demoData = []
-  
-  for (let i = 0; i < 50; i++) {
-    const time = now - (50 - i) * 5 * 60 * 1000 // 5-minute intervals
-    const price = basePrice * (1 + Math.sin(i * 0.1) * 0.1 + Math.random() * 0.05)
-    const open = price * (1 + (Math.random() - 0.5) * 0.02)
-    const close = price * (1 + (Math.random() - 0.5) * 0.02)
-    const high = Math.max(open, close) * (1 + Math.random() * 0.01)
-    const low = Math.min(open, close) * (1 - Math.random() * 0.01)
-    
-    demoData.push({
-      time: Math.floor(time / 1000),
-      open,
-      high,
-      low,
-      close
-    })
-  }
-  
-  priceData.value = demoData
-  volumeData.value = demoData.map(candle => ({
-    time: candle.time,
-    value: Math.random() * 1000,
-    color: candle.close > candle.open ? '#2ebd85' : '#f6465d'
-  }))
-  
-  currentPrice.value = demoData[demoData.length - 1].close
-  totalVolume.value = 50000
-  marketCap.value = 1000000
-  priceChange24h.value = 5.23
-  lastUpdate.value = new Date().toLocaleTimeString()
-  
-  loading.value = false
-  
-  if (lightweightChart) {
-    addSeries()
-  }
 }
 
 // Refresh chart data
@@ -772,12 +636,6 @@ const getLowPrice = (): number => {
   return Math.min(...priceData.value.map(p => p.low))
 }
 
-const formatPrice = (price: number): string => {
-  if (price >= 1) return price.toFixed(4)
-  if (price >= 0.001) return price.toFixed(6)
-  return price.toExponential(2)
-}
-
 const formatVolume = (volume: number): string => {
   if (volume >= 1000000) return (volume / 1000000).toFixed(1) + 'M'
   if (volume >= 1000) return (volume / 1000).toFixed(1) + 'K'
@@ -792,10 +650,9 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
-  // Reduced delay for faster loading
-  setTimeout(() => {
+  nextTick(() => {
     initChart()
-  }, 100)
+  })
 })
 
 onUnmounted(() => {
