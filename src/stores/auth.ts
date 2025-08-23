@@ -52,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
       }
     },
-    { immediate: false }
+    { immediate: true }
   )
 
   /**

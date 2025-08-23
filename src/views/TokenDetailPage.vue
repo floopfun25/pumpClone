@@ -238,7 +238,7 @@ const tokenDescription = computed(() => token.value?.description || 'No descript
 const formattedMarketCap = computed(() => {
   // Use bonding curve state market cap if available, otherwise fall back to token data
   const marketCap = bondingCurveState.value?.marketCap || token.value?.market_cap || 0
-  return `$${formatNumber(marketCap)}`
+  return `${formatNumber(marketCap)}`
 })
 
 const progressPercentage = computed(() => {
@@ -254,7 +254,7 @@ const commentsCount = computed(() => {
 })
 
 const shareData = computed(() => ({
-  title: token.value ? `${token.value.name} ($${token.value.symbol})` : '',
+  title: token.value ? `${token.value.name} (${token.value.symbol})` : '',
   description: token.value?.description || 'Check out this amazing meme token on FloppFun!',
   url: `${window.location.origin}/token/${token.value?.mint_address || ''}`,
   hashtags: ['FloppFun', 'memecoins', 'Solana', token.value?.symbol || ''].filter(Boolean)
@@ -596,8 +596,8 @@ async function refreshAllTokenData() {
   await Promise.all([
     RealTimePriceService.forceUpdate(token.value.id),
     loadBondingCurveData(),
-    loadTokenData(), // This also loads recent trades and holders
-    loadUserTokenBalance(),
+    loadPublicTokenData(), 
+    loadPrivateUserData(),
   ]);
   // Explicitly tell the chart to reload its data.
   // The refreshChart function already handles cache clearing.
@@ -659,9 +659,9 @@ const loadUserTokenBalance = async () => {
 }
 
 /**
- * Load token data from Supabase
+ * Load public token data from Supabase
  */
-const loadTokenData = async () => {
+const loadPublicTokenData = async () => {
   try {
     const mintAddress = route.params.mintAddress as string
     
@@ -678,35 +678,19 @@ const loadTokenData = async () => {
     
     token.value = tokenData
     
-    // Debug: Log token data to see what image_url we got
-    console.log('🔍 [TOKEN DETAIL] Token data loaded:', {
+    console.log('🔍 [TOKEN DETAIL] Public token data loaded:', {
       id: tokenData.id,
       name: tokenData.name,
-      symbol: tokenData.symbol,
-      mint_address: tokenData.mint_address,
-      image_url: tokenData.image_url,
-      metadata_uri: tokenData.metadata_uri
     })
     
-    // Load recent transactions for this token
-    const transactions = await SupabaseService.getTokenTransactions(tokenData.id, 10)
+    // Load data that doesn't require authentication
+    const [transactions, commentsData] = await Promise.all([
+      SupabaseService.getTokenTransactions(tokenData.id, 10),
+      SupabaseService.getTokenComments(tokenData.id, 1, 1)
+    ]);
+
+    token.value.comments_count = commentsData.total || 0;
     
-    // Load comments count for display in header
-    try {
-      const commentsData = await SupabaseService.getTokenComments(tokenData.id, 1, 1)
-      token.value.comments_count = commentsData.total || 0
-    } catch (error) {
-      console.warn('Failed to load comments count:', error)
-      token.value.comments_count = 0
-    }
-    
-    // Load real top holders data from database
-    await loadTopHolders()
-    
-    // Load user token balance for trading
-    await loadUserTokenBalance()
-    
-    // Format transactions for display
     recentTrades.value = transactions.map((tx: any) => ({
       id: tx.id,
       type: tx.transaction_type,
@@ -715,33 +699,26 @@ const loadTokenData = async () => {
       user: tx.user?.username || `${tx.user?.wallet_address?.slice(0, 4)}...${tx.user?.wallet_address?.slice(-4)}`
     }))
     
-    // Load market analytics
+    // Load market analytics (does not require auth)
     try {
       const analytics = await marketAnalyticsService.getTokenAnalytics(mintAddress)
       tokenAnalytics.value = analytics
       
-      // Set up real-time analytics subscription
-      if (analyticsSubscription) {
-        analyticsSubscription()
-      }
+      if (analyticsSubscription) analyticsSubscription()
       
       analyticsSubscription = marketAnalyticsService.subscribeToTokenAnalytics(
         mintAddress,
-        (updatedAnalytics) => {
-          tokenAnalytics.value = updatedAnalytics
-        }
+        (updatedAnalytics) => { tokenAnalytics.value = updatedAnalytics }
       )
       
     } catch (analyticsError) {
       console.warn('Failed to load token analytics:', analyticsError)
-      // Continue without analytics - not critical
     }
     
   } catch (err) {
     console.error('Failed to load token:', err)
     error.value = err instanceof Error ? err.message : 'Failed to load token'
     
-    // Redirect to 404 if token not found
     if (err instanceof Error && err.message.includes('not found')) {
       router.push('/404')
     }
@@ -749,6 +726,32 @@ const loadTokenData = async () => {
     loading.value = false
   }
 }
+
+/**
+ * Load private data that requires authentication
+ */
+const loadPrivateUserData = async () => {
+  if (!authStore.isAuthenticated || !token.value?.id) {
+    console.log('ℹ️ Skipping private data load: user not authenticated or no token ID.');
+    userTokenBalance.value = 0;
+    topHolders.value = [];
+    isInWatchlist.value = false;
+    return;
+  }
+
+  console.log('🔄 Loading private user data...');
+  try {
+    await Promise.all([
+      loadTopHolders(),
+      loadUserTokenBalance(),
+      checkWatchlistStatus()
+    ]);
+    console.log('✅ Private user data loaded successfully.');
+  } catch (error) {
+    console.error('❌ Failed to load private user data:', error);
+  }
+};
+
 
 /**
  * Format time ago helper
@@ -997,23 +1000,20 @@ const toggleWatchlist = async () => {
 }
 
 onMounted(async () => {
-  console.log('🚀 [MOUNT] TokenDetailPage mounted')
+  console.log('🚀 [MOUNT] TokenDetailPage mounted');
   console.log('🔍 [MOUNT] Initial auth state:', {
     isAuthenticated: authStore.isAuthenticated,
     hasSupabaseUser: !!authStore.supabaseUser,
-    hasWalletAddress: !!walletStore.walletAddress,
-    isWalletConnected: walletStore.isConnected
-  })
+  });
   
-  await loadTokenData()
+  await loadPublicTokenData();
   
-  // Debug auth state after loading
   console.log('🔍 [MOUNT] Post-load auth state:', {
     isAuthenticated: authStore.isAuthenticated,
     hasSupabaseUser: !!authStore.supabaseUser,
-    hasUser: !!authStore.user
-  })
-})
+  });
+});
+
 
 onUnmounted(() => {
   // Clean up analytics subscription
@@ -1027,26 +1027,20 @@ onUnmounted(() => {
 })
 
 // Load bonding curve data after token loads
-watch(() => token.value, () => {
-  if (token.value) {
+watch(() => token.value, (newToken) => {
+  if (newToken) {
     loadBondingCurveData()
-    checkWatchlistStatus()
   }
 })
 
-// Check watchlist status when authentication changes
-watch(() => authStore.isAuthenticated, () => {
-  checkWatchlistStatus()
-})
-
-// Load user token balance when wallet connection changes
-watch(() => walletStore.isConnected, () => {
-  if (walletStore.isConnected) {
-    loadUserTokenBalance()
-  } else {
-    userTokenBalance.value = 0
+// Watch for authentication changes to load private data
+watchEffect(() => {
+  // Wait for auth to finish loading and for the token data to be available
+  if (!authStore.isLoading && token.value?.id) {
+    loadPrivateUserData();
   }
-})
+});
+
 
 // Component cleanup will be handled by Vue's lifecycle
 </script>
