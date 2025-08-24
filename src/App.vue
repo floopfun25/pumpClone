@@ -3,6 +3,16 @@
   <div id="app" class="min-h-screen bg-binance-dark dark:bg-binance-dark transition-colors duration-300">
     <!-- Navigation Header -->
     <Navbar />
+    <!-- Wallet Status Indicator -->
+    <div class="fixed top-4 right-4 z-50 flex items-center space-x-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 shadow-lg text-sm font-medium" style="pointer-events: none;">
+      <template v-if="walletStore.isConnected">
+        <span class="text-pump-green">🟢 Connected:</span>
+        <span class="font-mono">{{ walletStore.walletAddress }}</span>
+      </template>
+      <template v-else>
+        <span class="text-pump-red">🔴 Not Connected</span>
+      </template>
+    </div>
     
     <!-- Mobile Create Token Button - Persistent across all pages -->
     <div v-if="isMobile && uiStore.isSidebarCollapsed" class="mobile-create-button-container">
