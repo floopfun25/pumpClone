@@ -97,6 +97,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { SupabaseService } from '@/services/supabase'
+import { fetchBirdeyeChartData, fetchCoinGeckoChartData } from '@/services/tokenChartApi'
 
 // Register Chart.js components
 Chart.register(...registerables)
@@ -156,10 +157,21 @@ const loadChartData = async () => {
   error.value = ''
 
   try {
-    // Get price history data
-    const data = await SupabaseService.getTokenPriceHistory(props.tokenId, selectedTimeframe.value)
+    let data: any[] = []
+    // Example logic: try Birdeye first, fallback to Supabase for custom tokens
+    if (props.tokenId.startsWith('So111') || props.tokenId.length === 44) {
+      // Try Birdeye for Solana tokens
+      data = await fetchBirdeyeChartData(props.tokenId, selectedTimeframe.value)
+    } else {
+      // Try CoinGecko for known tokens (replace with your mapping logic)
+      // Example: use tokenSymbol as CoinGecko id
+      data = await fetchCoinGeckoChartData(props.tokenSymbol.toLowerCase(), selectedTimeframe.value === '24h' ? 1 : 7)
+    }
+    // Fallback to Supabase if no data
+    if (!data || data.length === 0) {
+      data = await SupabaseService.getTokenPriceHistory(props.tokenId, selectedTimeframe.value)
+    }
     priceData.value = data
-
     if (data.length > 0) {
       await nextTick()
       createChart()
