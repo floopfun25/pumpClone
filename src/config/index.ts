@@ -123,4 +123,6 @@ export const {
   bondingCurve: bondingCurveConfig,
   trading: tradingConfig,
   ui: uiConfig
-} = config 
+} = config
+
+export { getEnvVar }

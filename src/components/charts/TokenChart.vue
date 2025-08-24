@@ -650,8 +650,29 @@ const formatMarketCap = (cap: number): string => {
 
 // Lifecycle
 onMounted(() => {
+  console.log('[DEBUG] TokenChart mounted for tokenId:', props.tokenId)
   nextTick(() => {
-    initChart()
+    initChart().then(() => {
+      // Force chart resize after mount
+      if (lightweightChart && chartContainer.value) {
+        lightweightChart.resize(
+          chartContainer.value.clientWidth || 800,
+          chartContainer.value.clientHeight || 500
+        )
+        console.log('[DEBUG] Chart forcibly resized:', chartContainer.value.clientWidth, chartContainer.value.clientHeight)
+      }
+    })
+  })
+
+  // Resize chart on window resize
+  window.addEventListener('resize', () => {
+    if (lightweightChart && chartContainer.value) {
+      lightweightChart.resize(
+        chartContainer.value.clientWidth || 800,
+        chartContainer.value.clientHeight || 500
+      )
+      console.log('[DEBUG] Chart resized on window resize:', chartContainer.value.clientWidth, chartContainer.value.clientHeight)
+    }
   })
 })
 

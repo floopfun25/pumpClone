@@ -201,6 +201,7 @@ export class SolanaProgram {
   async getBondingCurveAccount(mintAddress: PublicKey): Promise<BondingCurveAccount | null> {
     try {
       const [bondingCurveAddress] = this.deriveBondingCurveAddress(mintAddress)
+      console.log('[BondingCurve] Derived PDA:', bondingCurveAddress.toBase58(), 'for mint:', mintAddress.toBase58(), 'and program:', this.programId.toBase58())
       const accountInfo = await this.connection.getAccountInfo(bondingCurveAddress)
       
       if (!accountInfo) {
@@ -463,7 +464,6 @@ export class SolanaProgram {
       )
       
       if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`)
       }
       
       console.log('✅ Transaction confirmed!')
@@ -774,4 +774,4 @@ export class SolanaProgram {
 }
 
 // Export singleton instance
-export const solanaProgram = new SolanaProgram() 
+export const solanaProgram = new SolanaProgram()

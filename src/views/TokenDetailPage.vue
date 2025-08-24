@@ -87,13 +87,23 @@
             >
               <TokenChart 
                 ref="chartComponentRef"
-                v-if="token?.id" 
+                v-if="token?.id"
                 :token-id="token.id"
                 :token-symbol="token.symbol"
                 :mint-address="token.mint_address"
                 class="mobile-chart"
               />
             </ErrorBoundary>
+
+            <!-- Admin-only Bonding Curve Initialization Button -->
+            <div v-if="isAdmin" class="mb-4">
+              <button @click="initializeBondingCurve" class="btn-primary">
+                Initialize Bonding Curve (Admin)
+              </button>
+              <span v-if="initLoading" class="ml-2 text-yellow-400">Initializing...</span>
+              <span v-if="initError" class="ml-2 text-red-400">{{ initError }}</span>
+              <span v-if="initSuccess" class="ml-2 text-green-400">Bonding curve initialized!</span>
+            </div>
 
             <!-- Mobile Trading Interface - Show under chart on mobile only -->
             <div class="lg:hidden mobile-trading-section">
@@ -183,7 +193,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, Transaction, Connection } from '@solana/web3.js'
 import { SupabaseService } from '@/services/supabase'
 import { useWalletStore } from '@/stores/wallet'
 import { useUIStore } from '@/stores/ui'
@@ -196,6 +206,8 @@ import TradingInterface from '@/components/token/TradingInterface.vue'
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import { BondingCurveService } from '@/services/bondingCurve'
 import { RealTimePriceService, type RealPriceData } from '@/services/realTimePriceService'
+import { config } from '@/config'
+import { solanaConfig } from '@/config/index'
 
 const route = useRoute()
 const router = useRouter()
@@ -228,6 +240,17 @@ const watchlistLoading = ref(false)
 
 // User token balance (for trading)
 const userTokenBalance = ref(0)
+// Load token data on page mount
+onMounted(() => {
+  loadPublicTokenData();
+});
+
+// Debug watcher for chart rendering
+watch(() => token.value?.id, (newId) => {
+  if (newId) {
+    console.log('[DEBUG] Rendering TokenChart for token.id:', newId)
+  }
+})
 
 // Computed properties for display
 const tokenName = computed(() => token.value?.name || 'Unknown Token')
@@ -266,6 +289,15 @@ const priceChangeColor = computed(() => {
 })
 
 
+
+// ENV admin wallet
+const ADMIN_WALLET = import.meta.env.VITE_ADMIN_WALLET
+
+// Admin state
+const isAdmin = computed(() => {
+  const pubKey = walletStore.walletAddress || walletStore.publicKey
+  return pubKey && ADMIN_WALLET && pubKey.toString() === ADMIN_WALLET
+})
 
 /**
  * Connect wallet handler
@@ -677,6 +709,7 @@ const loadPublicTokenData = async () => {
     }
     
     token.value = tokenData
+    console.log('[DEBUG] token.value after Supabase fetch:', token.value)
     
     console.log('🔍 [TOKEN DETAIL] Public token data loaded:', {
       id: tokenData.id,
@@ -817,6 +850,8 @@ const copyToClipboard = async (text: string) => {
     })
   }
 }
+
+const bondingCurveConfig = config.bondingCurve;
 
 const loadBondingCurveData = async () => {
   if (!token.value) return
@@ -999,142 +1034,90 @@ const toggleWatchlist = async () => {
   }
 }
 
-onMounted(async () => {
-  console.log('🚀 [MOUNT] TokenDetailPage mounted');
-  console.log('🔍 [MOUNT] Initial auth state:', {
-    isAuthenticated: authStore.isAuthenticated,
-    hasSupabaseUser: !!authStore.supabaseUser,
-  });
-  
-  await loadPublicTokenData();
-  
-  console.log('🔍 [MOUNT] Post-load auth state:', {
-    isAuthenticated: authStore.isAuthenticated,
-    hasSupabaseUser: !!authStore.supabaseUser,
-  });
-});
+/**
+ * Initialize bonding curve for the token (admin only)
+ */
+const initLoading = ref(false)
+const initError = ref('')
+const initSuccess = ref(false)
 
-
-onUnmounted(() => {
-  // Clean up analytics subscription
-  analyticsSubscription?.()
-  
-  // Clean up price update interval
-  if (priceUnsubscribe.value) {
-    priceUnsubscribe.value()
-    priceUnsubscribe.value = null
+const initializeBondingCurve = async () => {
+  if (!token.value?.mint_address) {
+    initError.value = 'No mint address found.'
+    return
   }
-})
-
-// Load bonding curve data after token loads
-watch(() => token.value, (newToken) => {
-  if (newToken) {
-    loadBondingCurveData()
+  const creatorRaw = walletStore.walletAddress || walletStore.publicKey
+  if (!creatorRaw) {
+    initError.value = 'No admin wallet connected.'
+    return
   }
-})
-
-// Watch for authentication changes to load private data
-watchEffect(() => {
-  // Wait for auth to finish loading and for the token data to be available
-  if (!authStore.isLoading && token.value?.id) {
-    loadPrivateUserData();
+  const creator = typeof creatorRaw === 'string' ? new PublicKey(creatorRaw) : creatorRaw
+  initLoading.value = true
+  initError.value = ''
+  initSuccess.value = false
+  try {
+    console.log('[ADMIN] Initializing bonding curve for mint:', token.value.mint_address)
+    const mint = new PublicKey(token.value.mint_address)
+    const instructions = await solanaProgram.createInitializeInstruction(
+      mint,
+      creator,
+      BigInt(bondingCurveConfig.initialVirtualTokenReserves),
+      BigInt(bondingCurveConfig.initialVirtualSolReserves)
+    )
+    console.log('[ADMIN] Initialization TX:', instructions)
+    // Send transaction using walletService
+    const transaction = new Transaction().add(...instructions)
+    transaction.feePayer = creator
+    // Use direct connection from config
+    const connection = new Connection(solanaConfig.rpcUrl, solanaConfig.commitment)
+    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+    // Sign and send
+    const signed = await walletStore.signTransaction(transaction)
+    const txid = await connection.sendRawTransaction(signed.serialize())
+    console.log('[ADMIN] Sent bonding curve init transaction:', txid)
+    // Wait for confirmation
+    await connection.confirmTransaction(txid, 'confirmed')
+    initSuccess.value = true
+    await refreshAllTokenData()
+  } catch (e: any) {
+    console.error('[ADMIN] Bonding curve init error:', e)
+    initError.value = e.message || 'Initialization failed'
+  } finally {
+    initLoading.value = false
   }
-});
-
-
-// Component cleanup will be handled by Vue's lifecycle
+}
 </script>
 
 <style scoped>
-/* Mobile-specific optimizations */
-@media (max-width: 768px) {
-  /* Fix mobile content spacing to account for mobile create button */
-  .container {
-    @apply px-3 pt-4;
-  }
-  
-  .mobile-chart {
-    @apply rounded-lg;
-    min-height: 300px;
-  }
-  
-  .mobile-comments {
-    @apply rounded-lg;
-  }
-  
-  .mobile-trading-section {
-    @apply order-none;
-  }
-  
-  .mobile-trading-card {
-    @apply shadow-lg;
-    /* No sticky positioning needed since it's now in the flow */
-  }
-  
-  .mobile-info-card {
-    @apply mt-4;
-  }
-  
-  /* Improve mobile grid layout */
-  .grid {
-    @apply gap-4;
-  }
-  
-  /* Better mobile button interactions */
-  button:active {
-    @apply scale-95;
-  }
-  
-  /* Improve mobile touch targets */
-  button {
-    @apply min-h-[44px];
-  }
-  
-  /* Better mobile form elements */
-  input[type="number"] {
-    -webkit-appearance: none;
-    -moz-appearance: textfield;
-  }
-  
-  input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  
-  /* Mobile-optimized header */
-  .token-header {
-    @apply flex-col space-y-2 space-x-0 text-center;
-  }
-  
-  /* Mobile responsive header text */
-  .token-header .flex {
-    @apply flex-col space-y-2 space-x-0 text-center;
-  }
-  
-  /* Better mobile text sizing */
-  .token-header span {
-    @apply text-sm;
-  }
-  
-  /* Improve mobile touch interactions */
-  .mobile-trading-card button {
-    @apply min-h-[48px];
-  }
-  
-  .mobile-trading-card input {
-    @apply min-h-[48px];
-  }
+/* Add any component-specific styles here */
+
+
+
+
+.mobile-comments {
+  /* Mobile-specific styles for comments section */
 }
 
-/* Desktop styles remain unchanged */
-@media (min-width: 769px) {
-  .mobile-trading-section {
-    @apply hidden;
-  }
-  
-  .mobile-trading-card {
-    @apply static shadow-none z-10;
-  }
+.mobile-info-card {
+  /* Mobile-specific styles for token info card */
 }
-</style> 
+
+.mobile-trading-section {
+  /* Mobile-specific styles for trading interface */
+}
+
+/* Spinner animation */
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  width: 3rem;
+  height: 3rem;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>

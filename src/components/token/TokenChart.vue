@@ -90,6 +90,17 @@
         <div class="text-xs text-gray-500">24h Low</div>
       </div>
     </div>
+
+    <!-- Admin Actions (for setup use) -->
+    <div v-if="isAdmin" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Admin Actions</h3>
+      <button
+        @click="initializeBondingCurve"
+        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+      >
+        Initialize Bonding Curve
+      </button>
+    </div>
   </div>
 </template>
 
@@ -98,6 +109,11 @@ import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { SupabaseService } from '@/services/supabase'
 import { fetchTokenChartDataWithFallback } from '@/services/tokenChartApi'
+import { SolanaProgram } from '@/services/solanaProgram'
+import { getWalletService } from '@/services/wallet'
+import { PublicKey, Transaction } from '@solana/web3.js'
+import { useAuthStore } from '@/stores/auth'
+import { getEnvVar } from '@/config'
 
 // Register Chart.js components
 Chart.register(...registerables)
@@ -148,6 +164,11 @@ const low24h = computed(() => {
   if (!hasData.value) return 0
   return Math.min(...priceData.value.map(d => d.price))
 })
+
+const authStore = useAuthStore()
+const walletService = getWalletService()
+const ADMIN_WALLET = getEnvVar('VITE_ADMIN_WALLET', '')
+const isAdmin = computed(() => walletService.publicKey?.toBase58() === ADMIN_WALLET)
 
 // Methods
 const loadChartData = async () => {
@@ -299,6 +320,46 @@ const formatPrice = (price: number): string => {
   return price.toFixed(2)
 }
 
+const initializeBondingCurve = async () => {
+  try {
+    const solanaProgram = new SolanaProgram()
+    const walletService = getWalletService()
+    if (!props.tokenId) {
+      alert('Token ID (mint address) is missing.')
+      return
+    }
+    if (!walletService.publicKey) {
+      alert('Wallet not connected.')
+      return
+    }
+    const mintAddress = new PublicKey(props.tokenId)
+    const creator = walletService.publicKey
+
+    // You may want to customize these values
+    const initialVirtualTokenReserves = BigInt(1000000000)
+    const initialVirtualSolReserves = BigInt(1073000000)
+
+    const instructions = await solanaProgram.createInitializeInstruction(
+      mintAddress,
+      creator,
+      initialVirtualTokenReserves,
+      initialVirtualSolReserves
+    )
+
+    const transaction = new Transaction().add(...instructions)
+    transaction.feePayer = creator
+    transaction.recentBlockhash = (await solanaProgram['connection'].getLatestBlockhash()).blockhash
+
+    const signedTx = await walletService.signTransaction(transaction)
+    const txid = await solanaProgram['connection'].sendRawTransaction(signedTx.serialize())
+    await solanaProgram['connection'].confirmTransaction(txid)
+
+    alert('Bonding curve account initialized for token: ' + props.tokenId)
+  } catch (err) {
+    alert('Initialization failed: ' + (err instanceof Error ? err.message : String(err)))
+  }
+}
+
 // Watchers
 watch(() => props.tokenId, () => {
   if (props.tokenId) {
@@ -311,7 +372,13 @@ watch(selectedTimeframe, () => {
 })
 
 // Lifecycle
+console.log('[TokenChart] Component loaded')
 onMounted(() => {
+  console.log('[TokenChart] onMounted')
+  console.log('[Admin Check] walletService.publicKey:', walletService.publicKey?.toBase58())
+  console.log('[Admin Check] ADMIN_WALLET:', ADMIN_WALLET)
+  console.log('[Admin Check] isAdmin:', walletService.publicKey?.toBase58() === ADMIN_WALLET)
+
   if (props.tokenId) {
     loadChartData()
   }
@@ -322,4 +389,4 @@ onUnmounted(() => {
     chart.value.destroy()
   }
 })
-</script> 
+</script>
