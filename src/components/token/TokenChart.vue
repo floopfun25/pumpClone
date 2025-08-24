@@ -97,7 +97,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { SupabaseService } from '@/services/supabase'
-import { fetchBirdeyeChartData, fetchCoinGeckoChartData } from '@/services/tokenChartApi'
+import { fetchTokenChartDataWithFallback } from '@/services/tokenChartApi'
 
 // Register Chart.js components
 Chart.register(...registerables)
@@ -157,20 +157,18 @@ const loadChartData = async () => {
   error.value = ''
 
   try {
-    let data: any[] = []
-    // Example logic: try Birdeye first, fallback to Supabase for custom tokens
-    if (props.tokenId.startsWith('So111') || props.tokenId.length === 44) {
-      // Try Birdeye for Solana tokens
-      data = await fetchBirdeyeChartData(props.tokenId, selectedTimeframe.value)
-    } else {
-      // Try CoinGecko for known tokens (replace with your mapping logic)
-      // Example: use tokenSymbol as CoinGecko id
-      data = await fetchCoinGeckoChartData(props.tokenSymbol.toLowerCase(), selectedTimeframe.value === '24h' ? 1 : 7)
-    }
-    // Fallback to Supabase if no data
-    if (!data || data.length === 0) {
-      data = await SupabaseService.getTokenPriceHistory(props.tokenId, selectedTimeframe.value)
-    }
+    // Use unified fallback function for all tokens
+    let data = await fetchTokenChartDataWithFallback(props.tokenId, props.tokenSymbol, selectedTimeframe.value)
+    // Validate, normalize, sort, and filter data for Chart.js
+    data = (data || [])
+      .map(d => ({
+        timestamp: typeof d.timestamp === 'number' ? d.timestamp : new Date(d.timestamp).getTime(),
+        price: typeof d.price === 'string' ? parseFloat(d.price) : d.price,
+        volume: d.volume !== undefined ? d.volume : 0
+      }))
+      .filter(d => typeof d.price === 'number' && !isNaN(d.price) && d.timestamp)
+      .sort((a, b) => a.timestamp - b.timestamp)
+    console.log('[TokenChart] Processed chart data:', data)
     priceData.value = data
     if (data.length > 0) {
       await nextTick()
@@ -178,7 +176,7 @@ const loadChartData = async () => {
     }
   } catch (err) {
     console.error('Failed to load chart data:', err)
-    error.value = 'Failed to load chart data'
+    error.value = err instanceof Error ? err.message : String(err)
   } finally {
     loading.value = false
   }
