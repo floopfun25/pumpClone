@@ -368,9 +368,7 @@ export class SolanaProgram {
     if (solAmountLamports < BigInt(tradingConfig.minTradeAmount)) {
       throw new Error(`Minimum trade amount is ${tradingConfig.minTradeAmount / LAMPORTS_PER_SOL} SOL`)
     }
-    if (solAmountLamports > BigInt(tradingConfig.maxTradeAmount)) {
-      throw new Error(`Maximum trade amount is ${tradingConfig.maxTradeAmount / LAMPORTS_PER_SOL} SOL`)
-    }
+    // Removed maxTradeAmount restriction
 
     // Get bonding curve state to calculate expected tokens
     const bondingCurve = await this.getBondingCurveAccount(mintAddress)

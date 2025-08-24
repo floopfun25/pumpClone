@@ -137,7 +137,7 @@
         Processing...
       </span>
       <span v-else>
-        {{ tradeType === 'buy' ? 'Buy' : 'Sell' }} {{ tokenSymbol }}
+        {{ tradeType === 'buy' ? 'Buy with SOL' : `Sell for ${tokenSymbol}` }}
       </span>
     </button>
 
@@ -157,14 +157,16 @@ import { BondingCurveService } from '@/services/bondingCurve'
 interface Props {
   tokenSymbol: string
   bondingCurveState: any
-  walletBalance?: number
-  tokenBalance?: number
+  walletBalance?: number // in SOL
+  tokenBalance?: number // in human-readable tokens
+  tokenMint?: string // mint address for decimals
   disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   walletBalance: 0,
   tokenBalance: 0,
+  tokenMint: '',
   disabled: false
 })
 
@@ -179,10 +181,11 @@ const authStore = useAuthStore()
 
 // State
 const tradeType = ref<'buy' | 'sell'>('buy')
-const tradeAmount = ref('')
+const tradeAmount = ref('') // always human-readable
 const tradePreview = ref<any>(null)
 const trading = ref(false)
 const error = ref('')
+const tokenDecimals = ref(9)
 
 // Computed properties
 const displayBalance = computed(() => {
@@ -242,9 +245,9 @@ const setQuickAmount = (amount: string) => {
     } else if (tradeType.value === 'buy') {
       tradeAmount.value = amount
     } else {
-      // Percentage for sell orders
+      // Percentage for sell orders (human-readable)
       const percentage = parseFloat(amount.replace('%', '')) / 100
-      tradeAmount.value = (props.tokenBalance * percentage).toString()
+      tradeAmount.value = (props.tokenBalance * percentage).toFixed(tokenDecimals.value)
     }
     calculateTradePreview()
   } catch (err) {
@@ -313,9 +316,14 @@ const executeTrade = async () => {
     trading.value = true
     error.value = ''
 
+    // Convert to base units for backend
+    let baseAmount = amount
+    if (tradeType.value === 'sell') {
+      baseAmount = amount * Math.pow(10, tokenDecimals.value)
+    }
     emit('trade', {
       type: tradeType.value,
-      amount,
+      amount: baseAmount,
       preview: tradePreview.value
     })
 
@@ -344,7 +352,19 @@ watch(() => props.bondingCurveState, () => {
 
 // Lifecycle
 onMounted(() => {
-  // Initial calculations if needed
+  // Fetch token decimals on mount
+  if (props.tokenMint) {
+    import('@solana/web3.js').then(({ PublicKey, Connection }) => {
+      // Use the default connection from your app (update as needed)
+      const connection = new Connection('https://api.mainnet-beta.solana.com');
+      connection.getParsedAccountInfo(new PublicKey(props.tokenMint)).then((mintInfo: any) => {
+        const data = mintInfo?.value?.data;
+        if (data && typeof data === 'object' && 'parsed' in data && data.parsed?.info?.decimals !== undefined) {
+          tokenDecimals.value = data.parsed.info.decimals;
+        }
+      });
+    });
+  }
 })
 </script>
 
@@ -352,21 +372,22 @@ onMounted(() => {
 /* Mobile-specific optimizations */
 @media (max-width: 768px) {
   .mobile-trading-card {
-    @apply shadow-lg;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
   }
   
   /* Better mobile button interactions */
   button:active {
-    @apply scale-95;
+    transform: scale(0.95);
   }
   
   /* Improve mobile touch targets */
   button {
-    @apply min-h-[44px];
+    min-height: 44px;
   }
   
   /* Better mobile form elements */
   input[type="number"] {
+    appearance: none;
     -webkit-appearance: none;
     -moz-appearance: textfield;
   }
@@ -381,11 +402,11 @@ onMounted(() => {
 /* Improve mobile touch interactions */
 @media (max-width: 768px) {
   .mobile-trading-card button {
-    @apply min-h-[48px];
+    min-height: 48px;
   }
   
   .mobile-trading-card input {
-    @apply min-h-[48px];
+    min-height: 48px;
   }
 }
 </style> 

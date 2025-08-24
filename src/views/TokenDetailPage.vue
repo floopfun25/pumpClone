@@ -531,16 +531,7 @@ const handleTrade = async (tradeData: { type: 'buy' | 'sell', amount: number, pr
     const mintAddress = new PublicKey(token.value.mint_address)
     const { type, amount, preview } = tradeData
 
-    // Check if price impact is too high (>10%)
-    if (preview && Math.abs(preview.priceImpact) > 10) {
-      const confirmed = confirm(
-        `Warning: High price impact of ${preview.priceImpact.toFixed(2)}%. Continue?`
-      )
-      if (!confirmed) {
-        uiStore.setLoading(false)
-        return
-      }
-    }
+    // Removed price impact confirmation dialog
 
     let signature: string
 
@@ -1094,17 +1085,6 @@ const initializeBondingCurve = async () => {
 
 
 
-.mobile-comments {
-  /* Mobile-specific styles for comments section */
-}
-
-.mobile-info-card {
-  /* Mobile-specific styles for token info card */
-}
-
-.mobile-trading-section {
-  /* Mobile-specific styles for trading interface */
-}
 
 /* Spinner animation */
 .spinner {

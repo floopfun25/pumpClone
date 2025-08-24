@@ -111,6 +111,104 @@ const safeMarketCap = (price: number, supply: number): number => {
 }
 
 export class SolanaProgram {
+  /**
+   * Execute sell transaction (PRODUCTION - Real blockchain transactions)
+   */
+  async sellTokens(
+    mintAddress: PublicKey,
+    tokenAmount: number,
+    slippagePercent: number = tradingConfig.slippageToleranceDefault
+  ): Promise<string> {
+    console.log('💰 [SELL] Starting sell transaction...')
+    console.log('📊 [SELL] Parameters:', {
+      mintAddress: mintAddress.toBase58(),
+      tokenAmount,
+      slippagePercent
+    })
+
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated || !authStore.user?.id) {
+      throw new Error('User not authenticated. Please connect and sign in with your wallet.');
+    }
+    const actualUserId = authStore.user.id;
+    console.log('✅ [SELL] Proceeding with consistent user ID from auth store:', actualUserId);
+
+    if (!walletService.connected || !walletService.publicKey) {
+      throw new Error('Wallet not connected')
+    }
+
+    // Fetch token decimals dynamically from mint
+    const mintInfo = await this.connection.getParsedAccountInfo(mintAddress);
+    let decimals = 9; // Default SPL token decimals
+    const data = mintInfo?.value?.data;
+    if (data && typeof data === 'object' && 'parsed' in data && data.parsed?.info?.decimals !== undefined) {
+      decimals = data.parsed.info.decimals;
+    }
+
+    // Validate trade amount
+    const tokenAmountBigInt = BigInt(Math.floor(tokenAmount * Math.pow(10, decimals)));
+    if (tokenAmountBigInt < BigInt(tradingConfig.minTradeAmount)) {
+      throw new Error(`Minimum trade amount is ${tradingConfig.minTradeAmount / Math.pow(10, decimals)} tokens`)
+    }
+    // Removed maxTradeAmount restriction
+
+    // Get the most up-to-date bonding curve state
+    let bondingCurve = await this.getBondingCurveAccount(mintAddress)
+    if (!bondingCurve) {
+      bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
+    }
+    if (!bondingCurve) {
+      throw new Error('Bonding curve state could not be determined.')
+    }
+    if (bondingCurve.graduated) {
+      throw new Error('This token has graduated and can only be traded on DEX');
+    }
+
+    // Calculate expected SOL with slippage protection
+    const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves;
+    const newTokenReserves = bondingCurve.virtualTokenReserves + tokenAmountBigInt;
+    const newSolReserves = k / newTokenReserves;
+    const solOut = bondingCurve.virtualSolReserves - newSolReserves;
+    const slippageFactor = (100 - slippagePercent) / 100;
+    const minSolReceived = BigInt(Math.floor(Number(solOut) * slippageFactor));
+
+    // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
+    const sellInstructions = await this.createSellInstruction(
+      mintAddress,
+      walletService.publicKey,
+      tokenAmountBigInt,
+      minSolReceived,
+      slippagePercent * 100 // Convert to basis points
+    );
+
+    const transaction = new Transaction();
+    transaction.add(...sellInstructions);
+
+    // Get recent blockhash
+    const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = walletService.publicKey!;
+
+    // Send transaction
+    console.log('📤 Sending sell transaction to Solana...');
+    const signature = await walletService.sendTransaction(transaction);
+    console.log('✅ Transaction sent:', signature);
+
+    // Wait for confirmation
+    console.log('⏳ Waiting for confirmation...');
+    const confirmation = await this.connection.confirmTransaction(
+      signature,
+      'confirmed'
+    );
+
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+    }
+
+    // Optionally: update database, analytics, etc. here
+
+    return signature;
+  }
   private connection: Connection
   private programId: PublicKey
   private feeWallet: PublicKey
@@ -399,9 +497,7 @@ export class SolanaProgram {
     if (solAmountLamports < BigInt(tradingConfig.minTradeAmount)) {
       throw new Error(`Minimum trade amount is ${tradingConfig.minTradeAmount / LAMPORTS_PER_SOL} SOL`)
     }
-    if (solAmountLamports > BigInt(tradingConfig.maxTradeAmount)) {
-      throw new Error(`Maximum trade amount is ${tradingConfig.maxTradeAmount / LAMPORTS_PER_SOL} SOL`)
-    }
+    // Removed maxTradeAmount restriction
 
     // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
     let bondingCurve = await this.getBondingCurveAccount(mintAddress)

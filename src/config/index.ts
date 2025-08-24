@@ -95,7 +95,7 @@ export const config = {
   // Trading configuration
   trading: {
     minTradeAmount: 1000000, // 0.001 SOL minimum
-    maxTradeAmount: 10_000_000_000, // 10 SOL maximum
+    // maxTradeAmount removed
     slippageToleranceDefault: 3.0, // 3% default slippage
     maxSlippageTolerance: 20.0, // 20% maximum slippage
     // Price impact warnings
