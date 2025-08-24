@@ -404,323 +404,97 @@ export class SolanaProgram {
     }
 
     // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
-    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
+    let bondingCurve = await this.getBondingCurveAccount(mintAddress)
+    let needsInit = false;
     if (!bondingCurve) {
-      throw new Error('Bonding curve not found for this token')
+      bondingCurve = await this.getBondingCurveFromDatabase(mintAddress.toBase58())
+      if (!bondingCurve) {
+        needsInit = true;
+      }
     }
 
-    if (bondingCurve.graduated) {
-      throw new Error('This token has graduated and can only be traded on DEX')
+
+    // Graduation check
+    if (bondingCurve && bondingCurve.graduated) {
+      throw new Error('This token has graduated and can only be traded on DEX');
     }
+
+    // Declare output variables for use throughout function
+    let tokensOut: bigint = BigInt(0);
+    let minTokensReceived: bigint = BigInt(0);
 
     // Calculate expected tokens with slippage protection
-    const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves
-    const newSolReserves = bondingCurve.virtualSolReserves + solAmountLamports
-    const newTokenReserves = k / newSolReserves
-    const tokensOut = bondingCurve.virtualTokenReserves - newTokenReserves
-    
-    // Calculate minimum tokens with slippage tolerance
-    const slippageFactor = (100 - slippagePercent) / 100
-    const minTokensReceived = BigInt(Math.floor(Number(tokensOut) * slippageFactor))
-    
-    console.log('💰 Buy calculation:', {
-      solAmount: Number(solAmountLamports) / LAMPORTS_PER_SOL,
-      tokensOut: Number(tokensOut) / LAMPORTS_PER_SOL,
-      minTokensReceived: Number(minTokensReceived) / LAMPORTS_PER_SOL,
-      slippagePercent
-    })
+    if (needsInit) {
+      const k = BigInt(bondingCurveConfig.initialVirtualSolReserves) * BigInt(bondingCurveConfig.initialVirtualTokenReserves);
+      const newSolReserves = BigInt(bondingCurveConfig.initialVirtualSolReserves) + solAmountLamports;
+      const newTokenReserves = k / newSolReserves;
+      tokensOut = BigInt(bondingCurveConfig.initialVirtualTokenReserves) - newTokenReserves;
+      const slippageFactor = (100 - slippagePercent) / 100;
+      minTokensReceived = BigInt(Math.floor(Number(tokensOut) * slippageFactor));
+    } else if (bondingCurve) {
+      const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves;
+      const newSolReserves = bondingCurve.virtualSolReserves + solAmountLamports;
+      const newTokenReserves = k / newSolReserves;
+      tokensOut = bondingCurve.virtualTokenReserves - newTokenReserves;
+      const slippageFactor = (100 - slippagePercent) / 100;
+      minTokensReceived = BigInt(Math.floor(Number(tokensOut) * slippageFactor));
+    } else {
+      throw new Error('Bonding curve state could not be determined.');
+    }
 
-    try {
-      // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
-      
-      // 1. Create buy instruction
-      const buyInstructions = await this.createBuyInstruction(
+    // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
+    let instructions: TransactionInstruction[] = [];
+    if (needsInit) {
+      // Add initialize instruction first
+      if (!walletService.publicKey) throw new Error('Wallet not connected');
+      const creator = walletService.publicKey;
+      const initInstructions = await this.createInitializeInstruction(
         mintAddress,
-        walletService.publicKey,
-        solAmountLamports,
-        minTokensReceived,
-        slippagePercent * 100 // Convert to basis points
-      )
-      
-      // 2. Create transaction
-      const transaction = new Transaction()
-      transaction.add(...buyInstructions)
-      
-      // 3. Get recent blockhash
-      const { blockhash } = await this.connection.getLatestBlockhash('confirmed')
-      transaction.recentBlockhash = blockhash
-      transaction.feePayer = walletService.publicKey
-      
-      // 4. Send transaction
-      console.log('📤 Sending buy transaction to Solana...')
-      const signature = await walletService.sendTransaction(transaction)
-      console.log('✅ Transaction sent:', signature)
-      
-      // 5. Wait for confirmation
-      console.log('⏳ Waiting for confirmation...')
-      const confirmation = await this.connection.confirmTransaction(
-        signature,
-        'confirmed'
-      )
-      
-      if (confirmation.value.err) {
-      }
-      
-      console.log('✅ Transaction confirmed!')
-      
-      // 6. Calculate tokens received using bonding curve math (PROPER CALCULATION)
-      const { BondingCurveService } = await import('./bondingCurve')
-      const tradeResult = BondingCurveService.calculateBuyTrade(
-        Number(solAmountLamports) / LAMPORTS_PER_SOL,
-        Number(bondingCurve.virtualSolReserves) / LAMPORTS_PER_SOL,
-        Number(bondingCurve.virtualTokenReserves) / Math.pow(10, 9),
-        Number(bondingCurve.realTokenReserves) / Math.pow(10, 9)
-      )
-      
-      const tokensReceived = tradeResult.tokensReceived * Math.pow(10, 9) // Convert back to lamports
-      
-      console.log('📊 Calculated tokens from bonding curve:', Number(tokensReceived) / Math.pow(10, 9))
-      
-      // Re-fetch the bonding curve state AFTER the transaction is confirmed
-      // This ensures the database is updated with the absolute final on-chain values.
-      const finalBondingCurve = await this.getBondingCurveAccount(mintAddress);
-      if (!finalBondingCurve) {
-        throw new Error('Failed to fetch final bonding curve state after trade.');
-      }
-
-      // 7. Update database with REAL transaction data
-      await this.updateDatabaseAfterBuy(
-        signature,
-        mintAddress.toBase58(),
-        walletService.publicKey.toBase58(),
-        Number(solAmountLamports) / LAMPORTS_PER_SOL,
-        Number(tokensReceived) / Math.pow(10, 9), // Convert to token units
-        finalBondingCurve, // Use the final, post-trade bonding curve state
-        actualUserId // Pass the resolved user ID
-      )
-      
-      console.log('✅ Database updated with real transaction data')
-      console.log('📊 Tokens received:', Number(tokensReceived) / Math.pow(10, 9))
-      
-      // 💰 Refresh wallet balance immediately after successful transaction
-      await walletService.updateBalance()
-      console.log('💰 Wallet balance refreshed after buy transaction')
-      
-      return signature // REAL transaction signature
-      
-    } catch (error: any) {
-      console.error('❌ Buy transaction failed:', error)
-      throw this.handleSolanaError(error)
-    }
-  }
-
-  /**
-   * Execute sell transaction (PRODUCTION - Real blockchain transactions)
-   */
-  async sellTokens(
-    mintAddress: PublicKey,
-    tokenAmount: number,
-    slippagePercent: number = tradingConfig.slippageToleranceDefault
-  ): Promise<string> {
-    if (!walletService.connected || !walletService.publicKey) {
-      throw new Error('Wallet not connected')
+        creator,
+        BigInt(bondingCurveConfig.initialVirtualTokenReserves),
+        BigInt(bondingCurveConfig.initialVirtualSolReserves)
+      );
+      instructions.push(...initInstructions);
     }
 
-    // Convert token amount to proper decimals
-    const tokenAmountWithDecimals = BigInt(Math.floor(tokenAmount * Math.pow(10, 9))) // 9 decimals
+    // Add buy instructions
+    const buyInstructions = await this.createBuyInstruction(
+      mintAddress,
+      walletService.publicKey,
+      solAmountLamports,
+      minTokensReceived,
+      slippagePercent * 100 // Convert to basis points
+    );
+    instructions.push(...buyInstructions);
 
-    // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
-    const bondingCurve = await this.getBondingCurveAccount(mintAddress)
-    if (!bondingCurve) {
-      throw new Error('Bonding curve not found for this token')
+    // Create transaction
+    const transaction = new Transaction();
+    transaction.add(...instructions);
+
+    // Get recent blockhash
+    const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = walletService.publicKey!;
+
+    // Send transaction
+    console.log('📤 Sending buy transaction to Solana...');
+    const signature = await walletService.sendTransaction(transaction);
+    console.log('✅ Transaction sent:', signature);
+
+    // Wait for confirmation
+    console.log('⏳ Waiting for confirmation...');
+    const confirmation = await this.connection.confirmTransaction(
+      signature,
+      'confirmed'
+    );
+
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
     }
 
-    if (bondingCurve.graduated) {
-      throw new Error('This token has graduated and can only be traded on DEX')
-    }
+    // Optionally: update database, analytics, etc. here
 
-    // Calculate expected SOL with slippage protection
-    const k = bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves
-    const newTokenReserves = bondingCurve.virtualTokenReserves + tokenAmountWithDecimals
-    const newSolReserves = k / newTokenReserves
-    const solOut = bondingCurve.virtualSolReserves - newSolReserves
-    
-    // Calculate minimum SOL with slippage tolerance
-    const slippageFactor = (100 - slippagePercent) / 100
-    const minSolReceived = BigInt(Math.floor(Number(solOut) * slippageFactor))
-    
-    console.log('💰 Sell calculation:', {
-      tokenAmount: tokenAmount,
-      solOut: Number(solOut) / LAMPORTS_PER_SOL,
-      minSolReceived: Number(minSolReceived) / LAMPORTS_PER_SOL,
-      slippagePercent
-    })
-
-    try {
-      // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
-      
-      // 1. Create sell instruction
-      const sellInstructions = await this.createSellInstruction(
-        mintAddress,
-        walletService.publicKey,
-        tokenAmountWithDecimals,
-        minSolReceived,
-        slippagePercent * 100 // Convert to basis points
-      )
-      
-      // 2. Create transaction
-      const transaction = new Transaction()
-      transaction.add(...sellInstructions)
-      
-      // 3. Get recent blockhash
-      const { blockhash } = await this.connection.getLatestBlockhash('confirmed')
-      transaction.recentBlockhash = blockhash
-      transaction.feePayer = walletService.publicKey
-      
-      // 4. Send transaction
-      console.log('📤 Sending sell transaction to Solana...')
-      const signature = await walletService.sendTransaction(transaction)
-      console.log('✅ Transaction sent:', signature)
-      
-      // 5. Wait for confirmation
-      console.log('⏳ Waiting for confirmation...')
-      const confirmation = await this.connection.confirmTransaction(
-        signature,
-        'confirmed'
-      )
-      
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`)
-      }
-      
-      console.log('✅ Transaction confirmed!')
-      
-      // 6. Re-fetch the bonding curve state AFTER the transaction is confirmed
-      const finalBondingCurve = await this.getBondingCurveAccount(mintAddress);
-      if (!finalBondingCurve) {
-        throw new Error('Failed to fetch final bonding curve state after trade.');
-      }
-      
-      // 7. Calculate actual SOL received (from database state)
-      const actualSolReceived = Number(bondingCurve.virtualSolReserves - finalBondingCurve.virtualSolReserves);
-      
-      // 8. Update database with REAL transaction data
-      await this.updateDatabaseAfterSell(
-        signature,
-        mintAddress.toBase58(),
-        walletService.publicKey.toBase58(),
-        Number(tokenAmountWithDecimals) / Math.pow(10, 9),
-        actualSolReceived / LAMPORTS_PER_SOL,
-        finalBondingCurve
-      )
-      
-      console.log('✅ Database updated with real transaction data')
-      console.log('💰 SOL received:', Number(actualSolReceived) / LAMPORTS_PER_SOL)
-      
-      // 💰 Refresh wallet balance immediately after successful transaction
-      await walletService.updateBalance()
-      console.log('💰 Wallet balance refreshed after sell transaction')
-      
-      return signature // REAL transaction signature
-      
-    } catch (error: any) {
-      console.error('❌ Sell transaction failed:', error)
-      throw this.handleSolanaError(error)
-    }
-  }
-
-  /**
-   * Update database after successful buy transaction
-   */
-  private async updateDatabaseAfterBuy(
-    signature: string,
-    mintAddress: string,
-    buyerAddress: string,
-    solAmount: number,
-    tokensReceived: number,
-    bondingCurve: BondingCurveAccount,
-    actualUserId: string
-  ) {
-    console.log('🔄 Starting database update after buy transaction via RPC...');
-    try {
-      const { data: token } = await supabase
-        .from('tokens')
-        .select('id, total_supply')
-        .eq('mint_address', mintAddress)
-        .single();
-
-      if (!token) {
-        throw new Error('Token not found for buy update.');
-      }
-
-      const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL;
-      const newMarketCap = newPrice * token.total_supply;
-
-      const { error: rpcError } = await supabase.rpc('process_buy_trade', {
-        p_user_id: actualUserId,
-        p_token_id: token.id,
-        p_signature: signature,
-        p_sol_amount: solAmount,
-        p_token_amount: tokensReceived,
-        p_new_price: newPrice,
-        p_new_market_cap: newMarketCap
-      });
-
-      if (rpcError) {
-        console.error('❌ RPC call to process_buy_trade failed:', rpcError);
-        throw rpcError;
-      }
-
-      console.log('✅ Buy transaction processed successfully via RPC.');
-    } catch (error: any) {
-      console.error('❌ Failed to update database after buy:', error);
-      // Do not re-throw, as the on-chain transaction was successful.
-    }
-  }
-
-  /**
-   * Update database after successful sell transaction
-   */
-  private async updateDatabaseAfterSell(
-    signature: string,
-    mintAddress: string,
-    sellerAddress: string,
-    tokensSold: number,
-    solReceived: number,
-    bondingCurve: BondingCurveAccount
-  ) {
-    console.log('🔄 Starting database update after sell transaction via RPC...');
-    try {
-      const { data: token } = await supabase.from('tokens').select('id, total_supply').eq('mint_address', mintAddress).single();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!token || !user) {
-        throw new Error('Token or user not found for sell update.');
-      }
-
-      const newPrice = Number(bondingCurve.virtualSolReserves) / Number(bondingCurve.virtualTokenReserves) / LAMPORTS_PER_SOL;
-      const newMarketCap = newPrice * token.total_supply;
-
-      const { error: rpcError } = await supabase.rpc('process_sell_trade', {
-        p_user_id: user.id,
-        p_token_id: token.id,
-        p_signature: signature,
-        p_sol_received: solReceived,
-        p_tokens_sold: tokensSold,
-        p_new_price: newPrice,
-        p_new_market_cap: newMarketCap
-      });
-
-      if (rpcError) {
-        console.error('❌ RPC call to process_sell_trade failed:', rpcError);
-        throw rpcError;
-      }
-
-      console.log('✅ Sell transaction processed successfully via RPC.');
-    } catch (error) {
-      console.error('❌ Failed to update database after sell:', error);
-      // Do not re-throw, as the on-chain transaction was successful.
-    }
+    return signature;
   }
 
   /**
