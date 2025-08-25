@@ -168,10 +168,11 @@ interface Props {
   disabled?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props & { tokenDecimals?: number }>(), {
   walletBalance: 0,
   tokenBalance: 0,
   tokenMint: '',
+  tokenDecimals: 9,
   disabled: false
 })
 
@@ -192,15 +193,15 @@ const tradeAmount = ref('') // always human-readable
 const tradePreview = ref<any>(null)
 const trading = ref(false)
 const error = ref('')
-const tokenDecimals = ref(9)
+const tokenDecimals = ref(props.tokenDecimals ?? 9)
 
 // Computed properties
 const displayBalance = computed(() => {
   if (!walletStore.isConnected) return 'Connect wallet'
-  
   if (tradeType.value === 'buy') {
     return `${(props.walletBalance || walletStore.balance).toFixed(4)} SOL`
   } else {
+    // Show human-readable token balance
     return `${props.tokenBalance.toFixed(6)} ${props.tokenSymbol}`
   }
 })
@@ -426,4 +427,4 @@ onMounted(() => {
     min-height: 48px;
   }
 }
-</style> 
+</style>

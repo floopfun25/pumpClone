@@ -95,8 +95,6 @@
               />
             </ErrorBoundary>
 
-            <!-- ...existing code... -->
-
             <!-- Mobile Trading Interface - Show under chart on mobile only -->
             <div class="lg:hidden mobile-trading-section">
               <ErrorBoundary 
@@ -108,6 +106,8 @@
                   :bonding-curve-state="bondingCurveState"
                   :wallet-balance="walletStore.balance"
                   :token-balance="userTokenBalance"
+                  :token-mint="token.value?.mint_address"
+                  :token-decimals="tokenDecimals"
                   @trade="handleTrade"
                   @connect-wallet="connectWallet"
                 />
@@ -141,6 +141,8 @@
                 :bonding-curve-state="bondingCurveState"
                 :wallet-balance="walletStore.balance"
                 :token-balance="userTokenBalance"
+                :token-mint="token.value?.mint_address"
+                :token-decimals="tokenDecimals"
                 @trade="handleTrade"
                 @connect-wallet="connectWallet"
               />
@@ -231,7 +233,12 @@ const isInWatchlist = ref(false)
 const watchlistLoading = ref(false)
 
 // User token balance (for trading)
-const userTokenBalance = ref(0)
+const userTokenBalanceRaw = ref(0)
+const tokenDecimals = ref(9)
+const userTokenBalance = computed(() => {
+  // Always show human-readable balance
+  return userTokenBalanceRaw.value / Math.pow(10, tokenDecimals.value)
+})
 // Load token data on page mount
 onMounted(() => {
   loadPublicTokenData();
@@ -652,7 +659,7 @@ const loadTopHolders = async () => {
  */
 const loadUserTokenBalance = async () => {
   if (!walletStore.isConnected || !walletStore.walletAddress || !token.value?.mint_address) {
-    userTokenBalance.value = 0
+    userTokenBalanceRaw.value = 0
     return
   }
 
@@ -663,13 +670,13 @@ const loadUserTokenBalance = async () => {
 
     // Use the new method from solanaProgram service
     const balance = await solanaProgram.getUserTokenBalance(mintPublicKey, userPublicKey);
-    
-    userTokenBalance.value = balance;
-    console.log('✅ User token balance loaded from blockchain:', balance);
+    userTokenBalanceRaw.value = balance * Math.pow(10, token.value?.decimals ?? 9) // ensure raw lamports
+    tokenDecimals.value = token.value?.decimals ?? 9
+    console.log('✅ User token balance loaded from blockchain:', balance, 'Decimals:', tokenDecimals.value);
 
   } catch (error) {
     console.error('❌ Failed to load user token balance from blockchain:', error);
-    userTokenBalance.value = 0; // Reset balance on error
+    userTokenBalanceRaw.value = 0; // Reset balance on error
   }
 }
 
@@ -749,7 +756,7 @@ const loadPublicTokenData = async () => {
 const loadPrivateUserData = async () => {
   if (!authStore.isAuthenticated || !token.value?.id) {
     console.log('ℹ️ Skipping private data load: user not authenticated or no token ID.');
-    userTokenBalance.value = 0;
+    userTokenBalanceRaw.value = 0;
     topHolders.value = [];
     isInWatchlist.value = false;
     return;
