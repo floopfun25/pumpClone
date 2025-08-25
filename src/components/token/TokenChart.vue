@@ -91,16 +91,7 @@
       </div>
     </div>
 
-    <!-- Admin Actions (for setup use) -->
-    <div v-if="isAdmin" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Admin Actions</h3>
-      <button
-        @click="initializeBondingCurve"
-        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-      >
-        Initialize Bonding Curve
-      </button>
-    </div>
+    <!-- ...existing code... -->
   </div>
 </template>
 
@@ -167,8 +158,7 @@ const low24h = computed(() => {
 
 const authStore = useAuthStore()
 const walletService = getWalletService()
-const ADMIN_WALLET = getEnvVar('VITE_ADMIN_WALLET', '')
-const isAdmin = computed(() => walletService.publicKey?.toBase58() === ADMIN_WALLET)
+// Removed Admin UI logic
 
 // Methods
 const loadChartData = async () => {
@@ -189,14 +179,14 @@ const loadChartData = async () => {
       }))
       .filter(d => typeof d.price === 'number' && !isNaN(d.price) && d.timestamp)
       .sort((a, b) => a.timestamp - b.timestamp)
-    console.log('[TokenChart] Processed chart data:', data)
+    // ...existing code...
     priceData.value = data
     if (data.length > 0) {
       await nextTick()
       createChart()
     }
   } catch (err) {
-    console.error('Failed to load chart data:', err)
+    // ...existing code...
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     loading.value = false
@@ -320,45 +310,7 @@ const formatPrice = (price: number): string => {
   return price.toFixed(2)
 }
 
-const initializeBondingCurve = async () => {
-  try {
-    const solanaProgram = new SolanaProgram()
-    const walletService = getWalletService()
-    if (!props.tokenId) {
-      alert('Token ID (mint address) is missing.')
-      return
-    }
-    if (!walletService.publicKey) {
-      alert('Wallet not connected.')
-      return
-    }
-    const mintAddress = new PublicKey(props.tokenId)
-    const creator = walletService.publicKey
-
-    // You may want to customize these values
-    const initialVirtualTokenReserves = BigInt(1000000000)
-    const initialVirtualSolReserves = BigInt(1073000000)
-
-    const instructions = await solanaProgram.createInitializeInstruction(
-      mintAddress,
-      creator,
-      initialVirtualTokenReserves,
-      initialVirtualSolReserves
-    )
-
-    const transaction = new Transaction().add(...instructions)
-    transaction.feePayer = creator
-    transaction.recentBlockhash = (await solanaProgram['connection'].getLatestBlockhash()).blockhash
-
-    const signedTx = await walletService.signTransaction(transaction)
-    const txid = await solanaProgram['connection'].sendRawTransaction(signedTx.serialize())
-    await solanaProgram['connection'].confirmTransaction(txid)
-
-    alert('Bonding curve account initialized for token: ' + props.tokenId)
-  } catch (err) {
-    alert('Initialization failed: ' + (err instanceof Error ? err.message : String(err)))
-  }
-}
+// Removed Initialize Bonding Curve logic
 
 // Watchers
 watch(() => props.tokenId, () => {
@@ -372,12 +324,9 @@ watch(selectedTimeframe, () => {
 })
 
 // Lifecycle
-console.log('[TokenChart] Component loaded')
+// ...existing code...
 onMounted(() => {
-  console.log('[TokenChart] onMounted')
-  console.log('[Admin Check] walletService.publicKey:', walletService.publicKey?.toBase58())
-  console.log('[Admin Check] ADMIN_WALLET:', ADMIN_WALLET)
-  console.log('[Admin Check] isAdmin:', walletService.publicKey?.toBase58() === ADMIN_WALLET)
+  // ...existing code...
 
   if (props.tokenId) {
     loadChartData()

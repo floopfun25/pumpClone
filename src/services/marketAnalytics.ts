@@ -112,7 +112,7 @@ class MarketAnalyticsService {
       return analytics
 
     } catch (error) {
-      console.error('Failed to get token analytics:', error)
+      // ...existing code...
       return null
     }
   }
@@ -169,7 +169,7 @@ class MarketAnalyticsService {
       return sorted
 
     } catch (error) {
-      console.error('Failed to get trending tokens:', error)
+      // ...existing code...
       return []
     }
   }
@@ -212,7 +212,7 @@ class MarketAnalyticsService {
       return overview
 
     } catch (error) {
-      console.error('Failed to get market overview:', error)
+      // ...existing code...
       return {
         totalMarketCap: 0,
         totalVolume24h: 0,
@@ -328,7 +328,7 @@ class MarketAnalyticsService {
       }
 
     } catch (error) {
-      console.error('Failed to calculate technical indicators:', error)
+      // ...existing code...
       return {
         rsi: 50,
         volume_sma: 0,
@@ -482,7 +482,7 @@ class MarketAnalyticsService {
 
       return volume
     } catch (error) {
-      console.error('Failed to calculate 24h volume:', error)
+      // ...existing code...
       return 0
     }
   }

@@ -10,7 +10,7 @@ export async function callMySecureEdgeFunction(payload: any) {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
   if (sessionError) {
-    console.error('Error getting session:', sessionError)
+    // ...existing code...
     throw new Error('Could not get user session')
   }
 
@@ -24,7 +24,7 @@ export async function callMySecureEdgeFunction(payload: any) {
   // when using the Supabase client library. The `invoke` method will automatically
   // include the 'Authorization' header with the JWT.
 
-  console.log('Calling Edge Function with a valid session...')
+  // ...existing code...
 
   // 3. Make the request to your Edge Function.
   const { data, error } = await supabase.functions.invoke('my-secure-function-name', {
@@ -32,10 +32,10 @@ export async function callMySecureEdgeFunction(payload: any) {
   })
 
   if (error) {
-    console.error('Edge Function error:', error)
+    // ...existing code...
     throw error
   }
 
-  console.log('Edge Function returned:', data)
+  // ...existing code...
   return data
 }

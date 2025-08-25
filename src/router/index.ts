@@ -174,7 +174,7 @@ router.beforeEach(async (to, from, next) => {
           try {
             await authStore.initializeUser()
           } catch (error) {
-            console.warn('Failed to initialize user during navigation:', error)
+            // ...existing code...
           }
         }
       }
@@ -205,7 +205,7 @@ router.beforeEach(async (to, from, next) => {
     
     next()
   } catch (error) {
-    console.error('Navigation guard error:', error)
+    // ...existing code...
     next()
   }
 })

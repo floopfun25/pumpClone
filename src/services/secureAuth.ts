@@ -56,7 +56,7 @@ export class SecureAuthService {
     // Clean up expired challenges
     this.cleanupExpiredChallenges()
 
-    console.log(`🔐 Generated auth challenge for ${walletAddress.slice(0, 8)}...`)
+    // ...existing code...
     
     return authChallenge
   }
@@ -94,14 +94,14 @@ export class SecureAuthService {
       const verificationResult = verifyAuthChallenge(walletAddress, signature, challenge, timestamp)
       
       if (!verificationResult.valid) {
-        console.error(`❌ Signature verification failed: ${verificationResult.reason}`)
+        // ...existing code...
         return { success: false, error: verificationResult.reason || 'Signature verification failed' }
       }
 
       // Remove the used challenge to prevent replay attacks
       pendingChallenges.delete(walletAddress)
 
-      console.log(`✅ Signature verified for ${walletAddress.slice(0, 8)}...`)
+      // ...existing code...
 
       // Create or get user profile
       const authResult = await this.createSecureSession(walletAddress)
@@ -109,7 +109,7 @@ export class SecureAuthService {
       return authResult
 
     } catch (error) {
-      console.error('Authentication error:', error)
+      // ...existing code...
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Authentication failed' 
@@ -128,16 +128,16 @@ export class SecureAuthService {
       // Check current session
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) {
-        console.error('Error getting current session:', sessionError)
+        // ...existing code...
       }
       
       if (existingUser) {
         // Existing user - check if current session matches
-        console.log(`🔄 Creating session for existing user: ${existingUser.id}`)
+        // ...existing code...
         
         // If current session belongs to this user, we're done
         if (currentSession && currentSession.user?.id === existingUser.id) {
-          console.log('✅ Session matches existing user. Authentication complete.')
+          // ...existing code...
           return {
             success: true,
             user: { ...currentSession.user, ...existingUser },
@@ -147,12 +147,12 @@ export class SecureAuthService {
         
         // Clear any mismatched session
         if (currentSession) {
-          console.log('🚪 Clearing mismatched session before re-authenticating.')
+          // ...existing code...
           await supabase.auth.signOut()
         }
         
         // Create new anonymous session
-        console.log('🆕 Creating anonymous auth session for existing user...')
+        // ...existing code...
         const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously({
           options: {
             data: {
@@ -163,7 +163,7 @@ export class SecureAuthService {
         })
         
         if (anonError || !anonData.user) {
-          console.error('Failed to create anonymous session:', anonError)
+          // ...existing code...
           return { success: false, error: 'Failed to create anonymous session' }
         }
         

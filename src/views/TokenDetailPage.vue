@@ -95,15 +95,7 @@
               />
             </ErrorBoundary>
 
-            <!-- Admin-only Bonding Curve Initialization Button -->
-            <div v-if="isAdmin" class="mb-4">
-              <button @click="initializeBondingCurve" class="btn-primary">
-                Initialize Bonding Curve (Admin)
-              </button>
-              <span v-if="initLoading" class="ml-2 text-yellow-400">Initializing...</span>
-              <span v-if="initError" class="ml-2 text-red-400">{{ initError }}</span>
-              <span v-if="initSuccess" class="ml-2 text-green-400">Bonding curve initialized!</span>
-            </div>
+            <!-- ...existing code... -->
 
             <!-- Mobile Trading Interface - Show under chart on mobile only -->
             <div class="lg:hidden mobile-trading-section">
