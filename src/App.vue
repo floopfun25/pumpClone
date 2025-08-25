@@ -4,14 +4,9 @@
     <!-- Navigation Header -->
     <Navbar />
     <!-- Wallet Status Indicator -->
-    <div class="fixed top-4 right-4 z-50 flex items-center space-x-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 shadow-lg text-sm font-medium" style="pointer-events: none;">
-      <template v-if="walletStore.isConnected">
-        <span class="text-pump-green">🟢 Connected:</span>
-        <span class="font-mono">{{ walletStore.walletAddress }}</span>
-      </template>
-      <template v-else>
-        <span class="text-pump-red">🔴 Not Connected</span>
-      </template>
+    <div v-if="showConnectedToast" class="fixed top-4 right-4 z-50 flex items-center space-x-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 shadow-lg text-sm font-medium" style="pointer-events: none;">
+      <span class="text-pump-green">🟢 Connected:</span>
+      <span class="font-mono">{{ walletStore.walletAddress }}</span>
     </div>
     
     <!-- Mobile Create Token Button - Persistent across all pages -->
@@ -54,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref, onBeforeUnmount } from 'vue'
+import { onMounted, computed, ref, onBeforeUnmount, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -126,6 +121,17 @@ const handleBroadcastMessage = (event: MessageEvent) => {
     walletStore.handleMobileDisconnect();
   }
 };
+
+const showConnectedToast = ref(false)
+
+watch(() => walletStore.isConnected, (isConnected, prev) => {
+  if (isConnected && !prev) {
+    showConnectedToast.value = true
+    setTimeout(() => {
+      showConnectedToast.value = false
+    }, 3000)
+  }
+})
 
 
 // Application initialization
@@ -239,4 +245,4 @@ main, footer {
     @apply pb-4;
   }
 }
-</style> 
+</style>

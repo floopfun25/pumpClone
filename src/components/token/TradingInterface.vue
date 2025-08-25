@@ -145,6 +145,11 @@
     <div v-if="error" class="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
       <div class="text-red-400 text-sm">{{ error }}</div>
     </div>
+    <!-- Connected Toast -->
+    <div v-if="showConnectedToast" class="fixed top-4 right-4 z-50 flex items-center space-x-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 shadow-lg text-sm font-medium" style="pointer-events: none;">
+      <span class="text-pump-green">🟢 Connected:</span>
+      <span class="font-mono">{{ walletStore.publicKey }}</span>
+    </div>
   </div>
 </template>
 
@@ -178,6 +183,8 @@ const emit = defineEmits<{
 // Stores
 const walletStore = useWalletStore()
 const authStore = useAuthStore()
+// Toast state
+const showConnectedToast = ref(false)
 
 // State
 const tradeType = ref<'buy' | 'sell'>('buy')
@@ -347,6 +354,16 @@ watch(() => tradeType.value, () => {
 watch(() => props.bondingCurveState, () => {
   if (tradeAmount.value) {
     calculateTradePreview()
+  }
+})
+
+// Show connected toast for 3 seconds when wallet connects
+watch(() => walletStore.isConnected, (isConnected, prev) => {
+  if (isConnected && !prev) {
+    showConnectedToast.value = true
+    setTimeout(() => {
+      showConnectedToast.value = false
+    }, 3000)
   }
 })
 
