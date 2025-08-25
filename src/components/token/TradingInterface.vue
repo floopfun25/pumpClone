@@ -70,7 +70,7 @@
     </div>
 
     <!-- Trade Preview -->
-    <div v-if="tradePreview && parseFloat(tradeAmount) > 0" class="mb-4 p-4 bg-trading-elevated rounded-lg border border-binance-border">
+    <div v-if="showTradePreview" class="mb-4 p-4 bg-trading-elevated rounded-lg border border-binance-border">
       <div class="space-y-2 text-base">
         <div class="flex justify-between">
           <span class="text-binance-gray">
@@ -238,6 +238,11 @@ const canTrade = computed(() => {
   } else {
     return amount <= props.tokenBalance
   }
+})
+
+// Trade Preview should always show if tradeAmount > 0 and bondingCurveState exists
+const showTradePreview = computed(() => {
+  return tradePreview.value && parseFloat(tradeAmount.value) > 0 && props.bondingCurveState
 })
 
 // Methods
