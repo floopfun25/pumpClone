@@ -90,7 +90,18 @@ export class TokenCreationService {
         params,
       );
 
-      // Step 4: Save to database
+      // Step 4: Initialize bonding curve
+      console.log("🎯 Initializing bonding curve...");
+      const { bondingCurveProgram } = await import('./bondingCurveProgram');
+      try {
+        await bondingCurveProgram.initializeBondingCurve(mintKeypair.publicKey);
+        console.log("✅ Bonding curve initialized successfully");
+      } catch (error) {
+        console.warn("⚠️ Bonding curve initialization failed:", error);
+        // Continue anyway - the token is still created
+      }
+
+      // Step 5: Save to database
       const tokenId = await this.saveTokenToDatabase(
         mintKeypair.publicKey.toBase58(),
         signature,

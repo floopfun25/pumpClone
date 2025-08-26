@@ -429,15 +429,15 @@ const executeTrade = async () => {
 
 const performTrade = async () => {
   try {
-    const { realSolanaProgram } = await import('@/services/realSolanaProgram');
+    const { bondingCurveProgram } = await import('@/services/bondingCurveProgram');
     const { PublicKey } = await import('@solana/web3.js');
     
     const mintAddress = new PublicKey(props.token.mint_address);
     const amount = parseFloat(tradeAmount.value);
     
     if (tradeType.value === 'buy') {
-      // Execute real buy transaction
-      const result = await realSolanaProgram.buyTokens(mintAddress, amount, 3);
+      // Execute real buy transaction using bonding curve program
+      const result = await bondingCurveProgram.buyTokens(mintAddress, amount, 3);
       return {
         type: 'buy',
         amount,
@@ -446,11 +446,11 @@ const performTrade = async () => {
         preview: tradePreview.value,
       };
     } else {
-      // Execute real sell transaction
+      // Execute real sell transaction using bonding curve program
       // Convert human-readable amount to raw token amount (multiply by 10^decimals)
       const decimals = props.token.decimals || 9;
       const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
-      const result = await realSolanaProgram.sellTokens(mintAddress, tokenAmount, 3);
+      const result = await bondingCurveProgram.sellTokens(mintAddress, tokenAmount, 3);
       return {
         type: 'sell',
         amount,

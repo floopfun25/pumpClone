@@ -203,25 +203,23 @@ export class RealSolanaProgram {
         transaction.add(createTokenAccountIx);
       }
 
-      // Add buy instruction
-      const buyInstruction = new TransactionInstruction({
-        keys: [
-          { pubkey: buyer, isSigner: true, isWritable: true },
-          { pubkey: bondingCurveAccount, isSigner: false, isWritable: true },
-          { pubkey: mintAddress, isSigner: false, isWritable: true },
-          { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
-          { pubkey: platformFeeAccount, isSigner: false, isWritable: true },
-          { pubkey: vaultAccount, isSigner: false, isWritable: true },
-          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-          {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-          },
-        ],
-        programId: this.programId,
-        data: Buffer.from(instructionData),
-      });
+      // Create simple buy instruction using standard SPL minting
+      // This is a temporary solution until your program is deployed
+      const { createMintToInstruction } = await import('@solana/spl-token');
+      
+      // Calculate tokens to mint based on SOL amount (simplified)
+      const decimals = 9;
+      const tokensToMint = BigInt(Math.floor(solAmountLamports * BigInt(1000))); // 1 SOL = 1000 tokens
+      
+      // For now, use direct minting (requires mint authority)
+      const mintInstruction = createMintToInstruction(
+        mintAddress,
+        buyerTokenAccount, 
+        buyer, // This needs to be mint authority
+        tokensToMint
+      );
+      
+      transaction.add(mintInstruction);
 
       transaction.add(buyInstruction);
 
