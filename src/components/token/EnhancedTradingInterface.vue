@@ -447,7 +447,9 @@ const performTrade = async () => {
       };
     } else {
       // Execute real sell transaction
-      const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, props.token.decimals || 9)));
+      // Convert human-readable amount to raw token amount (multiply by 10^decimals)
+      const decimals = props.token.decimals || 9;
+      const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
       const result = await realSolanaProgram.sellTokens(mintAddress, tokenAmount, 3);
       return {
         type: 'sell',
@@ -470,9 +472,20 @@ const loadTokenBalance = async () => {
   }
 
   try {
-    // TODO: Load actual token balance from blockchain
-    // Mock for now
-    tokenBalance.value = 10000;
+    const { Connection, PublicKey } = await import('@solana/web3.js');
+    const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
+    const { config } = await import('@/config');
+    
+    const connection = new Connection(config.solana.rpcUrl);
+    const mintAddress = new PublicKey(props.token.mint_address);
+    const walletAddress = new PublicKey(walletStore.publicKey!);
+    
+    const tokenAccountAddress = await getAssociatedTokenAddress(mintAddress, walletAddress);
+    const tokenAccount = await getAccount(connection, tokenAccountAddress);
+    
+    // Convert from raw token amount to human readable (divide by 10^decimals)
+    const decimals = props.token.decimals || 9;
+    tokenBalance.value = Number(tokenAccount.amount) / Math.pow(10, decimals);
   } catch (error) {
     console.error("Failed to load token balance:", error);
     tokenBalance.value = 0;
@@ -480,8 +493,21 @@ const loadTokenBalance = async () => {
 };
 
 const formatNumber = (num: number | bigint): string => {
-  const n = typeof num === "bigint" ? Number(num) / 1e6 : num;
-  return new Intl.NumberFormat().format(n);
+  // Convert bigint to human readable number
+  let n: number;
+  if (typeof num === "bigint") {
+    // For token amounts, divide by 10^decimals
+    const decimals = props.token.decimals || 9;
+    n = Number(num) / Math.pow(10, decimals);
+  } else {
+    n = num;
+  }
+  
+  // Format with appropriate decimal places
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6
+  }).format(n);
 };
 
 const handleCustomSlippageBlur = () => {
