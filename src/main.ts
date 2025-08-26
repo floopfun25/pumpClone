@@ -1,75 +1,79 @@
 // Global imports
-import './style.css'
-import './polyfills'
+import "./style.css";
+import "./polyfills";
 
 // Core Vue imports
-import { createApp } from 'vue'
-import App from './App.vue'
-import router from './router'
+import { createApp } from "vue";
+import App from "./App.vue";
+import router from "./router";
 
 // i18n
-import { i18n } from './i18n'
+import { i18n } from "./i18n";
 
 // Stores
-import { createPinia } from 'pinia'
+import { createPinia } from "pinia";
 
 // Handle Phantom wallet response immediately on page load
 function handlePhantomResponse() {
-  const urlParams = new URLSearchParams(window.location.search)
-  const phantomAction = urlParams.get('phantom_action')
-  
-  if (phantomAction === 'connect') {
-    console.log('🔗 Phantom connect response detected in main.ts')
-    
+  const urlParams = new URLSearchParams(window.location.search);
+  const phantomAction = urlParams.get("phantom_action");
+
+  if (phantomAction === "connect") {
+    console.log("🔗 Phantom connect response detected in main.ts");
+
     // Import and handle the response immediately
-    import('./services/wallet').then(({ handlePhantomConnectResponse }) => {
-      try {
-        handlePhantomConnectResponse()
-        console.log('✅ Phantom response handled in main.ts')
-      } catch (error) {
-        console.error('❌ Failed to handle Phantom response in main.ts:', error)
-      }
-    }).catch(error => {
-      console.error('❌ Failed to import wallet service in main.ts:', error)
-    })
+    import("./services/wallet")
+      .then(({ handlePhantomConnectResponse }) => {
+        try {
+          handlePhantomConnectResponse();
+          console.log("✅ Phantom response handled in main.ts");
+        } catch (error) {
+          console.error(
+            "❌ Failed to handle Phantom response in main.ts:",
+            error,
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("❌ Failed to import wallet service in main.ts:", error);
+      });
   }
 }
 
 // Call this immediately when the script loads
-handlePhantomResponse()
+handlePhantomResponse();
 
 // Main app creation function
 async function createVueApp() {
   try {
     // Create the Vue app
-    const app = createApp(App)
-    
+    const app = createApp(App);
+
     // Install global error handler
     app.config.errorHandler = (err, instance, info) => {
-      console.error('Vue error:', err)
+      console.error("Vue error:", err);
       if (import.meta.env.DEV) {
-        console.error('Component:', instance)
-        console.error('Error Info:', info)
+        console.error("Component:", instance);
+        console.error("Error Info:", info);
       }
-    }
-    
+    };
+
     // Install plugins
-    app.use(createPinia())
-    app.use(router)
-    app.use(i18n)
-    
+    app.use(createPinia());
+    app.use(router);
+    app.use(i18n);
+
     // Mount the app
-    app.mount('#app')
-    
+    app.mount("#app");
+
     if (import.meta.env.DEV) {
-      console.log('✅ Application mounted successfully')
+      console.log("✅ Application mounted successfully");
     }
-    
   } catch (error) {
-    console.error('❌ Failed to initialize app:', error)
-    
+    console.error("❌ Failed to initialize app:", error);
+
     // Show fallback error UI
-    const appElement = document.getElementById('app')
+    const appElement = document.getElementById("app");
     if (appElement) {
       appElement.innerHTML = `
         <div style="
@@ -103,10 +107,10 @@ async function createVueApp() {
             </button>
           </div>
         </div>
-      `
+      `;
     }
   }
 }
 
 // Initialize the app
-createVueApp() 
+createVueApp();

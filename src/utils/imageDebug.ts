@@ -1,10 +1,13 @@
-import { getTokenFallbackImage } from './paths';
+import { getTokenFallbackImage } from "./paths";
 
 /**
  * Tests if an image URL is accessible via fetch.
  * This helps diagnose issues with broken image links, especially from Supabase Storage.
  */
-export async function testImageUrl(url: string, tokenIdentifier: string): Promise<void> {
+export async function testImageUrl(
+  url: string,
+  tokenIdentifier: string,
+): Promise<void> {
   // Function body removed to disable logging
 }
 
@@ -13,4 +16,4 @@ export async function testImageUrl(url: string, tokenIdentifier: string): Promis
  */
 export function analyzeSupabaseUrl(url: string): void {
   // Function body removed to disable logging
-} 
+}

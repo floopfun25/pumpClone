@@ -182,6 +182,22 @@ cat > test-setup.js << 'EOF'
 console.log('🧪 Testing FloppFun setup...')
 
 try {
+  // Load environment variables from .env.local
+  const fs = require('fs')
+  const path = require('path')
+  
+  if (fs.existsSync('.env.local')) {
+    const envContent = fs.readFileSync('.env.local', 'utf8')
+    envContent.split('\n').forEach(line => {
+      if (line.trim() && !line.startsWith('#')) {
+        const [key, ...valueParts] = line.split('=')
+        if (key && valueParts.length) {
+          process.env[key.trim()] = valueParts.join('=').trim()
+        }
+      }
+    })
+  }
+
   // Test environment variables
   const requiredEnvVars = [
     'VITE_SUPABASE_URL',

@@ -112,3 +112,10 @@ temp/
 
 # TypeScript
 *.tsbuildinfo 
+# FloppFun Security - Never commit these!
+secure-keys/
+*.json
+fee-wallet-*.json
+treasury-wallet-*.json
+.env.local
+.env.production

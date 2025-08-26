@@ -6,27 +6,27 @@
   >
     <LoadingSpinner v-if="connecting" size="sm" class="mr-2" />
     <Icon v-else name="wallet" class="mr-2" />
-    {{ connecting ? 'Connecting...' : 'Connect Wallet' }}
+    {{ connecting ? "Connecting..." : "Connect Wallet" }}
   </button>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useWalletStore } from '@/stores/wallet'
-import Icon from './Icon.vue'
-import LoadingSpinner from './LoadingSpinner.vue'
+import { ref } from "vue";
+import { useWalletStore } from "@/stores/wallet";
+import Icon from "./Icon.vue";
+import LoadingSpinner from "./LoadingSpinner.vue";
 
-const walletStore = useWalletStore()
-const connecting = ref(false)
+const walletStore = useWalletStore();
+const connecting = ref(false);
 
 const handleConnect = async () => {
   try {
-    connecting.value = true
-    await walletStore.connectWallet()
+    connecting.value = true;
+    await walletStore.connectWallet();
   } catch (error) {
-    console.error('Failed to connect wallet:', error)
+    console.error("Failed to connect wallet:", error);
   } finally {
-    connecting.value = false
+    connecting.value = false;
   }
-}
-</script> 
+};
+</script>

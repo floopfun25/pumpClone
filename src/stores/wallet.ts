@@ -1,45 +1,47 @@
-import { defineStore } from 'pinia'
-import { ref, computed, watchEffect } from 'vue'
-import { Transaction, VersionedTransaction } from '@solana/web3.js'
-import { getWalletService, formatWalletAddress, formatSOL } from '@/services/wallet'
-import type { WalletAdapter } from '@/services/wallet'
+import { defineStore } from "pinia";
+import { ref, computed, watchEffect } from "vue";
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import {
+  getWalletService,
+  formatWalletAddress,
+  formatSOL,
+} from "@/services/wallet";
+import type { WalletAdapter } from "@/services/wallet";
 
 // Enhanced wallet store using real wallet service
-export const useWalletStore = defineStore('wallet', () => {
+export const useWalletStore = defineStore("wallet", () => {
   // Get the singleton instance of the wallet service
-  const walletService = getWalletService()
+  const walletService = getWalletService();
 
   // Reactive state from wallet service
-  const walletState = ref(walletService.getState())
+  const walletState = ref(walletService.getState());
 
   // Update state when wallet service changes
   const updateState = () => {
-    walletState.value = walletService.getState()
-  }
+    walletState.value = walletService.getState();
+  };
 
   // Set up a listener for state changes
-  walletService.on('stateChanged', updateState);
+  walletService.on("stateChanged", updateState);
 
   // Computed properties for easy access
-  const isConnected = computed(() => walletState.value.connected)
-  const isConnecting = computed(() => walletState.value.connecting)
-  const isDisconnecting = computed(() => walletState.value.disconnecting)
-  const publicKey = computed(() => walletState.value.publicKey)
-  const wallet = computed(() => walletState.value.wallet)
-  const balance = computed(() => walletState.value.balance)
-  
+  const isConnected = computed(() => walletState.value.connected);
+  const isConnecting = computed(() => walletState.value.connecting);
+  const isDisconnecting = computed(() => walletState.value.disconnecting);
+  const publicKey = computed(() => walletState.value.publicKey);
+  const wallet = computed(() => walletState.value.wallet);
+  const balance = computed(() => walletState.value.balance);
+
   // Formatted computed properties
-  const walletAddress = computed(() => 
-    publicKey.value ? publicKey.value.toBase58() : null
-  )
-  
-  const walletAddressFormatted = computed(() => 
-    publicKey.value ? formatWalletAddress(publicKey.value.toBase58()) : null
-  )
-  
-  const formattedBalance = computed(() => 
-    formatSOL(balance.value)
-  )
+  const walletAddress = computed(() =>
+    publicKey.value ? publicKey.value.toBase58() : null,
+  );
+
+  const walletAddressFormatted = computed(() =>
+    publicKey.value ? formatWalletAddress(publicKey.value.toBase58()) : null,
+  );
+
+  const formattedBalance = computed(() => formatSOL(balance.value));
 
   /**
    * Initialize wallet on app startup
@@ -48,11 +50,11 @@ export const useWalletStore = defineStore('wallet', () => {
   const initializeWallet = async () => {
     try {
       // Try to auto-connect to previously connected wallet
-      await walletService.autoConnect()
+      await walletService.autoConnect();
     } catch (error) {
-      console.error('Failed to initialize wallet:', error)
+      console.error("Failed to initialize wallet:", error);
     }
-  }
+  };
 
   /**
    * Connect to wallet
@@ -60,11 +62,11 @@ export const useWalletStore = defineStore('wallet', () => {
    */
   async function connectWallet(walletName?: string) {
     try {
-      await walletService.connect(walletName)
+      await walletService.connect(walletName);
       // State will be updated automatically via watchEffect
     } catch (error) {
-      console.error('Failed to connect wallet:', error)
-      throw error
+      console.error("Failed to connect wallet:", error);
+      throw error;
     }
   }
 
@@ -74,11 +76,11 @@ export const useWalletStore = defineStore('wallet', () => {
    */
   async function disconnectWallet() {
     try {
-      await walletService.disconnect()
+      await walletService.disconnect();
       // State will be updated automatically via watchEffect
     } catch (error) {
-      console.error('Failed to disconnect wallet:', error)
-      throw error
+      console.error("Failed to disconnect wallet:", error);
+      throw error;
     }
   }
 
@@ -87,7 +89,7 @@ export const useWalletStore = defineStore('wallet', () => {
    * Returns wallets that are installed and ready
    */
   function getAvailableWallets(): WalletAdapter[] {
-    return walletService.getAvailableWallets()
+    return walletService.getAvailableWallets();
   }
 
   /**
@@ -95,7 +97,7 @@ export const useWalletStore = defineStore('wallet', () => {
    * Returns all supported wallets (including not installed)
    */
   function getAllWallets(): WalletAdapter[] {
-    return walletService.getAllWallets()
+    return walletService.getAllWallets();
   }
 
   /**
@@ -104,10 +106,10 @@ export const useWalletStore = defineStore('wallet', () => {
    */
   async function updateBalance() {
     try {
-      await walletService.updateBalance()
+      await walletService.updateBalance();
       // State will be updated automatically via watchEffect
     } catch (error) {
-      console.error('Failed to update balance:', error)
+      console.error("Failed to update balance:", error);
     }
   }
 
@@ -116,7 +118,7 @@ export const useWalletStore = defineStore('wallet', () => {
    * @param message - Message to sign as Uint8Array
    */
   async function signMessage(message: Uint8Array): Promise<Uint8Array> {
-    return await walletService.signMessage(message)
+    return await walletService.signMessage(message);
   }
 
   /**
@@ -124,7 +126,7 @@ export const useWalletStore = defineStore('wallet', () => {
    * @param message - Text message to sign
    */
   async function signTextMessage(message: string): Promise<Uint8Array> {
-    return await walletService.signTextMessage(message)
+    return await walletService.signTextMessage(message);
   }
 
   /**
@@ -133,16 +135,26 @@ export const useWalletStore = defineStore('wallet', () => {
    * @param challenge - Challenge nonce
    * @param timestamp - Authentication timestamp
    */
-  async function signAuthChallenge(walletAddress: string, challenge: string, timestamp: number): Promise<Uint8Array> {
-    return await walletService.signAuthChallenge(walletAddress, challenge, timestamp)
+  async function signAuthChallenge(
+    walletAddress: string,
+    challenge: string,
+    timestamp: number,
+  ): Promise<Uint8Array> {
+    return await walletService.signAuthChallenge(
+      walletAddress,
+      challenge,
+      timestamp,
+    );
   }
 
   /**
    * Sign transaction with wallet
    * @param transaction - Transaction to sign
    */
-  async function signTransaction<T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> {
-    return await walletService.signTransaction(transaction)
+  async function signTransaction<T extends Transaction | VersionedTransaction>(
+    transaction: T,
+  ): Promise<T> {
+    return await walletService.signTransaction(transaction);
   }
 
   /**
@@ -150,10 +162,13 @@ export const useWalletStore = defineStore('wallet', () => {
    * @param transaction - Transaction to send
    * @param options - Optional send options
    */
-  async function sendTransaction(transaction: any, options?: any): Promise<string> {
-    const signature = await walletService.sendTransaction(transaction, options)
+  async function sendTransaction(
+    transaction: any,
+    options?: any,
+  ): Promise<string> {
+    const signature = await walletService.sendTransaction(transaction, options);
     // State will be updated automatically via watchEffect
-    return signature
+    return signature;
   }
 
   /**
@@ -162,10 +177,10 @@ export const useWalletStore = defineStore('wallet', () => {
    */
   async function handleMobileWalletReturn() {
     try {
-      await walletService.handleMobileWalletReturn()
+      await walletService.handleMobileWalletReturn();
       // State will be updated automatically via watchEffect
     } catch (error) {
-      console.error('Failed to handle mobile wallet return:', error)
+      console.error("Failed to handle mobile wallet return:", error);
     }
   }
 
@@ -221,5 +236,5 @@ export const useWalletStore = defineStore('wallet', () => {
     handleMobileConnect,
     handleMobileDisconnect,
     decreaseBalance,
-  }
-}) 
+  };
+});

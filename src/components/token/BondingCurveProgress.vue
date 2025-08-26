@@ -1,13 +1,17 @@
 <template>
-  <div class="bonding-curve-progress bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+  <div
+    class="bonding-curve-progress bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+  >
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-        {{ $t('tokenDetail.progressToDEX') }}
+        {{ $t("tokenDetail.progressToDEX") }}
       </h3>
       <div class="flex items-center gap-2">
         <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-        <span class="text-xs text-blue-600 dark:text-blue-400">{{ $t('tokenDetail.realTime') }}</span>
+        <span class="text-xs text-blue-600 dark:text-blue-400">{{
+          $t("tokenDetail.realTime")
+        }}</span>
       </div>
     </div>
 
@@ -15,33 +19,41 @@
     <div class="mb-6">
       <div class="flex justify-between items-center mb-3">
         <span class="text-sm text-gray-600 dark:text-gray-400">
-          {{ $t('tokenDetail.goal69K') }}
+          {{ $t("tokenDetail.goal69K") }}
         </span>
         <span class="text-lg font-bold text-blue-600 dark:text-blue-400">
           {{ progressData?.progress.toFixed(1) || 0 }}%
         </span>
       </div>
-      
+
       <!-- Animated Progress Bar -->
-      <div class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+      <div
+        class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
+      >
         <!-- Background gradient -->
-        <div class="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20"></div>
-        
+        <div
+          class="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20"
+        ></div>
+
         <!-- Progress fill -->
-        <div 
+        <div
           class="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-1000 ease-out relative overflow-hidden"
           :style="{ width: `${Math.min(progressData?.progress || 0, 100)}%` }"
         >
           <!-- Shimmer effect -->
-          <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+          <div
+            class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+          ></div>
         </div>
-        
+
         <!-- Graduation marker at 100% -->
         <div class="absolute right-0 top-0 h-full w-1 bg-yellow-400"></div>
       </div>
-      
+
       <!-- Progress Labels -->
-      <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+      <div
+        class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2"
+      >
         <span>${{ formatNumber(progressData?.currentMarketCap || 0) }}</span>
         <span class="text-yellow-600 dark:text-yellow-400 font-medium">
           🎯 ${{ formatNumber(progressData?.graduationThreshold || 69000) }}
@@ -51,17 +63,25 @@
 
     <!-- Stats Grid -->
     <div class="grid grid-cols-2 gap-4 mb-6">
-      <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-        <div class="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wide font-medium">
-          {{ $t('token.marketCap') }}
+      <div
+        class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800"
+      >
+        <div
+          class="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wide font-medium"
+        >
+          {{ $t("token.marketCap") }}
         </div>
         <div class="text-xl font-bold text-blue-900 dark:text-blue-100 mt-1">
           ${{ formatNumber(progressData?.currentMarketCap || 0) }}
         </div>
       </div>
-      
-      <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-        <div class="text-xs text-green-600 dark:text-green-400 uppercase tracking-wide font-medium">
+
+      <div
+        class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800"
+      >
+        <div
+          class="text-xs text-green-600 dark:text-green-400 uppercase tracking-wide font-medium"
+        >
           Remaining
         </div>
         <div class="text-xl font-bold text-green-900 dark:text-green-100 mt-1">
@@ -72,14 +92,20 @@
 
     <!-- Graduation Status -->
     <div v-if="progressData?.graduated" class="mb-6">
-      <div class="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+      <div
+        class="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4"
+      >
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+          <div
+            class="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center"
+          >
             🎓
           </div>
           <div>
-            <div class="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
-              {{ $t('token.graduated') }}!
+            <div
+              class="text-sm font-semibold text-yellow-800 dark:text-yellow-200"
+            >
+              {{ $t("token.graduated") }}!
             </div>
             <div class="text-xs text-yellow-700 dark:text-yellow-300">
               Token successfully graduated to Raydium DEX
@@ -90,9 +116,12 @@
     </div>
 
     <!-- Graduation Info -->
-    <div v-else class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <div
+      v-else
+      class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+    >
       <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-        {{ $t('tokenDetail.graduationDescription') }}
+        {{ $t("tokenDetail.graduationDescription") }}
       </h4>
       <div class="text-xs text-gray-600 dark:text-gray-400 space-y-2">
         <div class="flex items-center gap-2">
@@ -120,67 +149,69 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { SupabaseService } from '@/services/supabase'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { SupabaseService } from "@/services/supabase";
 
 interface Props {
-  tokenId: string
-  initialProgress?: any
+  tokenId: string;
+  initialProgress?: any;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 // State
-const progressData = ref<any>(props.initialProgress || null)
-const lastUpdated = ref<string>('')
-const updateInterval = ref<NodeJS.Timeout | null>(null)
+const progressData = ref<any>(props.initialProgress || null);
+const lastUpdated = ref<string>("");
+const updateInterval = ref<NodeJS.Timeout | null>(null);
 
 // Computed
 const progressPercentage = computed(() => {
-  return Math.min(progressData.value?.progress || 0, 100)
-})
+  return Math.min(progressData.value?.progress || 0, 100);
+});
 
 // Methods
 const loadProgress = async () => {
   try {
-    const progress = await SupabaseService.getBondingCurveProgress(props.tokenId)
-    progressData.value = progress
-    lastUpdated.value = new Date().toLocaleTimeString()
+    const progress = await SupabaseService.getBondingCurveProgress(
+      props.tokenId,
+    );
+    progressData.value = progress;
+    lastUpdated.value = new Date().toLocaleTimeString();
   } catch (error) {
-    console.error('Failed to load bonding curve progress:', error)
+    console.error("Failed to load bonding curve progress:", error);
   }
-}
+};
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M'
+    return (num / 1000000).toFixed(1) + "M";
   } else if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K'
+    return (num / 1000).toFixed(1) + "K";
   }
-  return num.toFixed(0)
-}
+  return num.toFixed(0);
+};
 
 // Lifecycle
 onMounted(() => {
   // Load initial data if not provided
   if (!progressData.value) {
-    loadProgress()
+    loadProgress();
   }
-  
+
   // Update progress every 10 seconds
   updateInterval.value = setInterval(() => {
-    loadProgress()
-  }, 10000)
-  
+    loadProgress();
+  }, 10000);
+
   // Set initial last updated time
-  lastUpdated.value = new Date().toLocaleTimeString()
-})
+  lastUpdated.value = new Date().toLocaleTimeString();
+});
 
 onUnmounted(() => {
   if (updateInterval.value) {
-    clearInterval(updateInterval.value)
+    clearInterval(updateInterval.value);
   }
-})
+});
 </script>
 
 <style scoped>
@@ -205,7 +236,8 @@ onUnmounted(() => {
 
 /* Pulse animation for live indicators */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -241,4 +273,4 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 }
-</style> 
+</style>

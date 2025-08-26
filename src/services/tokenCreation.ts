@@ -4,8 +4,8 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  sendAndConfirmTransaction
-} from '@solana/web3.js'
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -15,67 +15,70 @@ import {
   getAssociatedTokenAddress,
   getMint,
   getMinimumBalanceForRentExemptMint,
-  MINT_SIZE
-} from '@solana/spl-token'
-import { 
+  MINT_SIZE,
+} from "@solana/spl-token";
+import {
   createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID 
-} from '@metaplex-foundation/mpl-token-metadata'
-import { getWalletService } from './wallet'
-import { config } from '@/config'
-import { supabase } from './supabase'
-import { uploadToIPFS } from './ipfsService'
+  PROGRAM_ID as METADATA_PROGRAM_ID,
+} from "@metaplex-foundation/mpl-token-metadata";
+import { getWalletService } from "./wallet";
+import { config } from "@/config";
+import { supabase } from "./supabase";
+import { uploadToIPFS } from "./ipfsService";
 
 export interface TokenCreationParams {
-  name: string
-  symbol: string
-  description: string
-  imageFile?: File
-  imageUrl?: string
-  decimals?: number
-  initialSupply?: number
-  creatorPercentage?: number
+  name: string;
+  symbol: string;
+  description: string;
+  imageFile?: File;
+  imageUrl?: string;
+  decimals?: number;
+  initialSupply?: number;
+  creatorPercentage?: number;
 }
 
 export interface CreatedTokenInfo {
-  mintAddress: string
-  tokenAccount: string
-  metadataAccount: string
-  signature: string
-  tokenId: string
+  mintAddress: string;
+  tokenAccount: string;
+  metadataAccount: string;
+  signature: string;
+  tokenId: string;
 }
 
 export class TokenCreationService {
-  private connection: Connection
-  private walletService = getWalletService()
+  private connection: Connection;
+  private walletService = getWalletService();
 
   constructor() {
-    this.connection = new Connection(config.solana.rpcUrl, 'confirmed')
+    this.connection = new Connection(config.solana.rpcUrl, "confirmed");
   }
 
   /**
    * Create a new SPL token with metadata
    */
   async createToken(params: TokenCreationParams): Promise<CreatedTokenInfo> {
-    console.log('🪙 Starting token creation process...')
-    
+    console.log("🪙 Starting token creation process...");
+
     if (!this.walletService.connected || !this.walletService.publicKey) {
-      throw new Error('Wallet not connected')
+      throw new Error("Wallet not connected");
     }
 
-    const payer = this.walletService.publicKey
-    const decimals = params.decimals || 9
-    const initialSupply = params.initialSupply || 1_000_000_000 // 1B tokens default
-    
+    const payer = this.walletService.publicKey;
+    const decimals = params.decimals || 9;
+    const initialSupply = params.initialSupply || 1_000_000_000; // 1B tokens default
+
     try {
       // Step 1: Upload metadata to IPFS
-      console.log('📤 Uploading metadata to IPFS...')
-      const metadataUri = await this.uploadMetadata(params)
-      
+      console.log("📤 Uploading metadata to IPFS...");
+      const metadataUri = await this.uploadMetadata(params);
+
       // Step 2: Generate mint keypair
-      const { Keypair } = await import('@solana/web3.js')
-      const mintKeypair = Keypair.generate()
-      console.log('🔑 Generated mint address:', mintKeypair.publicKey.toBase58())
+      const { Keypair } = await import("@solana/web3.js");
+      const mintKeypair = Keypair.generate();
+      console.log(
+        "🔑 Generated mint address:",
+        mintKeypair.publicKey.toBase58(),
+      );
 
       // Step 3: Create mint account and token
       const signature = await this.createMintAndToken(
@@ -84,39 +87,40 @@ export class TokenCreationService {
         decimals,
         initialSupply,
         metadataUri,
-        params
-      )
+        params,
+      );
 
       // Step 4: Save to database
       const tokenId = await this.saveTokenToDatabase(
         mintKeypair.publicKey.toBase58(),
         signature,
         params,
-        metadataUri
-      )
+        metadataUri,
+      );
 
       // Step 5: Create associated token account
       const tokenAccount = await getAssociatedTokenAddress(
         mintKeypair.publicKey,
-        payer
-      )
+        payer,
+      );
 
       // Step 6: Get metadata account address
-      const metadataAccount = await this.getMetadataAccount(mintKeypair.publicKey)
+      const metadataAccount = await this.getMetadataAccount(
+        mintKeypair.publicKey,
+      );
 
-      console.log('✅ Token creation completed successfully!')
-      
+      console.log("✅ Token creation completed successfully!");
+
       return {
         mintAddress: mintKeypair.publicKey.toBase58(),
         tokenAccount: tokenAccount.toBase58(),
         metadataAccount: metadataAccount.toBase58(),
         signature,
-        tokenId
-      }
-
+        tokenId,
+      };
     } catch (error) {
-      console.error('❌ Token creation failed:', error)
-      throw new Error(`Token creation failed: ${error}`)
+      console.error("❌ Token creation failed:", error);
+      throw new Error(`Token creation failed: ${error}`);
     }
   }
 
@@ -124,12 +128,12 @@ export class TokenCreationService {
    * Upload token metadata to IPFS
    */
   private async uploadMetadata(params: TokenCreationParams): Promise<string> {
-    let imageUrl = params.imageUrl
+    let imageUrl = params.imageUrl;
 
     // Upload image to IPFS if file is provided
     if (params.imageFile) {
-      console.log('📸 Uploading image to IPFS...')
-      imageUrl = await uploadToIPFS(params.imageFile)
+      console.log("📸 Uploading image to IPFS...");
+      imageUrl = await uploadToIPFS(params.imageFile);
     }
 
     // Create metadata object
@@ -143,28 +147,28 @@ export class TokenCreationService {
         files: [
           {
             uri: imageUrl,
-            type: params.imageFile?.type || 'image/png'
-          }
+            type: params.imageFile?.type || "image/png",
+          },
         ],
-        category: 'image',
+        category: "image",
         creators: [
           {
             address: this.walletService.publicKey!.toBase58(),
-            share: 100
-          }
-        ]
-      }
-    }
+            share: 100,
+          },
+        ],
+      },
+    };
 
     // Upload metadata to IPFS
     const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-      type: 'application/json'
-    })
-    const metadataFile = new File([metadataBlob], 'metadata.json', {
-      type: 'application/json'
-    })
+      type: "application/json",
+    });
+    const metadataFile = new File([metadataBlob], "metadata.json", {
+      type: "application/json",
+    });
 
-    return await uploadToIPFS(metadataFile)
+    return await uploadToIPFS(metadataFile);
   }
 
   /**
@@ -176,12 +180,12 @@ export class TokenCreationService {
     decimals: number,
     initialSupply: number,
     metadataUri: string,
-    params: TokenCreationParams
+    params: TokenCreationParams,
   ): Promise<string> {
-    const transaction = new Transaction()
+    const transaction = new Transaction();
 
     // Calculate rent for mint account
-    const lamports = await getMinimumBalanceForRentExemptMint(this.connection)
+    const lamports = await getMinimumBalanceForRentExemptMint(this.connection);
 
     // Create mint account
     transaction.add(
@@ -190,9 +194,9 @@ export class TokenCreationService {
         newAccountPubkey: mintKeypair.publicKey,
         space: MINT_SIZE,
         lamports,
-        programId: TOKEN_PROGRAM_ID
-      })
-    )
+        programId: TOKEN_PROGRAM_ID,
+      }),
+    );
 
     // Initialize mint
     transaction.add(
@@ -200,29 +204,31 @@ export class TokenCreationService {
         mintKeypair.publicKey,
         decimals,
         payer, // Mint authority
-        payer  // Freeze authority
-      )
-    )
+        payer, // Freeze authority
+      ),
+    );
 
     // Create associated token account for creator
     const creatorTokenAccount = await getAssociatedTokenAddress(
       mintKeypair.publicKey,
-      payer
-    )
+      payer,
+    );
 
     transaction.add(
       createAssociatedTokenAccountInstruction(
         payer,
         creatorTokenAccount,
         payer,
-        mintKeypair.publicKey
-      )
-    )
+        mintKeypair.publicKey,
+      ),
+    );
 
     // Calculate creator tokens (default 20% of supply goes to creator)
-    const creatorPercentage = params.creatorPercentage || 20
-    const creatorTokens = Math.floor((initialSupply * creatorPercentage) / 100)
-    const creatorTokensWithDecimals = BigInt(creatorTokens * Math.pow(10, decimals))
+    const creatorPercentage = params.creatorPercentage || 20;
+    const creatorTokens = Math.floor((initialSupply * creatorPercentage) / 100);
+    const creatorTokensWithDecimals = BigInt(
+      creatorTokens * Math.pow(10, decimals),
+    );
 
     // Mint initial supply to creator
     transaction.add(
@@ -230,13 +236,15 @@ export class TokenCreationService {
         mintKeypair.publicKey,
         creatorTokenAccount,
         payer,
-        creatorTokensWithDecimals
-      )
-    )
+        creatorTokensWithDecimals,
+      ),
+    );
 
     // Create metadata account
-    const metadataAccount = await this.getMetadataAccount(mintKeypair.publicKey)
-    
+    const metadataAccount = await this.getMetadataAccount(
+      mintKeypair.publicKey,
+    );
+
     transaction.add(
       createCreateMetadataAccountV3Instruction(
         {
@@ -244,7 +252,7 @@ export class TokenCreationService {
           mint: mintKeypair.publicKey,
           mintAuthority: payer,
           payer: payer,
-          updateAuthority: payer
+          updateAuthority: payer,
         },
         {
           createMetadataAccountArgsV3: {
@@ -257,60 +265,65 @@ export class TokenCreationService {
                 {
                   address: payer,
                   verified: true,
-                  share: 100
-                }
+                  share: 100,
+                },
               ],
               collection: null,
-              uses: null
+              uses: null,
             },
             isMutable: true,
-            collectionDetails: null
-          }
-        }
-      )
-    )
+            collectionDetails: null,
+          },
+        },
+      ),
+    );
 
     // Add platform fee (0.1 SOL)
-    const platformFeeAccount = new PublicKey(config.platform.feeWallet)
+    const platformFeeAccount = new PublicKey(config.platform.feeWallet);
     transaction.add(
       SystemProgram.transfer({
         fromPubkey: payer,
         toPubkey: platformFeeAccount,
-        lamports: 0.1 * LAMPORTS_PER_SOL // 0.1 SOL fee
-      })
-    )
+        lamports: 0.1 * LAMPORTS_PER_SOL, // 0.1 SOL fee
+      }),
+    );
 
     // Sign and send transaction
-    transaction.feePayer = payer
-    transaction.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash
-    
+    transaction.feePayer = payer;
+    transaction.recentBlockhash = (
+      await this.connection.getLatestBlockhash()
+    ).blockhash;
+
     // This would need to be signed by the wallet
-    const signedTransaction = await this.walletService.signTransaction(transaction)
-    signedTransaction.partialSign(mintKeypair)
+    const signedTransaction =
+      await this.walletService.signTransaction(transaction);
+    signedTransaction.partialSign(mintKeypair);
 
     const signature = await sendAndConfirmTransaction(
       this.connection,
       signedTransaction,
-      []
-    )
+      [],
+    );
 
-    console.log('🎉 Token created successfully! Signature:', signature)
-    return signature
+    console.log("🎉 Token created successfully! Signature:", signature);
+    return signature;
   }
 
   /**
    * Get metadata account PDA
    */
-  private async getMetadataAccount(mintPublicKey: PublicKey): Promise<PublicKey> {
+  private async getMetadataAccount(
+    mintPublicKey: PublicKey,
+  ): Promise<PublicKey> {
     const [metadataAccount] = PublicKey.findProgramAddressSync(
       [
-        Buffer.from('metadata'),
+        Buffer.from("metadata"),
         METADATA_PROGRAM_ID.toBuffer(),
-        mintPublicKey.toBuffer()
+        mintPublicKey.toBuffer(),
       ],
-      METADATA_PROGRAM_ID
-    )
-    return metadataAccount
+      METADATA_PROGRAM_ID,
+    );
+    return metadataAccount;
   }
 
   /**
@@ -320,12 +333,12 @@ export class TokenCreationService {
     mintAddress: string,
     signature: string,
     params: TokenCreationParams,
-    metadataUri: string
+    metadataUri: string,
   ): Promise<string> {
-    console.log('💾 Saving token to database...')
+    console.log("💾 Saving token to database...");
 
     const { data, error } = await supabase
-      .from('tokens')
+      .from("tokens")
       .insert({
         mint_address: mintAddress,
         name: params.name,
@@ -334,23 +347,25 @@ export class TokenCreationService {
         image_url: params.imageUrl,
         metadata_uri: metadataUri,
         creator_id: this.walletService.publicKey!.toBase58(),
-        total_supply: (params.initialSupply || 1_000_000_000) * Math.pow(10, params.decimals || 9),
+        total_supply:
+          (params.initialSupply || 1_000_000_000) *
+          Math.pow(10, params.decimals || 9),
         current_price: 0,
         market_cap: 0,
         volume_24h: 0,
-        status: 'active',
+        status: "active",
         creation_signature: signature,
-        decimals: params.decimals || 9
+        decimals: params.decimals || 9,
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      console.error('Database save error:', error)
-      throw new Error(`Failed to save token to database: ${error.message}`)
+      console.error("Database save error:", error);
+      throw new Error(`Failed to save token to database: ${error.message}`);
     }
 
-    return data.id
+    return data.id;
   }
 
   /**
@@ -358,14 +373,17 @@ export class TokenCreationService {
    */
   async verifyTokenCreation(mintAddress: string): Promise<boolean> {
     try {
-      const mintInfo = await getMint(this.connection, new PublicKey(mintAddress))
-      return mintInfo !== null
+      const mintInfo = await getMint(
+        this.connection,
+        new PublicKey(mintAddress),
+      );
+      return mintInfo !== null;
     } catch (error) {
-      console.error('Token verification failed:', error)
-      return false
+      console.error("Token verification failed:", error);
+      return false;
     }
   }
 }
 
 // Export singleton instance
-export const tokenCreationService = new TokenCreationService()
+export const tokenCreationService = new TokenCreationService();

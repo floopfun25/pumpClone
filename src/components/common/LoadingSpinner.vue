@@ -5,23 +5,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
 interface Props {
-  size?: 'sm' | 'md' | 'lg'
+  size?: "sm" | "md" | "lg";
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  size: 'md'
-})
+  size: "md",
+});
 
 const sizeClass = computed(() => {
   return {
-    'spinner-sm': props.size === 'sm',
-    'spinner-md': props.size === 'md',
-    'spinner-lg': props.size === 'lg'
-  }
-})
+    "spinner-sm": props.size === "sm",
+    "spinner-md": props.size === "md",
+    "spinner-lg": props.size === "lg",
+  };
+});
 </script>
 
 <style scoped>
@@ -57,7 +57,11 @@ const sizeClass = computed(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
-</style> 
+</style>

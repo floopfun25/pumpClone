@@ -6,27 +6,29 @@
         <div>
           <h2 class="text-lg font-semibold text-white">Trending Tokens</h2>
         </div>
-        <button 
+        <button
           @click="$emit('viewAll')"
           class="text-binance-yellow hover:text-binance-yellow-dark transition-colors"
         >
-          {{ t('common.viewAll') }} →
+          {{ t("common.viewAll") }} →
         </button>
       </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-6">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-binance-yellow"></div>
+        <div
+          class="animate-spin rounded-full h-8 w-8 border-b-2 border-binance-yellow"
+        ></div>
       </div>
 
       <!-- Error State -->
       <div v-else-if="error" class="text-center py-6">
         <p class="text-red-500 mb-2">{{ error }}</p>
-        <button 
+        <button
           @click="loadTrendingTokens"
           class="text-binance-yellow hover:text-binance-yellow-dark transition-colors"
         >
-          {{ t('common.retry') }}
+          {{ t("common.retry") }}
         </button>
       </div>
 
@@ -34,19 +36,30 @@
       <div v-else class="flex items-center">
         <!-- Left Arrow -->
         <div class="w-12 flex-shrink-0 flex justify-center">
-          <button 
+          <button
             v-if="canScrollLeft"
             @click="scrollLeft"
             class="text-binance-yellow hover:text-binance-yellow-dark transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
 
         <!-- Token List Container -->
-        <div 
+        <div
           ref="scrollContainer"
           class="overflow-x-auto hide-scrollbar flex-grow"
           @scroll="handleScroll"
@@ -64,75 +77,89 @@
 
         <!-- Right Arrow -->
         <div class="w-12 flex-shrink-0 flex justify-center">
-          <button 
+          <button
             v-if="canScrollRight"
             @click="scrollRight"
             class="text-binance-yellow hover:text-binance-yellow-dark transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
       </div>
 
       <!-- Empty State -->
-      <div v-if="!loading && !error && trendingTokens.length === 0" class="text-center py-6">
-        <p class="text-binance-gray">{{ t('token.noTrendingTokens') }}</p>
+      <div
+        v-if="!loading && !error && trendingTokens.length === 0"
+        class="text-center py-6"
+      >
+        <p class="text-binance-gray">{{ t("token.noTrendingTokens") }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useTypedI18n } from '@/i18n'
-import TokenCard from './TokenCard.vue'
-import { useRouter } from 'vue-router'
-import { SupabaseService } from '@/services/supabase'
+import { ref, onMounted, watch } from "vue";
+import { useTypedI18n } from "@/i18n";
+import TokenCard from "./TokenCard.vue";
+import { useRouter } from "vue-router";
+import { SupabaseService } from "@/services/supabase";
 
 // Define token interface
 interface Token {
-  id: string
-  name: string
-  symbol: string
-  imageUrl?: string
-  price: number
-  priceChange24h: number
-  marketCap: number
-  volume24h: number
-  holders: number
-  mint_address?: string
-  trending_score?: number
-  rank?: number
+  id: string;
+  name: string;
+  symbol: string;
+  imageUrl?: string;
+  price: number;
+  priceChange24h: number;
+  marketCap: number;
+  volume24h: number;
+  holders: number;
+  mint_address?: string;
+  trending_score?: number;
+  rank?: number;
 }
 
 // Define emits
 const emit = defineEmits<{
-  (e: 'viewAll'): void
-}>()
+  (e: "viewAll"): void;
+}>();
 
 // Setup i18n and router
-const { t } = useTypedI18n()
-const router = useRouter()
+const { t } = useTypedI18n();
+const router = useRouter();
 
 // Component state
-const loading = ref(false)
-const error = ref<string | null>(null)
-const trendingTokens = ref<Token[]>([])
-const scrollContainer = ref<HTMLElement | null>(null)
-const canScrollLeft = ref(false)
-const canScrollRight = ref(false)
+const loading = ref(false);
+const error = ref<string | null>(null);
+const trendingTokens = ref<Token[]>([]);
+const scrollContainer = ref<HTMLElement | null>(null);
+const canScrollLeft = ref(false);
+const canScrollRight = ref(false);
 
 // Methods
 const loadTrendingTokens = async () => {
-  loading.value = true
-  error.value = null
-  
+  loading.value = true;
+  error.value = null;
+
   try {
     // Get trending tokens from Supabase with enhanced sorting
-    const tokens = await SupabaseService.getTrendingTokensEnhanced(12) // Get more tokens for scrolling
-    
+    const tokens = await SupabaseService.getTrendingTokensEnhanced(12); // Get more tokens for scrolling
+
     // Map the response to our Token interface
     trendingTokens.value = tokens.map((token: any, index: number) => {
       return {
@@ -147,68 +174,71 @@ const loadTrendingTokens = async () => {
         holders: token.holders_count || 0,
         mint_address: token.mint_address,
         trending_score: token.trendingScore,
-        rank: index + 1
-      }
-    })
+        rank: index + 1,
+      };
+    });
 
     // Check scroll state after data is loaded
-    setTimeout(checkScroll, 100)
+    setTimeout(checkScroll, 100);
   } catch (err) {
-    console.error('Failed to load trending tokens:', err)
-    error.value = t('errors.failedToLoadTrending')
+    console.error("Failed to load trending tokens:", err);
+    error.value = t("errors.failedToLoadTrending");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleTokenClick = (token: Token) => {
-  router.push(`/token/${token.mint_address || token.id}`)
-}
+  router.push(`/token/${token.mint_address || token.id}`);
+};
 
 const checkScroll = () => {
-  if (!scrollContainer.value) return
-  
-  const { scrollLeft, scrollWidth, clientWidth } = scrollContainer.value
-  canScrollLeft.value = scrollLeft > 0
-  canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 10
-}
+  if (!scrollContainer.value) return;
+
+  const { scrollLeft, scrollWidth, clientWidth } = scrollContainer.value;
+  canScrollLeft.value = scrollLeft > 0;
+  canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 10;
+};
 
 const handleScroll = () => {
-  checkScroll()
-}
+  checkScroll();
+};
 
 const scrollLeft = () => {
-  if (!scrollContainer.value) return
+  if (!scrollContainer.value) return;
   scrollContainer.value.scrollBy({
     left: -300,
-    behavior: 'smooth'
-  })
-}
+    behavior: "smooth",
+  });
+};
 
 const scrollRight = () => {
-  if (!scrollContainer.value) return
+  if (!scrollContainer.value) return;
   scrollContainer.value.scrollBy({
     left: 300,
-    behavior: 'smooth'
-  })
-}
+    behavior: "smooth",
+  });
+};
 
 // Watch for changes in trending tokens
-watch(trendingTokens, () => {
-  setTimeout(checkScroll, 100)
-}, { deep: true })
+watch(
+  trendingTokens,
+  () => {
+    setTimeout(checkScroll, 100);
+  },
+  { deep: true },
+);
 
 // Lifecycle hooks
 onMounted(() => {
-  loadTrendingTokens()
-  window.addEventListener('resize', checkScroll)
-})
-
+  loadTrendingTokens();
+  window.addEventListener("resize", checkScroll);
+});
 </script>
 
 <style scoped>
 .hover\:text-binance-yellow-dark:hover {
-  color: #F0B90B;
+  color: #f0b90b;
   filter: brightness(0.9);
 }
 
@@ -229,4 +259,4 @@ onMounted(() => {
   position: relative;
   scroll-behavior: smooth;
 }
-</style> 
+</style>
