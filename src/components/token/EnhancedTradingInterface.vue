@@ -428,20 +428,39 @@ const executeTrade = async () => {
 };
 
 const performTrade = async () => {
-  // TODO: Implement actual trading logic with Solana
-  // This would involve:
-  // 1. Creating transaction instruction
-  // 2. Signing with wallet
-  // 3. Waiting for confirmation
-
-  // Mock implementation for now
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  return {
-    type: tradeType.value,
-    amount: parseFloat(tradeAmount.value),
-    preview: tradePreview.value,
-  };
+  try {
+    const { realSolanaProgram } = await import('@/services/realSolanaProgram');
+    const { PublicKey } = await import('@solana/web3.js');
+    
+    const mintAddress = new PublicKey(props.token.mint_address);
+    const amount = parseFloat(tradeAmount.value);
+    
+    if (tradeType.value === 'buy') {
+      // Execute real buy transaction
+      const result = await realSolanaProgram.buyTokens(mintAddress, amount, 3);
+      return {
+        type: 'buy',
+        amount,
+        signature: result.signature,
+        tokensReceived: result.tokensTraded,
+        preview: tradePreview.value,
+      };
+    } else {
+      // Execute real sell transaction
+      const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, props.token.decimals || 9)));
+      const result = await realSolanaProgram.sellTokens(mintAddress, tokenAmount, 3);
+      return {
+        type: 'sell',
+        amount,
+        signature: result.signature,
+        solReceived: result.solAmount,
+        preview: tradePreview.value,
+      };
+    }
+  } catch (error) {
+    console.error('Trading error:', error);
+    throw error;
+  }
 };
 
 const loadTokenBalance = async () => {
