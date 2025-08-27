@@ -245,6 +245,7 @@ import {
 } from "@/services/realTimePriceService";
 import { config } from "@/config";
 import { solanaConfig } from "@/config/index";
+import { tokenBalanceCache } from "@/services/tokenBalanceCache";
 
 const route = useRoute();
 const router = useRouter();
@@ -522,6 +523,21 @@ const authenticateUserWithWallet = async () => {
     await authenticateForTrading();
 
     console.log("✅ User authenticated for trading and commenting");
+    
+    // 🔄 Load cached token balances after authentication
+    if (walletStore.walletAddress) {
+      try {
+        await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
+        console.log("✅ Loaded cached token balances after authentication");
+        
+        // Refresh current token balance from cache
+        if (token.value?.mint_address) {
+          await loadUserTokenBalance();
+        }
+      } catch (balanceError) {
+        console.error("❌ Failed to load cached balances:", balanceError);
+      }
+    }
   } catch (error) {
     console.error("❌ Failed to authenticate user:", error);
     // Show info message about authentication being optional for viewing
@@ -653,6 +669,27 @@ const handleTrade = async (tradeData: {
     await walletStore.updateBalance();
     console.log("💰 Wallet balance refreshed after trade");
 
+    // 🔄 Update token balance cache immediately after trade
+    if (walletStore.walletAddress && token.value?.mint_address) {
+      // Calculate new token balance based on trade type
+      let newTokenBalance = userTokenBalance.value;
+      if (type === "buy" && preview?.tokensReceived) {
+        newTokenBalance = userTokenBalance.value + preview.tokensReceived;
+      } else if (type === "sell") {
+        newTokenBalance = userTokenBalance.value - (amount / Math.pow(10, token.value?.decimals || 9));
+      }
+
+      // Update cache with new balance
+      tokenBalanceCache.updateBalanceAfterTrade(
+        walletStore.walletAddress,
+        token.value.mint_address,
+        Math.max(0, newTokenBalance), // Ensure non-negative
+        token.value?.decimals || 9
+      );
+
+      console.log("🔄 Token balance cache updated after trade:", newTokenBalance);
+    }
+
     console.log(`✅ ${type} transaction completed:`, signature);
   } catch (error: any) {
     console.error("❌ [TRADE] Trade failed:", error);
@@ -758,9 +795,9 @@ const loadTopHolders = async () => {
 };
 
 /**
- * Load user's token balance for trading
+ * Load user's token balance for trading (with caching)
  */
-const loadUserTokenBalance = async () => {
+const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
   if (
     !walletStore.isConnected ||
     !walletStore.walletAddress ||
@@ -771,27 +808,32 @@ const loadUserTokenBalance = async () => {
   }
 
   try {
-    console.log("📊 Loading user token balance from blockchain...");
-    const userPublicKey = new PublicKey(walletStore.walletAddress);
-    const mintPublicKey = new PublicKey(token.value.mint_address);
+    console.log("📊 Loading user token balance with caching...", {
+      forceRefresh,
+      walletAddress: walletStore.walletAddress.slice(0, 8) + "...",
+      tokenMint: token.value.mint_address.slice(0, 8) + "..."
+    });
 
-    // Use the new method from solanaProgram service
-    const balance = await solanaProgram.getUserTokenBalance(
-      mintPublicKey,
-      userPublicKey,
+    // Use cached balance service
+    const balance = await tokenBalanceCache.getBalance(
+      walletStore.walletAddress,
+      token.value.mint_address,
+      forceRefresh
     );
+
     userTokenBalanceRaw.value =
       balance * Math.pow(10, token.value?.decimals ?? 9); // ensure raw lamports
     tokenDecimals.value = token.value?.decimals ?? 9;
+    
     console.log(
-      "✅ User token balance loaded from blockchain:",
+      "✅ User token balance loaded with caching:",
       balance,
       "Decimals:",
       tokenDecimals.value,
     );
   } catch (error) {
     console.error(
-      "❌ Failed to load user token balance from blockchain:",
+      "❌ Failed to load user token balance with caching:",
       error,
     );
     userTokenBalanceRaw.value = 0; // Reset balance on error

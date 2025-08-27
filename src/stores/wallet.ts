@@ -7,6 +7,7 @@ import {
   formatSOL,
 } from "@/services/wallet";
 import type { WalletAdapter } from "@/services/wallet";
+import { tokenBalanceCache } from "@/services/tokenBalanceCache";
 
 // Enhanced wallet store using real wallet service
 export const useWalletStore = defineStore("wallet", () => {
@@ -64,6 +65,17 @@ export const useWalletStore = defineStore("wallet", () => {
     try {
       await walletService.connect(walletName);
       // State will be updated automatically via watchEffect
+      
+      // Load cached token balances after wallet connection
+      if (walletState.value.connected && walletState.value.publicKey) {
+        try {
+          const walletAddress = walletState.value.publicKey.toBase58();
+          await tokenBalanceCache.loadUserBalances(walletAddress);
+          console.log("✅ [WALLET STORE] Loaded cached token balances after connection");
+        } catch (balanceError) {
+          console.error("❌ [WALLET STORE] Failed to load cached balances:", balanceError);
+        }
+      }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
       throw error;
@@ -76,6 +88,13 @@ export const useWalletStore = defineStore("wallet", () => {
    */
   async function disconnectWallet() {
     try {
+      // Clear token balance cache before disconnecting
+      if (walletState.value.publicKey) {
+        const walletAddress = walletState.value.publicKey.toBase58();
+        tokenBalanceCache.clearWalletCache(walletAddress);
+        console.log("🗑️ [WALLET STORE] Cleared token balance cache for wallet");
+      }
+      
       await walletService.disconnect();
       // State will be updated automatically via watchEffect
     } catch (error) {
