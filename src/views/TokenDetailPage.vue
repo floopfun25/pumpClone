@@ -277,12 +277,8 @@ const isInWatchlist = ref(false);
 const watchlistLoading = ref(false);
 
 // User token balance (for trading)
-const userTokenBalanceRaw = ref(0);
+const userTokenBalance = ref(0); // Store human-readable balance directly
 const tokenDecimals = ref(9);
-const userTokenBalance = computed(() => {
-  // Always show human-readable balance
-  return userTokenBalanceRaw.value / Math.pow(10, tokenDecimals.value);
-});
 // Load token data on page mount
 onMounted(() => {
   loadPublicTokenData();
@@ -676,10 +672,12 @@ const handleTrade = async (tradeData: {
       if (type === "buy" && preview?.tokensReceived) {
         newTokenBalance = userTokenBalance.value + preview.tokensReceived;
       } else if (type === "sell") {
-        newTokenBalance = userTokenBalance.value - (amount / Math.pow(10, token.value?.decimals || 9));
+        // For sell, amount comes in base units (lamports) from trading interface, convert to human-readable
+        const humanReadableAmount = amount / Math.pow(10, token.value?.decimals || 9);
+        newTokenBalance = userTokenBalance.value - humanReadableAmount;
       }
 
-      // Update cache with new balance
+      // Update cache with new balance (human-readable)
       tokenBalanceCache.updateBalanceAfterTrade(
         walletStore.walletAddress,
         token.value.mint_address,
@@ -687,7 +685,16 @@ const handleTrade = async (tradeData: {
         token.value?.decimals || 9
       );
 
-      console.log("🔄 Token balance cache updated after trade:", newTokenBalance);
+      // Update local balance immediately for UI responsiveness
+      userTokenBalance.value = Math.max(0, newTokenBalance);
+
+      console.log("🔄 Token balance cache updated after trade:", {
+        tradeType: type,
+        oldBalance: userTokenBalance.value,
+        newBalance: newTokenBalance,
+        tokensReceived: preview?.tokensReceived,
+        amount: amount
+      });
     }
 
     console.log(`✅ ${type} transaction completed:`, signature);
@@ -803,7 +810,7 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
     !walletStore.walletAddress ||
     !token.value?.mint_address
   ) {
-    userTokenBalanceRaw.value = 0;
+    userTokenBalance.value = 0;
     return;
   }
 
@@ -814,21 +821,21 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
       tokenMint: token.value.mint_address.slice(0, 8) + "..."
     });
 
-    // Use cached balance service
+    // Use cached balance service - returns human-readable balance
     const balance = await tokenBalanceCache.getBalance(
       walletStore.walletAddress,
       token.value.mint_address,
       forceRefresh
     );
 
-    userTokenBalanceRaw.value =
-      balance * Math.pow(10, token.value?.decimals ?? 9); // ensure raw lamports
+    // Store the human-readable balance directly (no conversion needed)
+    userTokenBalance.value = balance;
     tokenDecimals.value = token.value?.decimals ?? 9;
     
     console.log(
       "✅ User token balance loaded with caching:",
       balance,
-      "Decimals:",
+      "tokens (human-readable), Decimals:",
       tokenDecimals.value,
     );
   } catch (error) {
@@ -836,7 +843,7 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
       "❌ Failed to load user token balance with caching:",
       error,
     );
-    userTokenBalanceRaw.value = 0; // Reset balance on error
+    userTokenBalance.value = 0; // Reset balance on error
   }
 };
 
@@ -921,7 +928,7 @@ const loadPrivateUserData = async () => {
     console.log(
       "ℹ️ Skipping private data load: user not authenticated or no token ID.",
     );
-    userTokenBalanceRaw.value = 0;
+    userTokenBalance.value = 0;
     topHolders.value = [];
     isInWatchlist.value = false;
     return;
