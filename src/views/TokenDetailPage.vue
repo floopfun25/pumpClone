@@ -282,24 +282,27 @@ const tokenDecimals = ref(9);
 // Load token data on page mount
 onMounted(async () => {
   await loadPublicTokenData();
-  
+
   // Load cached balances if wallet is already connected
   if (walletStore.isConnected && walletStore.walletAddress) {
     try {
       // Clear any fake cached balances before loading
       tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
       console.log("🗑️ [MOUNT] Cleared fake cached balances");
-      
+
       await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
       console.log("✅ [MOUNT] Loaded cached balances on mount");
-      
+
       // Load current token balance if token is available - FORCE REFRESH to get real blockchain data
       if (token.value?.mint_address) {
         await loadUserTokenBalance(true); // Force refresh from blockchain
         console.log("🔄 [MOUNT] Forced fresh balance load from blockchain");
       }
     } catch (error) {
-      console.error("❌ [MOUNT] Failed to load cached balances on mount:", error);
+      console.error(
+        "❌ [MOUNT] Failed to load cached balances on mount:",
+        error,
+      );
     }
   }
 });
@@ -313,18 +316,22 @@ watch(
         // Clear fake balances first
         tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
         console.log("🗑️ [WALLET WATCH] Cleared fake cached balances");
-        
+
         await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
         await loadUserTokenBalance(true); // Force refresh from blockchain
-        console.log("✅ [WALLET WATCH] Loaded fresh balances from blockchain after wallet connection");
+        console.log(
+          "✅ [WALLET WATCH] Loaded fresh balances from blockchain after wallet connection",
+        );
       } catch (error) {
         console.error("❌ [WALLET WATCH] Failed to load balances:", error);
       }
     } else if (!isConnected) {
       userTokenBalance.value = 0;
-      console.log("🔄 [WALLET WATCH] Cleared balance after wallet disconnection");
+      console.log(
+        "🔄 [WALLET WATCH] Cleared balance after wallet disconnection",
+      );
     }
-  }
+  },
 );
 
 // Watch for token loading to trigger balance loading
@@ -336,14 +343,16 @@ watch(
         // Clear fake balances before loading real balance
         tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
         console.log("🗑️ [TOKEN WATCH] Cleared fake cached balances for token");
-        
+
         await loadUserTokenBalance(true); // Force refresh from blockchain
-        console.log("✅ [TOKEN WATCH] Loaded fresh balance from blockchain after token loaded");
+        console.log(
+          "✅ [TOKEN WATCH] Loaded fresh balance from blockchain after token loaded",
+        );
       } catch (error) {
         console.error("❌ [TOKEN WATCH] Failed to load balance:", error);
       }
     }
-  }
+  },
 );
 
 // Debug watcher for chart rendering
@@ -581,13 +590,13 @@ const authenticateUserWithWallet = async () => {
     await authenticateForTrading();
 
     console.log("✅ User authenticated for trading and commenting");
-    
+
     // 🔄 Load cached token balances after authentication
     if (walletStore.walletAddress) {
       try {
         await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
         console.log("✅ Loaded cached token balances after authentication");
-        
+
         // Refresh current token balance from cache
         if (token.value?.mint_address) {
           await loadUserTokenBalance();
@@ -732,14 +741,24 @@ const handleTrade = async (tradeData: {
       try {
         // Force refresh balance from blockchain to get real updated balance
         await loadUserTokenBalance(true);
-        console.log("✅ Token balance refreshed from blockchain after", type, "transaction");
+        console.log(
+          "✅ Token balance refreshed from blockchain after",
+          type,
+          "transaction",
+        );
       } catch (balanceError) {
-        console.error("❌ Failed to refresh balance after trade:", balanceError);
+        console.error(
+          "❌ Failed to refresh balance after trade:",
+          balanceError,
+        );
         // Try again without force refresh (use cache if available)
         try {
           await loadUserTokenBalance(false);
         } catch (fallbackError) {
-          console.error("❌ Balance refresh fallback also failed:", fallbackError);
+          console.error(
+            "❌ Balance refresh fallback also failed:",
+            fallbackError,
+          );
         }
       }
     }
@@ -865,20 +884,20 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
     console.log("📊 Loading user token balance with caching...", {
       forceRefresh,
       walletAddress: walletStore.walletAddress.slice(0, 8) + "...",
-      tokenMint: token.value.mint_address.slice(0, 8) + "..."
+      tokenMint: token.value.mint_address.slice(0, 8) + "...",
     });
 
     // Use cached balance service - returns human-readable balance
     const balance = await tokenBalanceCache.getBalance(
       walletStore.walletAddress,
       token.value.mint_address,
-      forceRefresh
+      forceRefresh,
     );
 
     // Store the human-readable balance directly (no conversion needed)
     userTokenBalance.value = balance;
     tokenDecimals.value = token.value?.decimals ?? 9;
-    
+
     console.log(
       "✅ User token balance loaded with caching:",
       balance,
@@ -886,10 +905,7 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
       tokenDecimals.value,
     );
   } catch (error) {
-    console.error(
-      "❌ Failed to load user token balance with caching:",
-      error,
-    );
+    console.error("❌ Failed to load user token balance with caching:", error);
     userTokenBalance.value = 0; // Reset balance on error
   }
 };

@@ -33,11 +33,11 @@ class TokenBalanceCacheService {
   private localCache: LocalBalanceCache = {};
   private cacheKey = "token_balance_cache";
   private syncInProgress = new Set<string>();
-  
+
   // Cache expiry times (in milliseconds)
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes for normal cache
   private readonly STALE_TTL = 30 * 60 * 1000; // 30 minutes before marking stale
-  
+
   constructor() {
     this.loadFromLocalStorage();
   }
@@ -57,10 +57,17 @@ class TokenBalanceCacheService {
       const cached = localStorage.getItem(this.cacheKey);
       if (cached) {
         this.localCache = JSON.parse(cached);
-        console.log("🔄 [BALANCE CACHE] Loaded from localStorage:", Object.keys(this.localCache).length, "entries");
+        console.log(
+          "🔄 [BALANCE CACHE] Loaded from localStorage:",
+          Object.keys(this.localCache).length,
+          "entries",
+        );
       }
     } catch (error) {
-      console.error("❌ [BALANCE CACHE] Failed to load from localStorage:", error);
+      console.error(
+        "❌ [BALANCE CACHE] Failed to load from localStorage:",
+        error,
+      );
       this.localCache = {};
     }
   }
@@ -72,7 +79,10 @@ class TokenBalanceCacheService {
     try {
       localStorage.setItem(this.cacheKey, JSON.stringify(this.localCache));
     } catch (error) {
-      console.error("❌ [BALANCE CACHE] Failed to save to localStorage:", error);
+      console.error(
+        "❌ [BALANCE CACHE] Failed to save to localStorage:",
+        error,
+      );
     }
   }
 
@@ -100,7 +110,7 @@ class TokenBalanceCacheService {
   async getBalance(
     walletAddress: string,
     tokenMint: string,
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
   ): Promise<number> {
     const cacheKey = this.getCacheKey(walletAddress, tokenMint);
     const cached = this.localCache[cacheKey];
@@ -110,7 +120,7 @@ class TokenBalanceCacheService {
       tokenMint: tokenMint.slice(0, 8) + "...",
       hasCached: !!cached,
       isExpired: cached ? this.isExpired(cached) : false,
-      forceRefresh
+      forceRefresh,
     });
 
     // Return cached balance if valid and not expired
@@ -122,8 +132,11 @@ class TokenBalanceCacheService {
         // Async refresh in background
         this.syncFromBlockchain(walletAddress, tokenMint).catch(console.error);
       }
-      
-      console.log("✅ [BALANCE CACHE] Returning cached balance:", cached.balance);
+
+      console.log(
+        "✅ [BALANCE CACHE] Returning cached balance:",
+        cached.balance,
+      );
       return cached.balance;
     }
 
@@ -136,7 +149,7 @@ class TokenBalanceCacheService {
    */
   async syncFromBlockchain(
     walletAddress: string,
-    tokenMint: string
+    tokenMint: string,
   ): Promise<number> {
     const cacheKey = this.getCacheKey(walletAddress, tokenMint);
 
@@ -145,7 +158,7 @@ class TokenBalanceCacheService {
       console.log("⏳ [BALANCE CACHE] Sync already in progress for:", cacheKey);
       // Wait for existing sync to complete
       while (this.syncInProgress.has(cacheKey)) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
       // Return cached value after sync completes
       const cached = this.localCache[cacheKey];
@@ -157,16 +170,16 @@ class TokenBalanceCacheService {
     try {
       console.log("🔄 [BALANCE CACHE] Syncing from blockchain:", {
         walletAddress: walletAddress.slice(0, 8) + "...",
-        tokenMint: tokenMint.slice(0, 8) + "..."
+        tokenMint: tokenMint.slice(0, 8) + "...",
       });
 
       // Get balance from blockchain
       const userPublicKey = new PublicKey(walletAddress);
       const mintPublicKey = new PublicKey(tokenMint);
-      
+
       const balance = await solanaProgram.getUserTokenBalance(
         mintPublicKey,
-        userPublicKey
+        userPublicKey,
       );
 
       // Get token decimals (assume 9 for now, could be fetched)
@@ -180,7 +193,7 @@ class TokenBalanceCacheService {
         decimals,
         lastUpdated: now,
         lastSynced: now,
-        isStale: false
+        isStale: false,
       };
 
       // Update local cache
@@ -188,16 +201,21 @@ class TokenBalanceCacheService {
       this.saveToLocalStorage();
 
       // Update database cache (async, don't wait)
-      this.saveToDatabase(entry).catch(error => 
-        console.error("❌ [BALANCE CACHE] Failed to save to database:", error)
+      this.saveToDatabase(entry).catch((error) =>
+        console.error("❌ [BALANCE CACHE] Failed to save to database:", error),
       );
 
-      console.log("✅ [BALANCE CACHE] Synced balance from blockchain:", balance);
+      console.log(
+        "✅ [BALANCE CACHE] Synced balance from blockchain:",
+        balance,
+      );
       return balance;
-
     } catch (error) {
-      console.error("❌ [BALANCE CACHE] Failed to sync from blockchain:", error);
-      
+      console.error(
+        "❌ [BALANCE CACHE] Failed to sync from blockchain:",
+        error,
+      );
+
       // Try to get from database as fallback
       try {
         const dbBalance = await this.getFromDatabase(walletAddress, tokenMint);
@@ -212,7 +230,6 @@ class TokenBalanceCacheService {
       // Return cached balance if available, otherwise 0
       const cached = this.localCache[cacheKey];
       return cached?.balance || 0;
-
     } finally {
       this.syncInProgress.delete(cacheKey);
     }
@@ -225,7 +242,7 @@ class TokenBalanceCacheService {
     walletAddress: string,
     tokenMint: string,
     newBalance: number,
-    decimals: number = 9
+    decimals: number = 9,
   ): void {
     const cacheKey = this.getCacheKey(walletAddress, tokenMint);
     const now = new Date().toISOString();
@@ -237,7 +254,7 @@ class TokenBalanceCacheService {
       decimals,
       lastUpdated: now,
       lastSynced: now, // Mark as synced since this is from a confirmed transaction
-      isStale: false
+      isStale: false,
     };
 
     this.localCache[cacheKey] = entry;
@@ -246,12 +263,15 @@ class TokenBalanceCacheService {
     console.log("✅ [BALANCE CACHE] Updated balance after trade:", {
       walletAddress: walletAddress.slice(0, 8) + "...",
       tokenMint: tokenMint.slice(0, 8) + "...",
-      newBalance
+      newBalance,
     });
 
     // Update database cache (async)
-    this.saveToDatabase(entry).catch(error => 
-      console.error("❌ [BALANCE CACHE] Failed to save trade update to database:", error)
+    this.saveToDatabase(entry).catch((error) =>
+      console.error(
+        "❌ [BALANCE CACHE] Failed to save trade update to database:",
+        error,
+      ),
     );
   }
 
@@ -261,9 +281,13 @@ class TokenBalanceCacheService {
   private async saveToDatabase(entry: TokenBalanceEntry): Promise<void> {
     try {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        console.warn("⚠️ [BALANCE CACHE] No authenticated user for database save");
+        console.warn(
+          "⚠️ [BALANCE CACHE] No authenticated user for database save",
+        );
         return;
       }
 
@@ -274,13 +298,13 @@ class TokenBalanceCacheService {
         decimals: entry.decimals,
         last_updated: entry.lastUpdated,
         last_synced: entry.lastSynced,
-        is_stale: entry.isStale
+        is_stale: entry.isStale,
       };
 
       const { error } = await supabase
         .from("user_token_balances")
         .upsert(dbEntry, {
-          onConflict: "user_id,token_mint"
+          onConflict: "user_id,token_mint",
         });
 
       if (error) {
@@ -299,10 +323,12 @@ class TokenBalanceCacheService {
    */
   private async getFromDatabase(
     walletAddress: string,
-    tokenMint: string
+    tokenMint: string,
   ): Promise<number | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         return null;
       }
@@ -327,7 +353,7 @@ class TokenBalanceCacheService {
         decimals: data.decimals,
         lastUpdated: data.last_updated,
         lastSynced: data.last_synced,
-        isStale: data.is_stale
+        isStale: data.is_stale,
       };
       this.saveToLocalStorage();
 
@@ -343,7 +369,9 @@ class TokenBalanceCacheService {
    */
   async loadUserBalances(walletAddress: string): Promise<void> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         return;
       }
@@ -358,7 +386,11 @@ class TokenBalanceCacheService {
       }
 
       if (data && data.length > 0) {
-        console.log("🔄 [BALANCE CACHE] Loading user balances from database:", data.length, "tokens");
+        console.log(
+          "🔄 [BALANCE CACHE] Loading user balances from database:",
+          data.length,
+          "tokens",
+        );
 
         for (const dbEntry of data) {
           const cacheKey = this.getCacheKey(walletAddress, dbEntry.token_mint);
@@ -369,7 +401,7 @@ class TokenBalanceCacheService {
             decimals: dbEntry.decimals,
             lastUpdated: dbEntry.last_updated,
             lastSynced: dbEntry.last_synced,
-            isStale: dbEntry.is_stale
+            isStale: dbEntry.is_stale,
           };
         }
 
@@ -385,15 +417,19 @@ class TokenBalanceCacheService {
    * Clear cache for wallet address
    */
   clearWalletCache(walletAddress: string): void {
-    const keysToDelete = Object.keys(this.localCache)
-      .filter(key => key.startsWith(`${walletAddress}:`));
-    
+    const keysToDelete = Object.keys(this.localCache).filter((key) =>
+      key.startsWith(`${walletAddress}:`),
+    );
+
     for (const key of keysToDelete) {
       delete this.localCache[key];
     }
-    
+
     this.saveToLocalStorage();
-    console.log("🗑️ [BALANCE CACHE] Cleared cache for wallet:", walletAddress.slice(0, 8) + "...");
+    console.log(
+      "🗑️ [BALANCE CACHE] Cleared cache for wallet:",
+      walletAddress.slice(0, 8) + "...",
+    );
   }
 
   /**
@@ -401,7 +437,7 @@ class TokenBalanceCacheService {
    */
   clearFakeBalances(walletAddress: string): void {
     const keysToDelete: string[] = [];
-    
+
     Object.entries(this.localCache).forEach(([key, entry]) => {
       if (key.startsWith(`${walletAddress}:`)) {
         // Clear entries with obviously fake balances (like 1 billion tokens)
@@ -410,19 +446,23 @@ class TokenBalanceCacheService {
           console.log("🗑️ [BALANCE CACHE] Marking fake balance for deletion:", {
             key,
             balance: entry.balance,
-            tokenMint: entry.tokenMint.slice(0, 8) + "..."
+            tokenMint: entry.tokenMint.slice(0, 8) + "...",
           });
         }
       }
     });
-    
+
     for (const key of keysToDelete) {
       delete this.localCache[key];
     }
-    
+
     if (keysToDelete.length > 0) {
       this.saveToLocalStorage();
-      console.log("🗑️ [BALANCE CACHE] Cleared", keysToDelete.length, "fake balance entries");
+      console.log(
+        "🗑️ [BALANCE CACHE] Cleared",
+        keysToDelete.length,
+        "fake balance entries",
+      );
     }
   }
 
@@ -443,8 +483,8 @@ class TokenBalanceCacheService {
     const entries = Object.values(this.localCache);
     return {
       total: entries.length,
-      stale: entries.filter(e => e.isStale).length,
-      expired: entries.filter(e => this.isExpired(e)).length
+      stale: entries.filter((e) => e.isStale).length,
+      expired: entries.filter((e) => this.isExpired(e)).length,
     };
   }
 }

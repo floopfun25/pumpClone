@@ -65,15 +65,20 @@ export const useWalletStore = defineStore("wallet", () => {
     try {
       await walletService.connect(walletName);
       // State will be updated automatically via watchEffect
-      
+
       // Load cached token balances after wallet connection
       if (walletState.value.connected && walletState.value.publicKey) {
         try {
           const walletAddress = walletState.value.publicKey.toBase58();
           await tokenBalanceCache.loadUserBalances(walletAddress);
-          console.log("✅ [WALLET STORE] Loaded cached token balances after connection");
+          console.log(
+            "✅ [WALLET STORE] Loaded cached token balances after connection",
+          );
         } catch (balanceError) {
-          console.error("❌ [WALLET STORE] Failed to load cached balances:", balanceError);
+          console.error(
+            "❌ [WALLET STORE] Failed to load cached balances:",
+            balanceError,
+          );
         }
       }
     } catch (error) {
@@ -94,7 +99,7 @@ export const useWalletStore = defineStore("wallet", () => {
         tokenBalanceCache.clearWalletCache(walletAddress);
         console.log("🗑️ [WALLET STORE] Cleared token balance cache for wallet");
       }
-      
+
       await walletService.disconnect();
       // State will be updated automatically via watchEffect
     } catch (error) {

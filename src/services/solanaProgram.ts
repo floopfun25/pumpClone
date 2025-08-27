@@ -135,21 +135,21 @@ export class SolanaProgram {
     // Import and use the proper bonding curve program
     const { BondingCurveProgram } = await import("./bondingCurveProgram");
     const bondingCurveProgram = new BondingCurveProgram();
-    
+
     try {
       const result = await bondingCurveProgram.sellTokens(
         mintAddress,
         BigInt(tokenAmount),
-        slippagePercent
+        slippagePercent,
       );
-      
+
       console.log("✅ [BONDING CURVE] Sell completed:", {
         signature: result.signature,
         tokensTraded: result.tokensTraded.toString(),
         newPrice: result.newPrice,
-        marketCap: result.marketCap
+        marketCap: result.marketCap,
       });
-      
+
       return result.signature;
     } catch (error) {
       console.error("❌ [BONDING CURVE] Sell failed:", error);
@@ -410,8 +410,12 @@ export class SolanaProgram {
     console.log("💳 [TX] Fee wallet:", this.feeWallet.toBase58());
 
     // Use the proper bonding curve program instead of direct SPL token operations
-    console.error("❌ [ERROR] This function should not be used! Use BondingCurveProgram.buyTokens() instead.");
-    throw new Error("Deprecated: Use BondingCurveProgram.buyTokens() for real bonding curve transactions");
+    console.error(
+      "❌ [ERROR] This function should not be used! Use BondingCurveProgram.buyTokens() instead.",
+    );
+    throw new Error(
+      "Deprecated: Use BondingCurveProgram.buyTokens() for real bonding curve transactions",
+    );
 
     // Transfer treasury amount (99% of trade) to treasury wallet
     instructions.push(
@@ -493,21 +497,21 @@ export class SolanaProgram {
     // Import and use the proper bonding curve program
     const { BondingCurveProgram } = await import("./bondingCurveProgram");
     const bondingCurveProgram = new BondingCurveProgram();
-    
+
     try {
       const result = await bondingCurveProgram.buyTokens(
         mintAddress,
         solAmount,
-        slippagePercent
+        slippagePercent,
       );
-      
+
       console.log("✅ [BONDING CURVE] Buy completed:", {
         signature: result.signature,
         tokensTraded: result.tokensTraded.toString(),
         newPrice: result.newPrice,
-        marketCap: result.marketCap
+        marketCap: result.marketCap,
       });
-      
+
       return result.signature;
     } catch (error) {
       console.error("❌ [BONDING CURVE] Buy failed:", error);
@@ -557,45 +561,47 @@ export class SolanaProgram {
   ): Promise<number> {
     try {
       const { getAccount } = await import("@solana/spl-token");
-      
+
       const tokenAccount = await getAssociatedTokenAddress(
         mintAddress,
         userPublicKey,
       );
-      
+
       // Use proper SPL Token library to get account info
       const account = await getAccount(this.connection, tokenAccount);
-      
+
       // Get token decimals from mint info
       const mintInfo = await this.connection.getParsedAccountInfo(mintAddress);
       let decimals = 9; // Default
-      
+
       const mintData = mintInfo?.value?.data;
       if (mintData && typeof mintData === "object" && "parsed" in mintData) {
         decimals = mintData.parsed?.info?.decimals || 9;
       }
-      
+
       // Convert from smallest units to human-readable
       const balance = Number(account.amount) / Math.pow(10, decimals);
-      
+
       console.log("🔍 [BALANCE] Real blockchain balance:", {
         tokenAccount: tokenAccount.toBase58(),
         rawAmount: account.amount.toString(),
         decimals,
-        humanReadableBalance: balance
+        humanReadableBalance: balance,
       });
-      
+
       return balance;
     } catch (error) {
       console.error("❌ [BALANCE] Failed to get user token balance:", error);
-      
+
       // If token account doesn't exist, balance is 0
-      if (error.message?.includes("TokenAccountNotFoundError") || 
-          error.message?.includes("Account does not exist")) {
+      if (
+        error.message?.includes("TokenAccountNotFoundError") ||
+        error.message?.includes("Account does not exist")
+      ) {
         console.log("ℹ️ [BALANCE] Token account doesn't exist, balance is 0");
         return 0;
       }
-      
+
       return 0;
     }
   }
