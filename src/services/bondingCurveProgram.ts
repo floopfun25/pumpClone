@@ -11,6 +11,7 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
   SYSVAR_RENT_PUBKEY,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -190,6 +191,14 @@ export class BondingCurveProgram {
         PROGRAM_ID,
       );
 
+      // Check if bonding curve account exists, initialize if not
+      const accountInfo = await this.connection.getAccountInfo(bondingCurveAccount);
+      if (!accountInfo) {
+        console.log("🏗️ [BUY] Bonding curve not initialized, initializing now...");
+        await this.initializeBondingCurve(mintAddress);
+        console.log("✅ [BUY] Bonding curve initialized successfully");
+      }
+
       // Get or create associated token account for buyer
       const buyerTokenAccount = await getAssociatedTokenAddress(
         mintAddress,
@@ -223,10 +232,22 @@ export class BondingCurveProgram {
 
       const transaction = new Transaction();
 
+      // Add compute budget instructions
+      transaction.add(
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: 200_000,
+        })
+      );
+      transaction.add(
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: 1000,
+        })
+      );
+
       // Check if token account exists, create if not
-      try {
-        await this.connection.getAccountInfo(buyerTokenAccount);
-      } catch {
+      const tokenAccountInfo = await this.connection.getAccountInfo(buyerTokenAccount);
+      if (!tokenAccountInfo) {
+        console.log("🏗️ [BUY] Creating associated token account...");
         const createTokenAccountIx = createAssociatedTokenAccountInstruction(
           buyer,
           buyerTokenAccount,
