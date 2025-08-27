@@ -286,12 +286,17 @@ onMounted(async () => {
   // Load cached balances if wallet is already connected
   if (walletStore.isConnected && walletStore.walletAddress) {
     try {
+      // Clear any fake cached balances before loading
+      tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
+      console.log("🗑️ [MOUNT] Cleared fake cached balances");
+      
       await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
       console.log("✅ [MOUNT] Loaded cached balances on mount");
       
-      // Load current token balance if token is available
+      // Load current token balance if token is available - FORCE REFRESH to get real blockchain data
       if (token.value?.mint_address) {
-        await loadUserTokenBalance();
+        await loadUserTokenBalance(true); // Force refresh from blockchain
+        console.log("🔄 [MOUNT] Forced fresh balance load from blockchain");
       }
     } catch (error) {
       console.error("❌ [MOUNT] Failed to load cached balances on mount:", error);
@@ -305,9 +310,13 @@ watch(
   async (isConnected) => {
     if (isConnected && walletStore.walletAddress && token.value?.mint_address) {
       try {
+        // Clear fake balances first
+        tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
+        console.log("🗑️ [WALLET WATCH] Cleared fake cached balances");
+        
         await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
-        await loadUserTokenBalance();
-        console.log("✅ [WALLET WATCH] Loaded balances after wallet connection");
+        await loadUserTokenBalance(true); // Force refresh from blockchain
+        console.log("✅ [WALLET WATCH] Loaded fresh balances from blockchain after wallet connection");
       } catch (error) {
         console.error("❌ [WALLET WATCH] Failed to load balances:", error);
       }
@@ -324,8 +333,12 @@ watch(
   async (mintAddress) => {
     if (mintAddress && walletStore.isConnected && walletStore.walletAddress) {
       try {
-        await loadUserTokenBalance();
-        console.log("✅ [TOKEN WATCH] Loaded balance after token loaded");
+        // Clear fake balances before loading real balance
+        tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
+        console.log("🗑️ [TOKEN WATCH] Cleared fake cached balances for token");
+        
+        await loadUserTokenBalance(true); // Force refresh from blockchain
+        console.log("✅ [TOKEN WATCH] Loaded fresh balance from blockchain after token loaded");
       } catch (error) {
         console.error("❌ [TOKEN WATCH] Failed to load balance:", error);
       }

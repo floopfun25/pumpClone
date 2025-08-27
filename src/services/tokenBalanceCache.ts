@@ -397,6 +397,36 @@ class TokenBalanceCacheService {
   }
 
   /**
+   * Clear fake/stale cache entries with unrealistic balances
+   */
+  clearFakeBalances(walletAddress: string): void {
+    const keysToDelete: string[] = [];
+    
+    Object.entries(this.localCache).forEach(([key, entry]) => {
+      if (key.startsWith(`${walletAddress}:`)) {
+        // Clear entries with obviously fake balances (like 1 billion tokens)
+        if (entry.balance >= 1000000000) {
+          keysToDelete.push(key);
+          console.log("🗑️ [BALANCE CACHE] Marking fake balance for deletion:", {
+            key,
+            balance: entry.balance,
+            tokenMint: entry.tokenMint.slice(0, 8) + "..."
+          });
+        }
+      }
+    });
+    
+    for (const key of keysToDelete) {
+      delete this.localCache[key];
+    }
+    
+    if (keysToDelete.length > 0) {
+      this.saveToLocalStorage();
+      console.log("🗑️ [BALANCE CACHE] Cleared", keysToDelete.length, "fake balance entries");
+    }
+  }
+
+  /**
    * Clear all cache
    */
   clearAllCache(): void {
