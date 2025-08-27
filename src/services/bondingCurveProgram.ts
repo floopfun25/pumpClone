@@ -24,7 +24,7 @@ import * as borsh from "borsh";
 
 // Program ID for your deployed bonding curve program
 const PROGRAM_ID = new PublicKey(
-  "Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY",
+  "Bucwy8sKVrTzjaQS1RkPLu9tA4ySUuhLKgj1C8B4WpSm",
 );
 
 // Instruction discriminators (based on Anchor IDL)
