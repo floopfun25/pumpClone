@@ -125,79 +125,38 @@ export class SolanaProgram {
     tokenAmount: number,
     slippagePercent: number = tradingConfig.slippageToleranceDefault,
   ): Promise<string> {
-    console.log("💰 [SELL] Starting sell transaction...");
+    console.log("🔄 [SELL] Redirecting to proper bonding curve program...");
     console.log("📊 [SELL] Parameters:", {
       mintAddress: mintAddress.toBase58(),
       tokenAmount,
       slippagePercent,
     });
 
-    const authStore = useAuthStore();
-    if (!authStore.isAuthenticated || !authStore.user?.id) {
-      throw new Error(
-        "User not authenticated. Please connect and sign in with your wallet.",
+    // Import and use the proper bonding curve program
+    const { BondingCurveProgram } = await import("./bondingCurveProgram");
+    const bondingCurveProgram = new BondingCurveProgram();
+    
+    try {
+      const result = await bondingCurveProgram.sellTokens(
+        mintAddress,
+        BigInt(tokenAmount),
+        slippagePercent
       );
+      
+      console.log("✅ [BONDING CURVE] Sell completed:", {
+        signature: result.signature,
+        tokensTraded: result.tokensTraded.toString(),
+        newPrice: result.newPrice,
+        marketCap: result.marketCap
+      });
+      
+      return result.signature;
+    } catch (error) {
+      console.error("❌ [BONDING CURVE] Sell failed:", error);
+      throw error;
     }
-    const actualUserId = authStore.user.id;
-    console.log(
-      "✅ [SELL] Proceeding with consistent user ID from auth store:",
-      actualUserId,
-    );
-
-    if (!walletService.connected || !walletService.publicKey) {
-      throw new Error("Wallet not connected");
-    }
-
-    // Fetch token decimals dynamically from mint
-    const mintInfo = await this.connection.getParsedAccountInfo(mintAddress);
-    let decimals = 9; // Default SPL token decimals
-    const data = mintInfo?.value?.data;
-    if (
-      data &&
-      typeof data === "object" &&
-      "parsed" in data &&
-      data.parsed?.info?.decimals !== undefined
-    ) {
-      decimals = data.parsed.info.decimals;
-    }
-
-    // Validate trade amount
-    const tokenAmountBigInt = BigInt(
-      Math.floor(tokenAmount * Math.pow(10, decimals)),
-    );
-    if (tokenAmountBigInt < BigInt(tradingConfig.minTradeAmount)) {
-      throw new Error(
-        `Minimum trade amount is ${tradingConfig.minTradeAmount / Math.pow(10, decimals)} tokens`,
-      );
-    }
-    // Removed maxTradeAmount restriction
-
-    // Get the most up-to-date bonding curve state
-    let bondingCurve = await this.getBondingCurveAccount(mintAddress);
-    if (!bondingCurve) {
-      bondingCurve = await this.getBondingCurveFromDatabase(
-        mintAddress.toBase58(),
-      );
-    }
-    if (!bondingCurve) {
-      throw new Error("Bonding curve state could not be determined.");
-    }
-    if (bondingCurve.graduated) {
-      throw new Error("This token has graduated and can only be traded on DEX");
-    }
-
-    // Calculate expected SOL with slippage protection
-    const k =
-      bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves;
-    const newTokenReserves =
-      bondingCurve.virtualTokenReserves + tokenAmountBigInt;
-    const newSolReserves = k / newTokenReserves;
-    const solOut = bondingCurve.virtualSolReserves - newSolReserves;
-    const slippageFactor = (100 - slippagePercent) / 100;
-    const minSolReceived = BigInt(Math.floor(Number(solOut) * slippageFactor));
-
-    // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
-    const sellInstructions = await this.createSellInstruction(
+  }
+  private connection: Connection;
       mintAddress,
       walletService.publicKey,
       tokenAmountBigInt,
@@ -487,43 +446,9 @@ export class SolanaProgram {
     );
     console.log("💳 [TX] Fee wallet:", this.feeWallet.toBase58());
 
-    // TEMP FIX: Since the bonding curve program isn't implemented yet,
-    // we'll simulate token purchase by minting tokens directly to the buyer
-    // This should be replaced with actual bonding curve program calls
-    
-    console.warn("⚠️ [WARNING] Using temporary token minting - replace with bonding curve program");
-    
-    // Calculate tokens to receive based on bonding curve math
-    // This should match the calculation done before calling this function
-    const tokensToReceive = Number(minTokensReceived);
-    
-    console.log(
-      "🪙 [TX] Tokens to mint:",
-      tokensToReceive / Math.pow(10, 9), // Convert from lamports to tokens
-      "tokens",
-    );
-
-    // Import token program instructions
-    const { createMintToInstruction, getAccount } = await import("@solana/spl-token");
-    
-    // For now, we'll mint tokens directly (THIS IS A TEMPORARY SOLUTION)
-    // In production, this should be done through the bonding curve program
-    try {
-      // Mint tokens to buyer's token account
-      instructions.push(
-        createMintToInstruction(
-          mintAddress, // mint
-          buyerTokenAccount, // destination
-          new PublicKey(platformConfig.authority), // authority (should be bonding curve PDA)
-          BigInt(tokensToReceive), // amount in smallest units
-        )
-      );
-      
-      console.log("✅ [TX] Added token mint instruction:", tokensToReceive / Math.pow(10, 9), "tokens");
-    } catch (error) {
-      console.error("❌ [TX] Failed to create mint instruction:", error);
-      // Fallback: just do the SOL transfers (current behavior)
-    }
+    // Use the proper bonding curve program instead of direct SPL token operations
+    console.error("❌ [ERROR] This function should not be used! Use BondingCurveProgram.buyTokens() instead.");
+    throw new Error("Deprecated: Use BondingCurveProgram.buyTokens() for real bonding curve transactions");
 
     // Transfer treasury amount (99% of trade) to treasury wallet
     instructions.push(
@@ -595,148 +520,36 @@ export class SolanaProgram {
     solAmount: number,
     slippagePercent: number = tradingConfig.slippageToleranceDefault,
   ): Promise<string> {
-    console.log("💰 [BUY] Starting buy transaction...");
+    console.log("🔄 [BUY] Redirecting to proper bonding curve program...");
     console.log("📊 [BUY] Parameters:", {
       mintAddress: mintAddress.toBase58(),
       solAmount,
       slippagePercent,
     });
 
-    // Get the authenticated user ID from the centralized auth store.
-    // This store is responsible for handling all authentication and state consistency.
-    const authStore = useAuthStore();
-    if (!authStore.isAuthenticated || !authStore.user?.id) {
-      // The UI should prevent this, but as a safeguard:
-      throw new Error(
-        "User not authenticated. Please connect and sign in with your wallet.",
-      );
-    }
-    const actualUserId = authStore.user.id;
-    console.log(
-      "✅ [BUY] Proceeding with consistent user ID from auth store:",
-      actualUserId,
-    );
-
-    if (!walletService.connected || !walletService.publicKey) {
-      throw new Error("Wallet not connected");
-    }
-
-    // Validate trade amount
-    const solAmountLamports = BigInt(Math.floor(solAmount * LAMPORTS_PER_SOL));
-    if (solAmountLamports < BigInt(tradingConfig.minTradeAmount)) {
-      throw new Error(
-        `Minimum trade amount is ${tradingConfig.minTradeAmount / LAMPORTS_PER_SOL} SOL`,
-      );
-    }
-    // Removed maxTradeAmount restriction
-
-    // Get the most up-to-date bonding curve state directly from the blockchain for a real trade.
-    let bondingCurve = await this.getBondingCurveAccount(mintAddress);
-    let needsInit = false;
-    if (!bondingCurve) {
-      bondingCurve = await this.getBondingCurveFromDatabase(
-        mintAddress.toBase58(),
-      );
-      if (!bondingCurve) {
-        needsInit = true;
-      }
-    }
-
-    // Graduation check
-    if (bondingCurve && bondingCurve.graduated) {
-      throw new Error("This token has graduated and can only be traded on DEX");
-    }
-
-    // Declare output variables for use throughout function
-    let tokensOut: bigint = BigInt(0);
-    let minTokensReceived: bigint = BigInt(0);
-
-    // Calculate expected tokens with slippage protection
-    if (needsInit) {
-      const k =
-        BigInt(bondingCurveConfig.initialVirtualSolReserves) *
-        BigInt(bondingCurveConfig.initialVirtualTokenReserves);
-      const newSolReserves =
-        BigInt(bondingCurveConfig.initialVirtualSolReserves) +
-        solAmountLamports;
-      const newTokenReserves = k / newSolReserves;
-      tokensOut =
-        BigInt(bondingCurveConfig.initialVirtualTokenReserves) -
-        newTokenReserves;
-      const slippageFactor = (100 - slippagePercent) / 100;
-      minTokensReceived = BigInt(
-        Math.floor(Number(tokensOut) * slippageFactor),
-      );
-    } else if (bondingCurve) {
-      const k =
-        bondingCurve.virtualSolReserves * bondingCurve.virtualTokenReserves;
-      const newSolReserves =
-        bondingCurve.virtualSolReserves + solAmountLamports;
-      const newTokenReserves = k / newSolReserves;
-      tokensOut = bondingCurve.virtualTokenReserves - newTokenReserves;
-      const slippageFactor = (100 - slippagePercent) / 100;
-      minTokensReceived = BigInt(
-        Math.floor(Number(tokensOut) * slippageFactor),
-      );
-    } else {
-      throw new Error("Bonding curve state could not be determined.");
-    }
-
-    // 🚀 CREATE REAL BLOCKCHAIN TRANSACTION
-    const instructions: TransactionInstruction[] = [];
-    if (needsInit) {
-      // Add initialize instruction first
-      if (!walletService.publicKey) throw new Error("Wallet not connected");
-      const creator = walletService.publicKey;
-      const initInstructions = await this.createInitializeInstruction(
+    // Import and use the proper bonding curve program
+    const { BondingCurveProgram } = await import("./bondingCurveProgram");
+    const bondingCurveProgram = new BondingCurveProgram();
+    
+    try {
+      const result = await bondingCurveProgram.buyTokens(
         mintAddress,
-        creator,
-        BigInt(bondingCurveConfig.initialVirtualTokenReserves),
-        BigInt(bondingCurveConfig.initialVirtualSolReserves),
+        solAmount,
+        slippagePercent
       );
-      instructions.push(...initInstructions);
+      
+      console.log("✅ [BONDING CURVE] Buy completed:", {
+        signature: result.signature,
+        tokensTraded: result.tokensTraded.toString(),
+        newPrice: result.newPrice,
+        marketCap: result.marketCap
+      });
+      
+      return result.signature;
+    } catch (error) {
+      console.error("❌ [BONDING CURVE] Buy failed:", error);
+      throw error;
     }
-
-    // Add buy instructions
-    const buyInstructions = await this.createBuyInstruction(
-      mintAddress,
-      walletService.publicKey,
-      solAmountLamports,
-      minTokensReceived,
-      slippagePercent * 100, // Convert to basis points
-    );
-    instructions.push(...buyInstructions);
-
-    // Create transaction
-    const transaction = new Transaction();
-    transaction.add(...instructions);
-
-    // Get recent blockhash
-    const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = walletService.publicKey!;
-
-    // Send transaction
-    console.log("📤 Sending buy transaction to Solana...");
-    const signature = await walletService.sendTransaction(transaction);
-    console.log("✅ Transaction sent:", signature);
-
-    // Wait for confirmation
-    console.log("⏳ Waiting for confirmation...");
-    const confirmation = await this.connection.confirmTransaction(
-      signature,
-      "confirmed",
-    );
-
-    if (confirmation.value.err) {
-      throw new Error(
-        `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
-      );
-    }
-
-    // Optionally: update database, analytics, etc. here
-
-    return signature;
   }
 
   /**
@@ -780,22 +593,46 @@ export class SolanaProgram {
     userPublicKey: PublicKey,
   ): Promise<number> {
     try {
+      const { getAccount } = await import("@solana/spl-token");
+      
       const tokenAccount = await getAssociatedTokenAddress(
         mintAddress,
         userPublicKey,
       );
-      const accountInfo = await this.connection.getAccountInfo(tokenAccount);
-
-      if (!accountInfo) {
+      
+      // Use proper SPL Token library to get account info
+      const account = await getAccount(this.connection, tokenAccount);
+      
+      // Get token decimals from mint info
+      const mintInfo = await this.connection.getParsedAccountInfo(mintAddress);
+      let decimals = 9; // Default
+      
+      const mintData = mintInfo?.value?.data;
+      if (mintData && typeof mintData === "object" && "parsed" in mintData) {
+        decimals = mintData.parsed?.info?.decimals || 9;
+      }
+      
+      // Convert from smallest units to human-readable
+      const balance = Number(account.amount) / Math.pow(10, decimals);
+      
+      console.log("🔍 [BALANCE] Real blockchain balance:", {
+        tokenAccount: tokenAccount.toBase58(),
+        rawAmount: account.amount.toString(),
+        decimals,
+        humanReadableBalance: balance
+      });
+      
+      return balance;
+    } catch (error) {
+      console.error("❌ [BALANCE] Failed to get user token balance:", error);
+      
+      // If token account doesn't exist, balance is 0
+      if (error.message?.includes("TokenAccountNotFoundError") || 
+          error.message?.includes("Account does not exist")) {
+        console.log("ℹ️ [BALANCE] Token account doesn't exist, balance is 0");
         return 0;
       }
-
-      // Parse token account data to get balance
-      // This is a simplified version - you'd need proper token account parsing
-      const balance = accountInfo.data.readBigUInt64LE(64); // Token amount is at offset 64
-      return Number(balance) / Math.pow(10, 9); // Convert from lamports to tokens
-    } catch (error) {
-      console.error("Failed to get user token balance:", error);
+      
       return 0;
     }
   }

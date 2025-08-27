@@ -714,36 +714,21 @@ const handleTrade = async (tradeData: {
     await walletStore.updateBalance();
     console.log("💰 Wallet balance refreshed after trade");
 
-    // 🔄 Update token balance cache immediately after trade
+    // 🔄 Refresh token balance from blockchain after transaction
     if (walletStore.walletAddress && token.value?.mint_address) {
-      // Calculate new token balance based on trade type
-      let newTokenBalance = userTokenBalance.value;
-      if (type === "buy" && preview?.tokensReceived) {
-        newTokenBalance = userTokenBalance.value + preview.tokensReceived;
-      } else if (type === "sell") {
-        // For sell, amount comes in base units (lamports) from trading interface, convert to human-readable
-        const humanReadableAmount = amount / Math.pow(10, token.value?.decimals || 9);
-        newTokenBalance = userTokenBalance.value - humanReadableAmount;
+      try {
+        // Force refresh balance from blockchain to get real updated balance
+        await loadUserTokenBalance(true);
+        console.log("✅ Token balance refreshed from blockchain after", type, "transaction");
+      } catch (balanceError) {
+        console.error("❌ Failed to refresh balance after trade:", balanceError);
+        // Try again without force refresh (use cache if available)
+        try {
+          await loadUserTokenBalance(false);
+        } catch (fallbackError) {
+          console.error("❌ Balance refresh fallback also failed:", fallbackError);
+        }
       }
-
-      // Update cache with new balance (human-readable)
-      tokenBalanceCache.updateBalanceAfterTrade(
-        walletStore.walletAddress,
-        token.value.mint_address,
-        Math.max(0, newTokenBalance), // Ensure non-negative
-        token.value?.decimals || 9
-      );
-
-      // Update local balance immediately for UI responsiveness
-      userTokenBalance.value = Math.max(0, newTokenBalance);
-
-      console.log("🔄 Token balance cache updated after trade:", {
-        tradeType: type,
-        oldBalance: userTokenBalance.value,
-        newBalance: newTokenBalance,
-        tokensReceived: preview?.tokensReceived,
-        amount: amount
-      });
     }
 
     console.log(`✅ ${type} transaction completed:`, signature);
