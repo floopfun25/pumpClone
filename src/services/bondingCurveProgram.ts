@@ -421,17 +421,16 @@ export class BondingCurveProgram {
         // TODO: Parse actual bonding curve state from account data
         // For now, we'll use the database to get current state
         try {
-          const { bondingCurveState } =
-            await this.getCurrentBondingCurveState(mintAddress);
-          if (bondingCurveState) {
+          const result = await this.getCurrentBondingCurveState(mintAddress);
+          if (result?.bondingCurveState) {
             virtualSolReserves = BigInt(
               Math.floor(
-                bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
+                result.bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
               ),
             );
             virtualTokenReserves = BigInt(
               Math.floor(
-                bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
+                result.bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
               ),
             );
           }
@@ -533,17 +532,16 @@ export class BondingCurveProgram {
         // TODO: Parse actual bonding curve state from account data
         // For now, we'll use the database to get current state
         try {
-          const { bondingCurveState } =
-            await this.getCurrentBondingCurveState(mintAddress);
-          if (bondingCurveState) {
+          const result = await this.getCurrentBondingCurveState(mintAddress);
+          if (result?.bondingCurveState) {
             virtualSolReserves = BigInt(
               Math.floor(
-                bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
+                result.bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
               ),
             );
             virtualTokenReserves = BigInt(
               Math.floor(
-                bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
+                result.bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
               ),
             );
           }
