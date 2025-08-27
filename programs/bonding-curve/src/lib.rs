@@ -16,7 +16,7 @@ pub mod bonding_curve {
     ) -> Result<()> {
         let bonding_curve = &mut ctx.accounts.bonding_curve;
         
-        bonding_curve.discriminator = [1, 2, 3, 4, 5, 6, 7, 8];
+        // Anchor automatically handles the discriminator, don't set it manually
         bonding_curve.mint_address = ctx.accounts.mint.key();
         bonding_curve.creator = ctx.accounts.creator.key();
         bonding_curve.virtual_token_reserves = initial_virtual_token_reserves;
@@ -275,7 +275,6 @@ pub struct Sell<'info> {
 // Bonding curve account state
 #[account]
 pub struct BondingCurve {
-    pub discriminator: [u8; 8],
     pub mint_address: Pubkey,
     pub creator: Pubkey,
     pub virtual_token_reserves: u64,
@@ -289,7 +288,7 @@ pub struct BondingCurve {
 }
 
 impl BondingCurve {
-    pub const LEN: usize = 8 + // discriminator
+    pub const LEN: usize = 8 + // Anchor discriminator (handled automatically)
         32 + // mint_address
         32 + // creator
         8 + // virtual_token_reserves
