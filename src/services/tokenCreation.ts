@@ -92,7 +92,7 @@ export class TokenCreationService {
 
       // Step 4: Initialize bonding curve
       console.log("🎯 Initializing bonding curve...");
-      const { bondingCurveProgram } = await import('./bondingCurveProgram');
+      const { bondingCurveProgram } = await import("./bondingCurveProgram");
       try {
         await bondingCurveProgram.initializeBondingCurve(mintKeypair.publicKey);
         console.log("✅ Bonding curve initialized successfully");

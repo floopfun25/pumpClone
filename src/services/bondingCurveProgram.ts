@@ -11,19 +11,21 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
   SYSVAR_RENT_PUBKEY,
-} from '@solana/web3.js';
+} from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
-} from '@solana/spl-token';
-import { getWalletService } from './wallet';
-import { config } from '@/config';
-import * as borsh from 'borsh';
+} from "@solana/spl-token";
+import { getWalletService } from "./wallet";
+import { config } from "@/config";
+import * as borsh from "borsh";
 
 // Program ID for your deployed bonding curve program
-const PROGRAM_ID = new PublicKey('Bucwy8sKVrTzjaQS1RkPLu9tA4ySUuhLKgj1C8B4WpSm');
+const PROGRAM_ID = new PublicKey(
+  "Bucwy8sKVrTzjaQS1RkPLu9tA4ySUuhLKgj1C8B4WpSm",
+);
 
 // Instruction discriminators (based on Anchor IDL)
 const INSTRUCTION_DISCRIMINATORS = {
@@ -57,9 +59,37 @@ class InitializeArgs {
 
 // Borsh schemas
 const SCHEMAS = new Map([
-  [BuyArgs, { kind: 'struct', fields: [['sol_amount', 'u64'], ['min_tokens_received', 'u64']] }],
-  [SellArgs, { kind: 'struct', fields: [['token_amount', 'u64'], ['min_sol_received', 'u64']] }],
-  [InitializeArgs, { kind: 'struct', fields: [['initial_virtual_token_reserves', 'u64'], ['initial_virtual_sol_reserves', 'u64'], ['bump', 'u8']] }],
+  [
+    BuyArgs,
+    {
+      kind: "struct",
+      fields: [
+        ["sol_amount", "u64"],
+        ["min_tokens_received", "u64"],
+      ],
+    },
+  ],
+  [
+    SellArgs,
+    {
+      kind: "struct",
+      fields: [
+        ["token_amount", "u64"],
+        ["min_sol_received", "u64"],
+      ],
+    },
+  ],
+  [
+    InitializeArgs,
+    {
+      kind: "struct",
+      fields: [
+        ["initial_virtual_token_reserves", "u64"],
+        ["initial_virtual_sol_reserves", "u64"],
+        ["bump", "u8"],
+      ],
+    },
+  ],
 ]);
 
 export interface TradeResult {
@@ -75,10 +105,10 @@ export class BondingCurveProgram {
   private walletService = getWalletService();
 
   constructor() {
-    this.connection = new Connection(config.solana.rpcUrl, 'confirmed');
-    console.log('🔗 Initialized Bonding Curve Program Client');
-    console.log('📡 RPC:', config.solana.rpcUrl);
-    console.log('🏪 Program ID:', PROGRAM_ID.toBase58());
+    this.connection = new Connection(config.solana.rpcUrl, "confirmed");
+    console.log("🔗 Initialized Bonding Curve Program Client");
+    console.log("📡 RPC:", config.solana.rpcUrl);
+    console.log("🏪 Program ID:", PROGRAM_ID.toBase58());
   }
 
   /**
@@ -90,19 +120,22 @@ export class BondingCurveProgram {
     initialVirtualSolReserves: bigint = BigInt(30 * LAMPORTS_PER_SOL), // 30 SOL
   ): Promise<string> {
     if (!this.walletService.connected || !this.walletService.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     const creator = this.walletService.publicKey;
-    
+
     // Get bonding curve PDA
     const [bondingCurveAccount, bump] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bonding_curve'), mintAddress.toBuffer()],
+      [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
       PROGRAM_ID,
     );
 
     // Get creator's token account
-    const creatorTokenAccount = await getAssociatedTokenAddress(mintAddress, creator);
+    const creatorTokenAccount = await getAssociatedTokenAddress(
+      mintAddress,
+      creator,
+    );
 
     // Create initialize instruction
     const initializeArgs = new InitializeArgs(
@@ -141,10 +174,10 @@ export class BondingCurveProgram {
     solAmount: number,
     slippagePercent: number = 3,
   ): Promise<TradeResult> {
-    console.log('💰 [BUY] Starting buy transaction...');
-    
+    console.log("💰 [BUY] Starting buy transaction...");
+
     if (!this.walletService.connected || !this.walletService.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     const buyer = this.walletService.publicKey;
@@ -153,26 +186,32 @@ export class BondingCurveProgram {
     try {
       // Get bonding curve account
       const [bondingCurveAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from('bonding_curve'), mintAddress.toBuffer()],
+        [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
         PROGRAM_ID,
       );
 
       // Get or create associated token account for buyer
-      const buyerTokenAccount = await getAssociatedTokenAddress(mintAddress, buyer);
+      const buyerTokenAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        buyer,
+      );
 
       // Get platform fee account
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
       const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from('vault'), bondingCurveAccount.toBuffer()],
+        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
         PROGRAM_ID,
       );
 
       // Calculate expected tokens (simplified calculation)
-      const expectedTokens = await this.calculateTokensOut(solAmountLamports, mintAddress);
+      const expectedTokens = await this.calculateTokensOut(
+        solAmountLamports,
+        mintAddress,
+      );
       const minTokensWithSlippage = BigInt(
-        Math.floor(Number(expectedTokens) * (100 - slippagePercent) / 100),
+        Math.floor((Number(expectedTokens) * (100 - slippagePercent)) / 100),
       );
 
       // Create buy instruction
@@ -207,7 +246,11 @@ export class BondingCurveProgram {
           { pubkey: platformFeeAccount, isSigner: false, isWritable: true },
           { pubkey: vaultAccount, isSigner: false, isWritable: true },
           { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         programId: PROGRAM_ID,
         data,
@@ -218,7 +261,7 @@ export class BondingCurveProgram {
       // Send transaction
       const signature = await this.sendTransaction(transaction);
 
-      console.log('✅ Buy transaction completed:', signature);
+      console.log("✅ Buy transaction completed:", signature);
 
       return {
         signature,
@@ -227,9 +270,8 @@ export class BondingCurveProgram {
         newPrice: await this.getCurrentPrice(mintAddress),
         marketCap: await this.getMarketCap(mintAddress),
       };
-
     } catch (error) {
-      console.error('❌ Buy transaction failed:', error);
+      console.error("❌ Buy transaction failed:", error);
       throw error;
     }
   }
@@ -242,10 +284,10 @@ export class BondingCurveProgram {
     tokenAmount: bigint,
     slippagePercent: number = 3,
   ): Promise<TradeResult> {
-    console.log('💸 [SELL] Starting sell transaction...');
-    
+    console.log("💸 [SELL] Starting sell transaction...");
+
     if (!this.walletService.connected || !this.walletService.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     const seller = this.walletService.publicKey;
@@ -253,26 +295,29 @@ export class BondingCurveProgram {
     try {
       // Get bonding curve account
       const [bondingCurveAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from('bonding_curve'), mintAddress.toBuffer()],
+        [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
         PROGRAM_ID,
       );
 
       // Get seller's token account
-      const sellerTokenAccount = await getAssociatedTokenAddress(mintAddress, seller);
+      const sellerTokenAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        seller,
+      );
 
       // Get platform fee account
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
       const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from('vault'), bondingCurveAccount.toBuffer()],
+        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
         PROGRAM_ID,
       );
 
       // Calculate expected SOL
       const expectedSol = await this.calculateSolOut(tokenAmount, mintAddress);
       const minSolWithSlippage = BigInt(
-        Math.floor(Number(expectedSol) * (100 - slippagePercent) / 100),
+        Math.floor((Number(expectedSol) * (100 - slippagePercent)) / 100),
       );
 
       // Create sell instruction
@@ -291,7 +336,11 @@ export class BondingCurveProgram {
           { pubkey: platformFeeAccount, isSigner: false, isWritable: true },
           { pubkey: vaultAccount, isSigner: false, isWritable: true },
           { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
         ],
         programId: PROGRAM_ID,
         data,
@@ -302,7 +351,7 @@ export class BondingCurveProgram {
       // Send transaction
       const signature = await this.sendTransaction(transaction);
 
-      console.log('✅ Sell transaction completed:', signature);
+      console.log("✅ Sell transaction completed:", signature);
 
       return {
         signature,
@@ -311,9 +360,8 @@ export class BondingCurveProgram {
         newPrice: await this.getCurrentPrice(mintAddress),
         marketCap: await this.getMarketCap(mintAddress),
       };
-
     } catch (error) {
-      console.error('❌ Sell transaction failed:', error);
+      console.error("❌ Sell transaction failed:", error);
       throw error;
     }
   }
@@ -323,7 +371,7 @@ export class BondingCurveProgram {
    */
   async getBondingCurveAccount(mintAddress: PublicKey) {
     const [bondingCurveAccount] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bonding_curve'), mintAddress.toBuffer()],
+      [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
       PROGRAM_ID,
     );
 
@@ -331,40 +379,176 @@ export class BondingCurveProgram {
   }
 
   /**
-   * Calculate tokens out for SOL input (simplified)
+   * Calculate tokens out for SOL input using bonding curve formula
    */
-  private async calculateTokensOut(solIn: bigint, mintAddress: PublicKey): Promise<bigint> {
+  private async calculateTokensOut(
+    solIn: bigint,
+    mintAddress: PublicKey,
+  ): Promise<bigint> {
     try {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
-      
-      if (!accountInfo) {
-        // New token - use initial virtual reserves
-        const virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-        const virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
-        
-        // Constant product formula
-        const k = virtualSolReserves * virtualTokenReserves;
-        const newSolReserves = virtualSolReserves + solIn;
-        const newTokenReserves = k / newSolReserves;
-        const tokensOut = virtualTokenReserves - newTokenReserves;
-        
-        return tokensOut;
+
+      // Use initial virtual reserves (pump.fun formula)
+      let virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
+      let virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+
+      if (accountInfo && accountInfo.data.length > 0) {
+        // TODO: Parse actual bonding curve state from account data
+        // For now, we'll use the database to get current state
+        try {
+          const { bondingCurveState } =
+            await this.getCurrentBondingCurveState(mintAddress);
+          if (bondingCurveState) {
+            virtualSolReserves = BigInt(
+              Math.floor(
+                bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
+              ),
+            );
+            virtualTokenReserves = BigInt(
+              Math.floor(
+                bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
+              ),
+            );
+          }
+        } catch (dbError) {
+          console.warn(
+            "Could not get bonding curve state from database, using defaults",
+          );
+        }
       }
-      
-      // For now, using simplified calculation
-      return solIn * BigInt(1000); // 1 SOL = 1000 tokens
-      
+
+      // Constant product formula: k = x * y
+      // After buy: (virtualSolReserves + solIn) * (virtualTokenReserves - tokensOut) = k
+      const k = virtualSolReserves * virtualTokenReserves;
+      const newSolReserves = virtualSolReserves + solIn;
+      const newTokenReserves = k / newSolReserves;
+      const tokensOut = virtualTokenReserves - newTokenReserves;
+
+      console.log(`🧮 Bonding curve calculation:
+        SOL in: ${Number(solIn) / LAMPORTS_PER_SOL} SOL
+        Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
+        Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 9)} tokens
+        Tokens out: ${Number(tokensOut) / Math.pow(10, 9)} tokens
+      `);
+
+      return tokensOut > 0 ? tokensOut : BigInt(0);
     } catch (error) {
-      console.warn('Using fallback token calculation');
-      return solIn * BigInt(1000);
+      console.error("Bonding curve calculation failed:", error);
+      // Fallback to a reasonable calculation based on current price
+      return this.fallbackTokenCalculation(solIn);
     }
   }
 
   /**
-   * Calculate SOL out for token input (simplified)
+   * Get current bonding curve state from database
    */
-  private async calculateSolOut(tokenIn: bigint, mintAddress: PublicKey): Promise<bigint> {
-    return tokenIn / BigInt(1000); // 1000 tokens = 1 SOL
+  private async getCurrentBondingCurveState(mintAddress: PublicKey) {
+    try {
+      const { supabase } = await import("./supabase");
+
+      const { data: token } = await supabase
+        .from("tokens")
+        .select("id, current_price")
+        .eq("mint_address", mintAddress.toBase58())
+        .single();
+
+      if (!token) return null;
+
+      // Import bonding curve service
+      const { BondingCurveService } = await import("./bondingCurve");
+      const bondingCurveState =
+        await BondingCurveService.getTokenBondingCurveState(token.id);
+
+      return { token, bondingCurveState };
+    } catch (error) {
+      console.warn("Could not fetch bonding curve state:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Fallback calculation when bonding curve state is unavailable
+   */
+  private fallbackTokenCalculation(solIn: bigint): bigint {
+    // Use a reasonable price based on early bonding curve state
+    // At start: 30 SOL, 1.073B tokens → price ≈ 0.000000028 SOL per token
+    // So 1 SOL should get approximately 35.7M tokens
+    const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
+    const decimals = BigInt(Math.pow(10, 9));
+    return (solIn * tokensPerSol * decimals) / BigInt(LAMPORTS_PER_SOL);
+  }
+
+  /**
+   * Fallback SOL calculation when bonding curve state is unavailable
+   */
+  private fallbackSolCalculation(tokenIn: bigint): bigint {
+    // Use reverse of token calculation
+    // At start: price ≈ 0.000000028 SOL per token
+    // So 35.7M tokens should get approximately 1 SOL
+    const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
+    const decimals = BigInt(Math.pow(10, 9));
+    return (tokenIn * BigInt(LAMPORTS_PER_SOL)) / (tokensPerSol * decimals);
+  }
+
+  /**
+   * Calculate SOL out for token input using bonding curve formula
+   */
+  private async calculateSolOut(
+    tokenIn: bigint,
+    mintAddress: PublicKey,
+  ): Promise<bigint> {
+    try {
+      const accountInfo = await this.getBondingCurveAccount(mintAddress);
+
+      // Use initial virtual reserves (pump.fun formula)
+      let virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
+      let virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+
+      if (accountInfo && accountInfo.data.length > 0) {
+        // TODO: Parse actual bonding curve state from account data
+        // For now, we'll use the database to get current state
+        try {
+          const { bondingCurveState } =
+            await this.getCurrentBondingCurveState(mintAddress);
+          if (bondingCurveState) {
+            virtualSolReserves = BigInt(
+              Math.floor(
+                bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
+              ),
+            );
+            virtualTokenReserves = BigInt(
+              Math.floor(
+                bondingCurveState.virtualTokenReserves * Math.pow(10, 9),
+              ),
+            );
+          }
+        } catch (dbError) {
+          console.warn(
+            "Could not get bonding curve state from database, using defaults",
+          );
+        }
+      }
+
+      // Constant product formula: k = x * y
+      // After sell: (virtualSolReserves - solOut) * (virtualTokenReserves + tokenIn) = k
+      const k = virtualSolReserves * virtualTokenReserves;
+      const newTokenReserves = virtualTokenReserves + tokenIn;
+      const newSolReserves = k / newTokenReserves;
+      const solOut = virtualSolReserves - newSolReserves;
+
+      console.log(`🧮 Sell bonding curve calculation:
+        Token in: ${Number(tokenIn) / Math.pow(10, 9)} tokens
+        Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
+        Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 9)} tokens
+        SOL out: ${Number(solOut) / LAMPORTS_PER_SOL} SOL
+      `);
+
+      return solOut > 0 ? solOut : BigInt(0);
+    } catch (error) {
+      console.error("Sell bonding curve calculation failed:", error);
+      // Fallback to a reasonable calculation based on current price
+      return this.fallbackSolCalculation(tokenIn);
+    }
   }
 
   /**
@@ -389,10 +573,13 @@ export class BondingCurveProgram {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = this.walletService.publicKey!;
 
-    const signedTransaction = await this.walletService.signTransaction(transaction);
-    const signature = await this.connection.sendRawTransaction(signedTransaction.serialize());
-    await this.connection.confirmTransaction(signature, 'confirmed');
-    
+    const signedTransaction =
+      await this.walletService.signTransaction(transaction);
+    const signature = await this.connection.sendRawTransaction(
+      signedTransaction.serialize(),
+    );
+    await this.connection.confirmTransaction(signature, "confirmed");
+
     return signature;
   }
 }

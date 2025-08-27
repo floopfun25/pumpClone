@@ -632,9 +632,13 @@ const handleTrade = async (tradeData: {
       signature = await solanaProgram.sellTokens(mintAddress, amount);
 
       // Format amounts properly for display
-      const humanReadableTokenAmount = (amount / Math.pow(10, token.value?.decimals || 9)).toFixed(6);
-      const humanReadableSolAmount = Math.abs(preview?.solSpent || 0).toFixed(6);
-      
+      const humanReadableTokenAmount = (
+        amount / Math.pow(10, token.value?.decimals || 9)
+      ).toFixed(6);
+      const humanReadableSolAmount = Math.abs(preview?.solSpent || 0).toFixed(
+        6,
+      );
+
       uiStore.showToast({
         type: "success",
         title: "Sell Order Successful! 💰",

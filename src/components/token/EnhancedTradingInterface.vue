@@ -429,17 +429,23 @@ const executeTrade = async () => {
 
 const performTrade = async () => {
   try {
-    const { bondingCurveProgram } = await import('@/services/bondingCurveProgram');
-    const { PublicKey } = await import('@solana/web3.js');
-    
+    const { bondingCurveProgram } = await import(
+      "@/services/bondingCurveProgram"
+    );
+    const { PublicKey } = await import("@solana/web3.js");
+
     const mintAddress = new PublicKey(props.token.mint_address);
     const amount = parseFloat(tradeAmount.value);
-    
-    if (tradeType.value === 'buy') {
+
+    if (tradeType.value === "buy") {
       // Execute real buy transaction using bonding curve program
-      const result = await bondingCurveProgram.buyTokens(mintAddress, amount, 3);
+      const result = await bondingCurveProgram.buyTokens(
+        mintAddress,
+        amount,
+        3,
+      );
       return {
-        type: 'buy',
+        type: "buy",
         amount,
         signature: result.signature,
         tokensReceived: result.tokensTraded,
@@ -450,9 +456,13 @@ const performTrade = async () => {
       // Convert human-readable amount to raw token amount (multiply by 10^decimals)
       const decimals = props.token.decimals || 9;
       const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
-      const result = await bondingCurveProgram.sellTokens(mintAddress, tokenAmount, 3);
+      const result = await bondingCurveProgram.sellTokens(
+        mintAddress,
+        tokenAmount,
+        3,
+      );
       return {
-        type: 'sell',
+        type: "sell",
         amount,
         signature: result.signature,
         solReceived: result.solAmount,
@@ -460,7 +470,7 @@ const performTrade = async () => {
       };
     }
   } catch (error) {
-    console.error('Trading error:', error);
+    console.error("Trading error:", error);
     throw error;
   }
 };
@@ -472,17 +482,22 @@ const loadTokenBalance = async () => {
   }
 
   try {
-    const { Connection, PublicKey } = await import('@solana/web3.js');
-    const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
-    const { config } = await import('@/config');
-    
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    const { getAssociatedTokenAddress, getAccount } = await import(
+      "@solana/spl-token"
+    );
+    const { config } = await import("@/config");
+
     const connection = new Connection(config.solana.rpcUrl);
     const mintAddress = new PublicKey(props.token.mint_address);
     const walletAddress = new PublicKey(walletStore.publicKey!);
-    
-    const tokenAccountAddress = await getAssociatedTokenAddress(mintAddress, walletAddress);
+
+    const tokenAccountAddress = await getAssociatedTokenAddress(
+      mintAddress,
+      walletAddress,
+    );
     const tokenAccount = await getAccount(connection, tokenAccountAddress);
-    
+
     // Convert from raw token amount to human readable (divide by 10^decimals)
     const decimals = props.token.decimals || 9;
     tokenBalance.value = Number(tokenAccount.amount) / Math.pow(10, decimals);
@@ -502,11 +517,11 @@ const formatNumber = (num: number | bigint): string => {
   } else {
     n = num;
   }
-  
+
   // Format with appropriate decimal places
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6
+    maximumFractionDigits: 6,
   }).format(n);
 };
 

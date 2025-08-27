@@ -8,15 +8,25 @@ const getEnvVar = (key: string, fallback?: string): string => {
     throw new Error(`Environment variable ${key} is required`);
   }
   const result = value || fallback!;
-  
+
   // Validate base58 addresses for program IDs and wallet addresses
-  if (key.includes('PROGRAM') || key.includes('WALLET') || key.includes('AUTHORITY') || key.includes('TREASURY') || key.includes('COLLECTOR')) {
-    if (result === 'YOUR_DEPLOYED_PROGRAM_ID_HERE' || result.length < 32 || result.length > 44) {
+  if (
+    key.includes("PROGRAM") ||
+    key.includes("WALLET") ||
+    key.includes("AUTHORITY") ||
+    key.includes("TREASURY") ||
+    key.includes("COLLECTOR")
+  ) {
+    if (
+      result === "YOUR_DEPLOYED_PROGRAM_ID_HERE" ||
+      result.length < 32 ||
+      result.length > 44
+    ) {
       console.warn(`Invalid address for ${key}: ${result}, using fallback`);
-      return fallback || 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+      return fallback || "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
     }
   }
-  
+
   return result;
 };
 

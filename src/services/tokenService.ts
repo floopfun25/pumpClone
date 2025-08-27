@@ -390,10 +390,14 @@ class TokenService {
           throw new Error(
             "Transaction signing was cancelled. Please try again and approve the transaction.",
           );
+        } else {
+          // Re-throw the original error if no specific handling applies
+          throw error;
         }
+      } else {
+        // Re-throw non-Error objects
+        throw error;
       }
-
-      throw error;
     }
   }
 
