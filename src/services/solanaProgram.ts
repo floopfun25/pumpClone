@@ -487,6 +487,44 @@ export class SolanaProgram {
     );
     console.log("💳 [TX] Fee wallet:", this.feeWallet.toBase58());
 
+    // TEMP FIX: Since the bonding curve program isn't implemented yet,
+    // we'll simulate token purchase by minting tokens directly to the buyer
+    // This should be replaced with actual bonding curve program calls
+    
+    console.warn("⚠️ [WARNING] Using temporary token minting - replace with bonding curve program");
+    
+    // Calculate tokens to receive based on bonding curve math
+    // This should match the calculation done before calling this function
+    const tokensToReceive = Number(minTokensReceived);
+    
+    console.log(
+      "🪙 [TX] Tokens to mint:",
+      tokensToReceive / Math.pow(10, 9), // Convert from lamports to tokens
+      "tokens",
+    );
+
+    // Import token program instructions
+    const { createMintToInstruction, getAccount } = await import("@solana/spl-token");
+    
+    // For now, we'll mint tokens directly (THIS IS A TEMPORARY SOLUTION)
+    // In production, this should be done through the bonding curve program
+    try {
+      // Mint tokens to buyer's token account
+      instructions.push(
+        createMintToInstruction(
+          mintAddress, // mint
+          buyerTokenAccount, // destination
+          new PublicKey(platformConfig.authority), // authority (should be bonding curve PDA)
+          BigInt(tokensToReceive), // amount in smallest units
+        )
+      );
+      
+      console.log("✅ [TX] Added token mint instruction:", tokensToReceive / Math.pow(10, 9), "tokens");
+    } catch (error) {
+      console.error("❌ [TX] Failed to create mint instruction:", error);
+      // Fallback: just do the SOL transfers (current behavior)
+    }
+
     // Transfer treasury amount (99% of trade) to treasury wallet
     instructions.push(
       SystemProgram.transfer({

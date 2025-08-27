@@ -280,9 +280,58 @@ const watchlistLoading = ref(false);
 const userTokenBalance = ref(0); // Store human-readable balance directly
 const tokenDecimals = ref(9);
 // Load token data on page mount
-onMounted(() => {
-  loadPublicTokenData();
+onMounted(async () => {
+  await loadPublicTokenData();
+  
+  // Load cached balances if wallet is already connected
+  if (walletStore.isConnected && walletStore.walletAddress) {
+    try {
+      await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
+      console.log("✅ [MOUNT] Loaded cached balances on mount");
+      
+      // Load current token balance if token is available
+      if (token.value?.mint_address) {
+        await loadUserTokenBalance();
+      }
+    } catch (error) {
+      console.error("❌ [MOUNT] Failed to load cached balances on mount:", error);
+    }
+  }
 });
+
+// Watch for wallet connection changes to load balances
+watch(
+  () => walletStore.isConnected,
+  async (isConnected) => {
+    if (isConnected && walletStore.walletAddress && token.value?.mint_address) {
+      try {
+        await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
+        await loadUserTokenBalance();
+        console.log("✅ [WALLET WATCH] Loaded balances after wallet connection");
+      } catch (error) {
+        console.error("❌ [WALLET WATCH] Failed to load balances:", error);
+      }
+    } else if (!isConnected) {
+      userTokenBalance.value = 0;
+      console.log("🔄 [WALLET WATCH] Cleared balance after wallet disconnection");
+    }
+  }
+);
+
+// Watch for token loading to trigger balance loading
+watch(
+  () => token.value?.mint_address,
+  async (mintAddress) => {
+    if (mintAddress && walletStore.isConnected && walletStore.walletAddress) {
+      try {
+        await loadUserTokenBalance();
+        console.log("✅ [TOKEN WATCH] Loaded balance after token loaded");
+      } catch (error) {
+        console.error("❌ [TOKEN WATCH] Failed to load balance:", error);
+      }
+    }
+  }
+);
 
 // Debug watcher for chart rendering
 watch(
