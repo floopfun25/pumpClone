@@ -59,7 +59,7 @@ class InitializeArgs {
 }
 
 // Borsh schemas
-const SCHEMAS = new Map([
+const SCHEMAS = new Map<any, any>([
   [
     BuyArgs,
     {
@@ -192,9 +192,12 @@ export class BondingCurveProgram {
       );
 
       // Check if bonding curve account exists, initialize if not
-      const accountInfo = await this.connection.getAccountInfo(bondingCurveAccount);
+      const accountInfo =
+        await this.connection.getAccountInfo(bondingCurveAccount);
       if (!accountInfo) {
-        console.log("🏗️ [BUY] Bonding curve not initialized, initializing now...");
+        console.log(
+          "🏗️ [BUY] Bonding curve not initialized, initializing now...",
+        );
         await this.initializeBondingCurve(mintAddress);
         console.log("✅ [BUY] Bonding curve initialized successfully");
       }
@@ -236,16 +239,17 @@ export class BondingCurveProgram {
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({
           units: 200_000,
-        })
+        }),
       );
       transaction.add(
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: 1000,
-        })
+        }),
       );
 
       // Check if token account exists, create if not
-      const tokenAccountInfo = await this.connection.getAccountInfo(buyerTokenAccount);
+      const tokenAccountInfo =
+        await this.connection.getAccountInfo(buyerTokenAccount);
       if (!tokenAccountInfo) {
         console.log("🏗️ [BUY] Creating associated token account...");
         const createTokenAccountIx = createAssociatedTokenAccountInstruction(
