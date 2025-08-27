@@ -17,6 +17,15 @@ dist/
 build/
 .vite/
 
+# Rust build artifacts
+target/
+programs/*/target/
+programs/bonding-curve/target/
+Cargo.lock
+*.so
+*-keypair.json
+.rustc_info.json
+
 # IDE and editor files
 .vscode/
 .idea/

@@ -11,6 +11,7 @@ name = "bonding_curve"
 [features]
 default = []
 no-entrypoint = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
 anchor-lang = "0.31.1"

@@ -38,10 +38,8 @@ pub mod bonding_curve {
         sol_amount: u64,
         min_tokens_received: u64,
     ) -> Result<()> {
-        let bonding_curve = &mut ctx.accounts.bonding_curve;
-        
         // Verify bonding curve hasn't graduated
-        require!(!bonding_curve.graduated, ErrorCode::AlreadyGraduated);
+        require!(!ctx.accounts.bonding_curve.graduated, ErrorCode::AlreadyGraduated);
 
         // Calculate platform fee (1%)
         let platform_fee = sol_amount * PLATFORM_FEE_BPS as u64 / 10000;
@@ -50,8 +48,8 @@ pub mod bonding_curve {
         // Calculate tokens to mint using bonding curve formula
         let tokens_to_mint = calculate_tokens_out(
             trade_amount,
-            bonding_curve.virtual_sol_reserves,
-            bonding_curve.virtual_token_reserves,
+            ctx.accounts.bonding_curve.virtual_sol_reserves,
+            ctx.accounts.bonding_curve.virtual_token_reserves,
         )?;
 
         // Check slippage tolerance
@@ -88,10 +86,12 @@ pub mod bonding_curve {
         }
 
         // Mint tokens to buyer
+        let mint_address = ctx.accounts.bonding_curve.mint_address;
+        let bump_seed = ctx.accounts.bonding_curve.bump_seed;
         let mint_seeds = &[
             b"bonding_curve",
-            bonding_curve.mint_address.as_ref(),
-            &[bonding_curve.bump_seed],
+            mint_address.as_ref(),
+            &[bump_seed],
         ];
         let signer = &[&mint_seeds[..]];
 
@@ -106,6 +106,7 @@ pub mod bonding_curve {
         token::mint_to(cpi_ctx, tokens_to_mint)?;
 
         // Update bonding curve state
+        let bonding_curve = &mut ctx.accounts.bonding_curve;
         bonding_curve.virtual_sol_reserves += trade_amount;
         bonding_curve.virtual_token_reserves -= tokens_to_mint;
         bonding_curve.real_sol_reserves += trade_amount;
@@ -158,12 +159,13 @@ pub mod bonding_curve {
         token::burn(cpi_ctx, token_amount)?;
 
         // Transfer SOL from vault to seller
+        let bonding_curve_key = bonding_curve.key();
         let vault_seeds = &[
             b"vault",
-            bonding_curve.key().as_ref(),
+            bonding_curve_key.as_ref(),
             &[ctx.bumps.vault],
         ];
-        let signer = &[&vault_seeds[..]];
+        let _signer = &[&vault_seeds[..]];
 
         **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
         **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += seller_receives;
@@ -194,7 +196,7 @@ pub struct Initialize<'info> {
     
     #[account(
         init,
-        pda = [b"bonding_curve", mint.key().as_ref()],
+        seeds = [b"bonding_curve", mint.key().as_ref()],
         bump,
         payer = creator,
         space = BondingCurve::LEN
