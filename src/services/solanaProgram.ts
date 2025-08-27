@@ -156,44 +156,7 @@ export class SolanaProgram {
       throw error;
     }
   }
-  private connection: Connection;
-      mintAddress,
-      walletService.publicKey,
-      tokenAmountBigInt,
-      minSolReceived,
-      slippagePercent * 100, // Convert to basis points
-    );
 
-    const transaction = new Transaction();
-    transaction.add(...sellInstructions);
-
-    // Get recent blockhash
-    const { blockhash } = await this.connection.getLatestBlockhash("confirmed");
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = walletService.publicKey!;
-
-    // Send transaction
-    console.log("📤 Sending sell transaction to Solana...");
-    const signature = await walletService.sendTransaction(transaction);
-    console.log("✅ Transaction sent:", signature);
-
-    // Wait for confirmation
-    console.log("⏳ Waiting for confirmation...");
-    const confirmation = await this.connection.confirmTransaction(
-      signature,
-      "confirmed",
-    );
-
-    if (confirmation.value.err) {
-      throw new Error(
-        `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
-      );
-    }
-
-    // Optionally: update database, analytics, etc. here
-
-    return signature;
-  }
   private connection: Connection;
   private programId: PublicKey;
   private feeWallet: PublicKey;
