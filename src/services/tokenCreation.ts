@@ -12,6 +12,8 @@ import {
   createInitializeMintInstruction,
   createAssociatedTokenAccountInstruction,
   createMintToInstruction,
+  createSetAuthorityInstruction,
+  AuthorityType,
   getAssociatedTokenAddress,
   getMint,
   getMinimumBalanceForRentExemptMint,
@@ -209,13 +211,13 @@ export class TokenCreationService {
       }),
     );
 
-    // Initialize mint
+    // Initialize mint with creator as temporary authority (will transfer later)
     transaction.add(
       createInitializeMintInstruction(
         mintKeypair.publicKey,
         decimals,
-        payer, // Mint authority
-        payer, // Freeze authority
+        payer, // Temporary mint authority (creator)
+        payer, // Freeze authority stays with creator
       ),
     );
 
@@ -251,6 +253,23 @@ export class TokenCreationService {
       ),
     );
 
+    // Transfer mint authority to bonding curve PDA
+    const { PublicKey: PubKey } = await import("@solana/web3.js");
+    const BONDING_CURVE_PROGRAM_ID = new PubKey("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
+    const [bondingCurvePDA] = PubKey.findProgramAddressSync(
+      [Buffer.from("bonding_curve"), mintKeypair.publicKey.toBuffer()],
+      BONDING_CURVE_PROGRAM_ID,
+    );
+
+    transaction.add(
+      createSetAuthorityInstruction(
+        mintKeypair.publicKey,
+        payer, // Current authority (creator)
+        AuthorityType.MintTokens,
+        bondingCurvePDA, // New authority (bonding curve)
+      ),
+    );
+
     // Create metadata account
     const metadataAccount = await this.getMetadataAccount(
       mintKeypair.publicKey,
@@ -261,7 +280,7 @@ export class TokenCreationService {
         {
           metadata: metadataAccount,
           mint: mintKeypair.publicKey,
-          mintAuthority: payer,
+          mintAuthority: bondingCurvePDA, // Use bonding curve as mint authority
           payer: payer,
           updateAuthority: payer,
         },
