@@ -557,11 +557,11 @@ import { useRouter } from "vue-router";
 import { useTypedI18n } from "@/i18n";
 import { useWalletStore } from "@/stores/wallet";
 import { useUIStore } from "@/stores/ui";
-import { tokenService } from "@/services/tokenService";
-import type { TokenCreationData } from "@/services/tokenService";
+import { tokenCreationService } from "@/services/tokenCreation";
+import type { TokenCreationParams } from "@/services/tokenCreation";
 import WalletModal from "@/components/common/WalletModal.vue";
 
-interface TokenForm extends TokenCreationData {
+interface TokenForm extends TokenCreationParams {
   imageFile?: File;
 }
 
@@ -687,8 +687,8 @@ const createToken = async () => {
       return;
     }
 
-    // Create token with advanced settings
-    const result = await tokenService.createToken(tokenForm.value);
+    // Create token with pump.fun-style bonding curve
+    const result = await tokenCreationService.createToken(tokenForm.value);
 
     // Show success notification
     uiStore.showToast({

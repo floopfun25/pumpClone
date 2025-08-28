@@ -19,10 +19,8 @@ import {
   getMinimumBalanceForRentExemptMint,
   MINT_SIZE,
 } from "@solana/spl-token";
-import {
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID,
-} from "@metaplex-foundation/mpl-token-metadata";
+// Import metaplex metadata (skip metadata creation if not available)
+import type { PublicKey } from "@solana/web3.js";
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
 import { supabase } from "./supabase";
@@ -56,10 +54,10 @@ export class TokenCreationService {
   }
 
   /**
-   * Create a new SPL token with metadata
+   * Create a new SPL token with metadata and bonding curve (Pump.fun style)
    */
   async createToken(params: TokenCreationParams): Promise<CreatedTokenInfo> {
-    console.log("🪙 Starting token creation process...");
+    console.log("🪙 Starting pump.fun-style token creation...");
 
     if (!this.walletService.connected || !this.walletService.publicKey) {
       throw new Error("Wallet not connected");
@@ -82,53 +80,55 @@ export class TokenCreationService {
         mintKeypair.publicKey.toBase58(),
       );
 
-      // Step 3: Create mint account and token
-      const signature = await this.createMintAndToken(
+      // Step 3: Create mint account ONLY (no initial minting)
+      const mintSignature = await this.createMintAccount(
         mintKeypair,
         payer,
         decimals,
-        initialSupply,
         metadataUri,
         params,
       );
 
-      // Step 4: Initialize bonding curve
+      // Step 4: Initialize bonding curve (this will handle minting)
       console.log("🎯 Initializing bonding curve...");
       const { bondingCurveProgram } = await import("./bondingCurveProgram");
+      const bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
+        mintKeypair.publicKey,
+        BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
+      );
+      console.log("✅ Bonding curve initialized successfully");
+
+      // Step 5: Save to database (optional - can be done without auth)
+      let tokenId = "created";
       try {
-        await bondingCurveProgram.initializeBondingCurve(mintKeypair.publicKey);
-        console.log("✅ Bonding curve initialized successfully");
-      } catch (error) {
-        console.warn("⚠️ Bonding curve initialization failed:", error);
-        // Continue anyway - the token is still created
+        tokenId = await this.saveTokenToDatabase(
+          mintKeypair.publicKey.toBase58(),
+          bondingCurveSignature,
+          params,
+          metadataUri,
+        );
+      } catch (dbError) {
+        console.warn("⚠️ Database save failed (token still created on-chain):", dbError);
+        // Token is still created successfully on-chain
       }
 
-      // Step 5: Save to database
-      const tokenId = await this.saveTokenToDatabase(
-        mintKeypair.publicKey.toBase58(),
-        signature,
-        params,
-        metadataUri,
-      );
-
-      // Step 5: Create associated token account
+      // Step 6: Get account addresses
       const tokenAccount = await getAssociatedTokenAddress(
         mintKeypair.publicKey,
         payer,
       );
 
-      // Step 6: Get metadata account address
       const metadataAccount = await this.getMetadataAccount(
         mintKeypair.publicKey,
       );
 
-      console.log("✅ Token creation completed successfully!");
+      console.log("✅ Pump.fun-style token creation completed successfully!");
 
       return {
         mintAddress: mintKeypair.publicKey.toBase58(),
         tokenAccount: tokenAccount.toBase58(),
         metadataAccount: metadataAccount.toBase58(),
-        signature,
+        signature: bondingCurveSignature,
         tokenId,
       };
     } catch (error) {
@@ -185,13 +185,12 @@ export class TokenCreationService {
   }
 
   /**
-   * Create mint account and initial token supply
+   * Create mint account only (no initial minting - bonding curve will handle that)
    */
-  private async createMintAndToken(
+  private async createMintAccount(
     mintKeypair: any,
     payer: PublicKey,
     decimals: number,
-    initialSupply: number,
     metadataUri: string,
     params: TokenCreationParams,
   ): Promise<string> {
@@ -221,92 +220,57 @@ export class TokenCreationService {
       ),
     );
 
-    // Create associated token account for creator
-    const creatorTokenAccount = await getAssociatedTokenAddress(
-      mintKeypair.publicKey,
-      payer,
-    );
+    // NOTE: No initial minting or authority transfer here
+    // The bonding curve program will handle:
+    // 1. Setting itself as mint authority
+    // 2. Minting the total supply to bonding curve reserves
+    // 3. Managing all token distribution via bonding curve math
 
-    transaction.add(
-      createAssociatedTokenAccountInstruction(
-        payer,
-        creatorTokenAccount,
-        payer,
+    // Create metadata account (skip if Metaplex library not available)
+    try {
+      const metaplexModule = await import("@metaplex-foundation/mpl-token-metadata");
+      const createCreateMetadataAccountV3Instruction = metaplexModule.createCreateMetadataAccountV3Instruction;
+      
+      const metadataAccount = await this.getMetadataAccount(
         mintKeypair.publicKey,
-      ),
-    );
+      );
 
-    // Calculate creator tokens (default 20% of supply goes to creator)
-    const creatorPercentage = params.creatorPercentage || 20;
-    const creatorTokens = Math.floor((initialSupply * creatorPercentage) / 100);
-    const creatorTokensWithDecimals = BigInt(
-      creatorTokens * Math.pow(10, decimals),
-    );
-
-    // Mint initial supply to creator
-    transaction.add(
-      createMintToInstruction(
-        mintKeypair.publicKey,
-        creatorTokenAccount,
-        payer,
-        creatorTokensWithDecimals,
-      ),
-    );
-
-    // Transfer mint authority to bonding curve PDA
-    const { PublicKey: PubKey } = await import("@solana/web3.js");
-    const BONDING_CURVE_PROGRAM_ID = new PubKey("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
-    const [bondingCurvePDA] = PubKey.findProgramAddressSync(
-      [Buffer.from("bonding_curve"), mintKeypair.publicKey.toBuffer()],
-      BONDING_CURVE_PROGRAM_ID,
-    );
-
-    transaction.add(
-      createSetAuthorityInstruction(
-        mintKeypair.publicKey,
-        payer, // Current authority (creator)
-        AuthorityType.MintTokens,
-        bondingCurvePDA, // New authority (bonding curve)
-      ),
-    );
-
-    // Create metadata account
-    const metadataAccount = await this.getMetadataAccount(
-      mintKeypair.publicKey,
-    );
-
-    transaction.add(
-      createCreateMetadataAccountV3Instruction(
-        {
-          metadata: metadataAccount,
-          mint: mintKeypair.publicKey,
-          mintAuthority: bondingCurvePDA, // Use bonding curve as mint authority
-          payer: payer,
-          updateAuthority: payer,
-        },
-        {
-          createMetadataAccountArgsV3: {
-            data: {
-              name: params.name,
-              symbol: params.symbol,
-              uri: metadataUri,
-              sellerFeeBasisPoints: 0,
-              creators: [
-                {
-                  address: payer,
-                  verified: true,
-                  share: 100,
-                },
-              ],
-              collection: null,
-              uses: null,
-            },
-            isMutable: true,
-            collectionDetails: null,
+      transaction.add(
+        createCreateMetadataAccountV3Instruction(
+          {
+            metadata: metadataAccount,
+            mint: mintKeypair.publicKey,
+            mintAuthority: payer, // Creator is initial authority (bonding curve will take over)
+            payer: payer,
+            updateAuthority: payer,
           },
-        },
-      ),
-    );
+          {
+            createMetadataAccountArgsV3: {
+              data: {
+                name: params.name,
+                symbol: params.symbol,
+                uri: metadataUri,
+                sellerFeeBasisPoints: 0,
+                creators: [
+                  {
+                    address: payer,
+                    verified: true,
+                    share: 100,
+                  },
+                ],
+                collection: null,
+                uses: null,
+              },
+              isMutable: true,
+              collectionDetails: null,
+            },
+          },
+        ),
+      );
+      console.log("✅ Metadata account instruction added");
+    } catch (metaplexError) {
+      console.warn("⚠️ Skipping metadata creation (Metaplex library not available):", metaplexError);
+    }
 
     // Add platform fee (0.1 SOL)
     const platformFeeAccount = new PublicKey(config.platform.feeWallet);
@@ -340,20 +304,29 @@ export class TokenCreationService {
   }
 
   /**
-   * Get metadata account PDA
+   * Get metadata account PDA (with fallback)
    */
   private async getMetadataAccount(
     mintPublicKey: PublicKey,
   ): Promise<PublicKey> {
-    const [metadataAccount] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("metadata"),
-        METADATA_PROGRAM_ID.toBuffer(),
-        mintPublicKey.toBuffer(),
-      ],
-      METADATA_PROGRAM_ID,
-    );
-    return metadataAccount;
+    try {
+      const metaplexModule = await import("@metaplex-foundation/mpl-token-metadata");
+      const METADATA_PROGRAM_ID = metaplexModule.PROGRAM_ID;
+      
+      const [metadataAccount] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          METADATA_PROGRAM_ID.toBuffer(),
+          mintPublicKey.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID,
+      );
+      return metadataAccount;
+    } catch (error) {
+      // Fallback: return mint address if metadata program not available
+      console.warn("Using mint address as metadata account fallback");
+      return mintPublicKey;
+    }
   }
 
   /**

@@ -113,11 +113,11 @@ export class BondingCurveProgram {
   }
 
   /**
-   * Initialize bonding curve for a token
+   * Initialize bonding curve for a token (Pump.fun style)
    */
   async initializeBondingCurve(
     mintAddress: PublicKey,
-    initialVirtualTokenReserves: bigint = BigInt(1073000000 * Math.pow(10, 9)), // 1.073B tokens
+    totalSupply: bigint, // Total token supply in base units
     initialVirtualSolReserves: bigint = BigInt(30 * LAMPORTS_PER_SOL), // 30 SOL
   ): Promise<string> {
     if (!this.walletService.connected || !this.walletService.publicKey) {
@@ -138,6 +138,9 @@ export class BondingCurveProgram {
       creator,
     );
 
+    // Calculate virtual token reserves (pump.fun uses ~80% of total supply)
+    const initialVirtualTokenReserves = (totalSupply * BigInt(80)) / BigInt(100);
+    
     // Create initialize instruction
     const initializeArgs = new InitializeArgs(
       initialVirtualTokenReserves,
@@ -149,14 +152,21 @@ export class BondingCurveProgram {
       Buffer.from(borsh.serialize(SCHEMAS, initializeArgs)),
     ]);
 
+    // Get bonding curve vault PDA for holding tokens
+    const [vaultAccount] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
+      PROGRAM_ID,
+    );
+
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: creator, isSigner: true, isWritable: true },
         { pubkey: bondingCurveAccount, isSigner: false, isWritable: true },
         { pubkey: mintAddress, isSigner: false, isWritable: true },
-        { pubkey: creatorTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: vaultAccount, isSigner: false, isWritable: true }, // Vault to hold bonding curve tokens
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
       ],
       programId: PROGRAM_ID,

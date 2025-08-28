@@ -224,12 +224,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { PublicKey, Transaction, Connection } from "@solana/web3.js";
+import { PublicKey, Transaction, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { SupabaseService } from "@/services/supabase";
 import { useWalletStore } from "@/stores/wallet";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
-import { solanaProgram } from "@/services/solanaProgram";
+import { pumpTradingService } from "@/services/pumpTradingService";
 import {
   marketAnalyticsService,
   type TokenAnalytics,
@@ -245,7 +245,7 @@ import {
 } from "@/services/realTimePriceService";
 import { config } from "@/config";
 import { solanaConfig } from "@/config/index";
-import { tokenBalanceCache } from "@/services/tokenBalanceCache";
+import { simpleBalanceService } from "@/services/simpleBalanceService";
 
 const route = useRoute();
 const router = useRouter();
@@ -283,26 +283,14 @@ const tokenDecimals = ref(9);
 onMounted(async () => {
   await loadPublicTokenData();
 
-  // Load cached balances if wallet is already connected
-  if (walletStore.isConnected && walletStore.walletAddress) {
+  // Load token balance if wallet is already connected
+  if (walletStore.isConnected && walletStore.walletAddress && token.value?.mint_address) {
     try {
-      // Clear any fake cached balances before loading
-      tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
-      console.log("🗑️ [MOUNT] Cleared fake cached balances");
-
-      await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
-      console.log("✅ [MOUNT] Loaded cached balances on mount");
-
-      // Load current token balance if token is available - FORCE REFRESH to get real blockchain data
-      if (token.value?.mint_address) {
-        await loadUserTokenBalance(true); // Force refresh from blockchain
-        console.log("🔄 [MOUNT] Forced fresh balance load from blockchain");
-      }
+      console.log("🔄 [MOUNT] Loading fresh balance from blockchain");
+      await loadUserTokenBalance(true); // Force refresh from blockchain
+      console.log("✅ [MOUNT] Fresh balance loaded on mount");
     } catch (error) {
-      console.error(
-        "❌ [MOUNT] Failed to load cached balances on mount:",
-        error,
-      );
+      console.error("❌ [MOUNT] Failed to load balance on mount:", error);
     }
   }
 });
@@ -313,23 +301,15 @@ watch(
   async (isConnected) => {
     if (isConnected && walletStore.walletAddress && token.value?.mint_address) {
       try {
-        // Clear fake balances first
-        tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
-        console.log("🗑️ [WALLET WATCH] Cleared fake cached balances");
-
-        await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
+        console.log("🔄 [WALLET WATCH] Loading fresh balance after wallet connection");
         await loadUserTokenBalance(true); // Force refresh from blockchain
-        console.log(
-          "✅ [WALLET WATCH] Loaded fresh balances from blockchain after wallet connection",
-        );
+        console.log("✅ [WALLET WATCH] Fresh balance loaded after wallet connection");
       } catch (error) {
-        console.error("❌ [WALLET WATCH] Failed to load balances:", error);
+        console.error("❌ [WALLET WATCH] Failed to load balance:", error);
       }
     } else if (!isConnected) {
       userTokenBalance.value = 0;
-      console.log(
-        "🔄 [WALLET WATCH] Cleared balance after wallet disconnection",
-      );
+      console.log("🔄 [WALLET WATCH] Cleared balance after wallet disconnection");
     }
   },
 );
@@ -340,14 +320,9 @@ watch(
   async (mintAddress) => {
     if (mintAddress && walletStore.isConnected && walletStore.walletAddress) {
       try {
-        // Clear fake balances before loading real balance
-        tokenBalanceCache.clearFakeBalances(walletStore.walletAddress);
-        console.log("🗑️ [TOKEN WATCH] Cleared fake cached balances for token");
-
+        console.log("🔄 [TOKEN WATCH] Loading fresh balance for new token");
         await loadUserTokenBalance(true); // Force refresh from blockchain
-        console.log(
-          "✅ [TOKEN WATCH] Loaded fresh balance from blockchain after token loaded",
-        );
+        console.log("✅ [TOKEN WATCH] Fresh balance loaded for new token");
       } catch (error) {
         console.error("❌ [TOKEN WATCH] Failed to load balance:", error);
       }
@@ -591,18 +566,14 @@ const authenticateUserWithWallet = async () => {
 
     console.log("✅ User authenticated for trading and commenting");
 
-    // 🔄 Load cached token balances after authentication
-    if (walletStore.walletAddress) {
+    // 🔄 Load token balance after authentication
+    if (walletStore.walletAddress && token.value?.mint_address) {
       try {
-        await tokenBalanceCache.loadUserBalances(walletStore.walletAddress);
-        console.log("✅ Loaded cached token balances after authentication");
-
-        // Refresh current token balance from cache
-        if (token.value?.mint_address) {
-          await loadUserTokenBalance();
-        }
+        console.log("🔄 Loading fresh balance after authentication");
+        await loadUserTokenBalance(true); // Force refresh
+        console.log("✅ Fresh balance loaded after authentication");
       } catch (balanceError) {
-        console.error("❌ Failed to load cached balances:", balanceError);
+        console.error("❌ Failed to load balance after authentication:", balanceError);
       }
     }
   } catch (error) {
@@ -702,25 +673,26 @@ const handleTrade = async (tradeData: {
     let signature: string;
 
     if (type === "buy") {
-      // Execute buy transaction
-      signature = await solanaProgram.buyTokens(mintAddress, amount);
+      // Execute buy transaction using pump trading service
+      const result = await pumpTradingService.buyTokens(mintAddress, amount);
+      signature = result.signature;
 
+      const tokensReceived = Number(result.tokensTraded) / Math.pow(10, token.value?.decimals || 9);
+      
       uiStore.showToast({
         type: "success",
         title: "Buy Order Successful! 🎉",
-        message: `Bought ${preview?.tokensReceived?.toFixed(6) || "tokens"} ${tokenSymbol.value} for ${amount} SOL`,
+        message: `Bought ${tokensReceived.toFixed(6)} ${tokenSymbol.value} for ${amount} SOL`,
       });
     } else {
-      // Execute sell transaction
-      signature = await solanaProgram.sellTokens(mintAddress, amount);
+      // Execute sell transaction using pump trading service
+      const result = await pumpTradingService.sellTokens(mintAddress, BigInt(amount));
+      signature = result.signature;
 
-      // Format amounts properly for display
       const humanReadableTokenAmount = (
         amount / Math.pow(10, token.value?.decimals || 9)
       ).toFixed(6);
-      const humanReadableSolAmount = Math.abs(preview?.solSpent || 0).toFixed(
-        6,
-      );
+      const humanReadableSolAmount = (Number(result.solAmount) / LAMPORTS_PER_SOL).toFixed(6);
 
       uiStore.showToast({
         type: "success",
@@ -736,29 +708,28 @@ const handleTrade = async (tradeData: {
     await walletStore.updateBalance();
     console.log("💰 Wallet balance refreshed after trade");
 
-    // 🔄 Refresh token balance from blockchain after transaction
+    // 🔄 Update balance after trade using simple balance service
     if (walletStore.walletAddress && token.value?.mint_address) {
       try {
-        // Force refresh balance from blockchain to get real updated balance
-        await loadUserTokenBalance(true);
-        console.log(
-          "✅ Token balance refreshed from blockchain after",
+        // Update balance after trade (clears cache and fetches fresh)
+        await simpleBalanceService.updateBalanceAfterTrade(
+          walletStore.walletAddress,
+          token.value.mint_address,
           type,
-          "transaction",
+          type === "buy" ? BigInt(amount * 1e9) : BigInt(amount), // Rough estimate for cache clearing
         );
+        
+        // Reload balance to update UI
+        await loadUserTokenBalance(true);
+        
+        console.log("✅ Balance updated and refreshed after", type, "transaction");
       } catch (balanceError) {
-        console.error(
-          "❌ Failed to refresh balance after trade:",
-          balanceError,
-        );
-        // Try again without force refresh (use cache if available)
+        console.error("❌ Failed to refresh balance after trade:", balanceError);
+        // Try simple refresh
         try {
-          await loadUserTokenBalance(false);
+          await loadUserTokenBalance(true);
         } catch (fallbackError) {
-          console.error(
-            "❌ Balance refresh fallback also failed:",
-            fallbackError,
-          );
+          console.error("❌ Balance refresh fallback also failed:", fallbackError);
         }
       }
     }
@@ -868,7 +839,7 @@ const loadTopHolders = async () => {
 };
 
 /**
- * Load user's token balance for trading (with caching)
+ * Load user's token balance for trading (directly from blockchain)
  */
 const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
   if (
@@ -881,31 +852,33 @@ const loadUserTokenBalance = async (forceRefresh: boolean = false) => {
   }
 
   try {
-    console.log("📊 Loading user token balance with caching...", {
+    console.log("📊 Loading user token balance from blockchain...", {
       forceRefresh,
       walletAddress: walletStore.walletAddress.slice(0, 8) + "...",
       tokenMint: token.value.mint_address.slice(0, 8) + "...",
     });
 
-    // Use cached balance service - returns human-readable balance
-    const balance = await tokenBalanceCache.getBalance(
+    // Get balance directly from blockchain
+    const balanceInfo = await simpleBalanceService.getTokenBalance(
       walletStore.walletAddress,
       token.value.mint_address,
       forceRefresh,
     );
 
-    // Store the human-readable balance directly (no conversion needed)
-    userTokenBalance.value = balance;
-    tokenDecimals.value = token.value?.decimals ?? 9;
+    // Store the human-readable balance directly
+    userTokenBalance.value = balanceInfo.humanReadable;
+    tokenDecimals.value = balanceInfo.decimals;
 
     console.log(
-      "✅ User token balance loaded with caching:",
-      balance,
-      "tokens (human-readable), Decimals:",
-      tokenDecimals.value,
+      "✅ User token balance loaded from blockchain:",
+      balanceInfo.humanReadable,
+      "tokens, Decimals:",
+      balanceInfo.decimals,
+      "Account exists:",
+      balanceInfo.exists,
     );
   } catch (error) {
-    console.error("❌ Failed to load user token balance with caching:", error);
+    console.error("❌ Failed to load user token balance:", error);
     userTokenBalance.value = 0; // Reset balance on error
   }
 };
@@ -1305,30 +1278,15 @@ const initializeBondingCurve = async () => {
       token.value.mint_address,
     );
     const mint = new PublicKey(token.value.mint_address);
-    const instructions = await solanaProgram.createInitializeInstruction(
+    
+    // Use bonding curve program service to initialize
+    const { bondingCurveProgram } = await import("@/services/bondingCurveProgram");
+    const signature = await bondingCurveProgram.initializeBondingCurve(
       mint,
-      creator,
-      BigInt(bondingCurveConfig.initialVirtualTokenReserves),
-      BigInt(bondingCurveConfig.initialVirtualSolReserves),
+      BigInt(1_000_000_000 * Math.pow(10, 9)), // Default total supply
     );
-    console.log("[ADMIN] Initialization TX:", instructions);
-    // Send transaction using walletService
-    const transaction = new Transaction().add(...instructions);
-    transaction.feePayer = creator;
-    // Use direct connection from config
-    const connection = new Connection(
-      solanaConfig.rpcUrl,
-      solanaConfig.commitment,
-    );
-    transaction.recentBlockhash = (
-      await connection.getLatestBlockhash()
-    ).blockhash;
-    // Sign and send
-    const signed = await walletStore.signTransaction(transaction);
-    const txid = await connection.sendRawTransaction(signed.serialize());
-    console.log("[ADMIN] Sent bonding curve init transaction:", txid);
-    // Wait for confirmation
-    await connection.confirmTransaction(txid, "confirmed");
+    
+    console.log("[ADMIN] Bonding curve initialized:", signature);
     initSuccess.value = true;
     await refreshAllTokenData();
   } catch (e: any) {
