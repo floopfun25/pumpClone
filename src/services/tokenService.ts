@@ -278,6 +278,22 @@ class TokenService {
             ),
           );
 
+          // Transfer mint authority to bonding curve PDA
+          const BONDING_CURVE_PROGRAM_ID = new PublicKey("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
+          const [bondingCurvePDA] = PublicKey.findProgramAddressSync(
+            [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
+            BONDING_CURVE_PROGRAM_ID,
+          );
+
+          tokenTx.add(
+            createSetAuthorityInstruction(
+              mintAddress,
+              walletService.publicKey, // Current authority (creator)
+              AuthorityType.MintTokens,
+              bondingCurvePDA, // New authority (bonding curve)
+            ),
+          );
+
           const tokenTxSignature = await walletService.sendTransaction(tokenTx);
           console.log("✅ Token minted");
 
