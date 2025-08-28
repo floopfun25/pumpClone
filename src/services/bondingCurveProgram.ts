@@ -17,6 +17,7 @@ import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
+  getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 import { getWalletService } from "./wallet";
@@ -153,7 +154,7 @@ export class BondingCurveProgram {
     ]);
 
     // Get associated token account for bonding curve vault
-    const vaultAccount = await getAssociatedTokenAddress(
+    const vaultAccount = getAssociatedTokenAddressSync(
       mintAddress,
       bondingCurveAccount, // bonding curve is the authority
     );
@@ -208,7 +209,10 @@ export class BondingCurveProgram {
         console.log(
           "🏗️ [BUY] Bonding curve not initialized, initializing now...",
         );
-        await this.initializeBondingCurve(mintAddress);
+        await this.initializeBondingCurve(
+          mintAddress,
+          BigInt(1_000_000_000 * Math.pow(10, 9)), // Default 1B tokens
+        );
         console.log("✅ [BUY] Bonding curve initialized successfully");
       }
 
@@ -222,7 +226,7 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const vaultAccount = await getAssociatedTokenAddress(
+      const vaultAccount = getAssociatedTokenAddressSync(
         mintAddress,
         bondingCurveAccount, // bonding curve is the authority
       );
@@ -344,7 +348,7 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const vaultAccount = await getAssociatedTokenAddress(
+      const vaultAccount = getAssociatedTokenAddressSync(
         mintAddress,
         bondingCurveAccount, // bonding curve is the authority
       );
