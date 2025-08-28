@@ -152,10 +152,10 @@ export class BondingCurveProgram {
       Buffer.from(borsh.serialize(SCHEMAS, initializeArgs)),
     ]);
 
-    // Get bonding curve vault PDA for holding tokens
-    const [vaultAccount] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
-      PROGRAM_ID,
+    // Get associated token account for bonding curve vault
+    const vaultAccount = await getAssociatedTokenAddress(
+      mintAddress,
+      bondingCurveAccount, // bonding curve is the authority
     );
 
     const instruction = new TransactionInstruction({
@@ -222,9 +222,9 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
-        PROGRAM_ID,
+      const vaultAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        bondingCurveAccount, // bonding curve is the authority
       );
 
       // Calculate expected tokens (simplified calculation)
@@ -344,9 +344,9 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
-        PROGRAM_ID,
+      const vaultAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        bondingCurveAccount, // bonding curve is the authority
       );
 
       // Calculate expected SOL

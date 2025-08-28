@@ -189,10 +189,10 @@ export class RealSolanaProgram {
       // Get platform fee account
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
-      // Create bonding curve vault PDA
-      const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
-        this.programId,
+      // Get associated token account for bonding curve vault
+      const vaultAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        bondingCurveAccount, // bonding curve is the authority
       );
 
       // Build transaction
@@ -315,10 +315,10 @@ export class RealSolanaProgram {
       // Get platform fee account
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
-      // Create bonding curve vault PDA
-      const [vaultAccount] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), bondingCurveAccount.toBuffer()],
-        this.programId,
+      // Get associated token account for bonding curve vault
+      const vaultAccount = await getAssociatedTokenAddress(
+        mintAddress,
+        bondingCurveAccount, // bonding curve is the authority
       );
 
       // Build transaction
