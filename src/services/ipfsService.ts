@@ -128,11 +128,11 @@ export class IPFSService {
       const result = await response.json();
       return `https://ipfs.io/ipfs/${result.cid}`;
     } catch (error) {
-      // Final fallback - generate a placeholder URL (for development only)
-      console.error("All IPFS uploads failed, using placeholder");
-      const placeholderHash =
-        "QmPlaceholder" + Math.random().toString(36).substring(7);
-      return `https://ipfs.io/ipfs/${placeholderHash}`;
+      // PRODUCTION: All IPFS uploads failed - this is critical for production
+      console.error("❌ CRITICAL: All IPFS uploads failed - cannot create token without metadata");
+      throw new Error(
+        "IPFS upload failed: Unable to store token metadata. Please configure IPFS credentials or try again later."
+      );
     }
   }
 

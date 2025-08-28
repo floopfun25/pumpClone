@@ -19,7 +19,6 @@ import {
   MINT_SIZE,
 } from "@solana/spl-token";
 // Import metaplex metadata (skip metadata creation if not available)
-import type { PublicKey } from "@solana/web3.js";
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
 import { supabase } from "./supabase";
@@ -75,15 +74,10 @@ export class TokenCreationService {
         metadataUri = await this.uploadMetadata(params);
         console.log("✅ Metadata uploaded to IPFS:", metadataUri);
       } catch (ipfsError) {
-        console.warn("⚠️ IPFS upload failed, using fallback metadata:", ipfsError);
-        // Create fallback metadata URI for testing
-        metadataUri = `data:application/json,${encodeURIComponent(JSON.stringify({
-          name: params.name,
-          symbol: params.symbol,
-          description: params.description,
-          image: params.imageUrl || "",
-        }))}`;
-        console.log("📝 Using fallback metadata URI for testing");
+        console.error("❌ CRITICAL: IPFS metadata upload failed:", ipfsError);
+        throw new Error(
+          `Token creation failed: Unable to upload metadata to IPFS. ${ipfsError instanceof Error ? ipfsError.message : "Unknown error"}`
+        );
       }
 
       // Step 2: Generate mint keypair

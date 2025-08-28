@@ -19,6 +19,7 @@ import {
   getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
+  getMint,
 } from "@solana/spl-token";
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
@@ -604,17 +605,53 @@ export class BondingCurveProgram {
   }
 
   /**
-   * Get current token price
+   * Get current token price from bonding curve state
    */
   async getCurrentPrice(mintAddress: PublicKey): Promise<number> {
-    return 0.001; // Placeholder
+    try {
+      // Get current bonding curve state
+      const result = await this.getCurrentBondingCurveState(mintAddress);
+      
+      if (result?.bondingCurveState) {
+        const { virtualSolReserves, virtualTokenReserves } = result.bondingCurveState;
+        
+        // Price = SOL reserves / Token reserves (in proper units)
+        const pricePerToken = virtualSolReserves / virtualTokenReserves;
+        return pricePerToken;
+      }
+      
+      // Fallback: calculate initial price based on virtual reserves
+      const virtualSolReserves = 30; // 30 SOL
+      const virtualTokenReserves = 1073000000; // 1.073B tokens
+      return virtualSolReserves / virtualTokenReserves; // ~0.000000028 SOL per token
+    } catch (error) {
+      console.error("Failed to calculate current price:", error);
+      return 0.000000028; // Initial bonding curve price
+    }
   }
 
   /**
-   * Get market cap
+   * Get market cap calculated from current price and total supply
    */
   async getMarketCap(mintAddress: PublicKey): Promise<number> {
-    return 10000; // Placeholder
+    try {
+      const mintInfo = await getMint(this.connection, mintAddress);
+      const currentPrice = await this.getCurrentPrice(mintAddress);
+      
+      // Market cap = Total supply × Current price
+      const totalSupply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals);
+      const marketCapSOL = totalSupply * currentPrice;
+      
+      // Convert to USD (approximate using SOL price)
+      // In production, you'd want to fetch real SOL price from an oracle
+      const solPriceUSD = 100; // Fallback SOL price - should be fetched from price oracle
+      const marketCapUSD = marketCapSOL * solPriceUSD;
+      
+      return marketCapUSD;
+    } catch (error) {
+      console.error("Failed to calculate market cap:", error);
+      return 0; // Return 0 instead of placeholder for new tokens
+    }
   }
 
   /**
