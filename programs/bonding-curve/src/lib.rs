@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Burn};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Burn, SetAuthority};
+use anchor_spl::associated_token::{AssociatedToken};
 
 declare_id!("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
 
@@ -7,7 +8,7 @@ declare_id!("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
 pub mod bonding_curve {
     use super::*;
 
-    // Initialize a new bonding curve for a token
+    // Initialize a new bonding curve for a token (pump.fun style)
     pub fn initialize(
         ctx: Context<Initialize>,
         initial_virtual_token_reserves: u64,
@@ -16,19 +17,55 @@ pub mod bonding_curve {
     ) -> Result<()> {
         let bonding_curve = &mut ctx.accounts.bonding_curve;
         
-        // Anchor automatically handles the discriminator, don't set it manually
+        // Initialize bonding curve state
         bonding_curve.mint_address = ctx.accounts.mint.key();
         bonding_curve.creator = ctx.accounts.creator.key();
         bonding_curve.virtual_token_reserves = initial_virtual_token_reserves;
         bonding_curve.virtual_sol_reserves = initial_virtual_sol_reserves;
         bonding_curve.real_token_reserves = 0;
         bonding_curve.real_sol_reserves = 0;
-        bonding_curve.token_total_supply = 0;
+        bonding_curve.token_total_supply = initial_virtual_token_reserves; // Total supply minted to bonding curve
         bonding_curve.graduated = false;
         bonding_curve.created_at = Clock::get()?.unix_timestamp;
         bonding_curve.bump_seed = bump;
 
-        msg!("Bonding curve initialized successfully");
+        // Transfer mint authority to bonding curve PDA
+        let cpi_accounts = SetAuthority {
+            current_authority: ctx.accounts.creator.to_account_info(),
+            account_or_mint: ctx.accounts.mint.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        
+        token::set_authority(
+            cpi_ctx,
+            anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
+            Some(bonding_curve.key()),
+        )?;
+
+        // Mint all tokens to the vault (bonding curve reserves)
+        let mint_cpi_accounts = MintTo {
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.vault.to_account_info(),
+            authority: bonding_curve.to_account_info(),
+        };
+        
+        let mint_key = ctx.accounts.mint.key();
+        let seeds = &[
+            b"bonding_curve",
+            mint_key.as_ref(),
+            &[bump]
+        ];
+        let signer = &[&seeds[..]];
+        let mint_cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            mint_cpi_accounts,
+            signer
+        );
+
+        token::mint_to(mint_cpi_ctx, initial_virtual_token_reserves)?;
+
+        msg!("Bonding curve initialized: {} tokens minted to vault", initial_virtual_token_reserves);
         Ok(())
     }
 
@@ -128,16 +165,19 @@ pub mod bonding_curve {
         token_amount: u64,
         min_sol_received: u64,
     ) -> Result<()> {
-        let bonding_curve = &mut ctx.accounts.bonding_curve;
+        // Get values before borrowing mutably
+        let graduated = ctx.accounts.bonding_curve.graduated;
+        let virtual_token_reserves = ctx.accounts.bonding_curve.virtual_token_reserves;
+        let virtual_sol_reserves = ctx.accounts.bonding_curve.virtual_sol_reserves;
         
         // Verify bonding curve hasn't graduated
-        require!(!bonding_curve.graduated, ErrorCode::AlreadyGraduated);
+        require!(!graduated, ErrorCode::AlreadyGraduated);
 
         // Calculate SOL to return using bonding curve formula
         let sol_out = calculate_sol_out(
             token_amount,
-            bonding_curve.virtual_token_reserves,
-            bonding_curve.virtual_sol_reserves,
+            virtual_token_reserves,
+            virtual_sol_reserves,
         )?;
 
         // Calculate platform fee
@@ -158,25 +198,18 @@ pub mod bonding_curve {
 
         token::burn(cpi_ctx, token_amount)?;
 
-        // Transfer SOL from vault to seller
-        let bonding_curve_key = bonding_curve.key();
-        let vault_seeds = &[
-            b"vault",
-            bonding_curve_key.as_ref(),
-            &[ctx.bumps.vault],
-        ];
-        let _signer = &[&vault_seeds[..]];
-
-        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
+        // Transfer SOL from bonding curve to seller (SOL is stored in bonding curve account)
+        **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
         **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += seller_receives;
 
-        // Transfer platform fee
+        // Transfer platform fee from bonding curve
         if platform_fee > 0 {
-            **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
+            **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
             **ctx.accounts.platform_fee.to_account_info().try_borrow_mut_lamports()? += platform_fee;
         }
 
         // Update bonding curve state
+        let bonding_curve = &mut ctx.accounts.bonding_curve;
         bonding_curve.virtual_token_reserves += token_amount;
         bonding_curve.virtual_sol_reserves -= sol_out;
         bonding_curve.real_sol_reserves -= sol_out;
@@ -206,11 +239,18 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub mint: Account<'info, Mint>,
     
-    #[account(mut)]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    // Vault token account to hold bonding curve reserves
+    #[account(
+        init,
+        payer = creator,
+        associated_token::mint = mint,
+        associated_token::authority = bonding_curve,
+    )]
+    pub vault: Account<'info, TokenAccount>,
     
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -234,10 +274,10 @@ pub struct Buy<'info> {
     
     #[account(
         mut,
-        seeds = [b"vault", bonding_curve.key().as_ref()],
-        bump
+        associated_token::mint = mint,
+        associated_token::authority = bonding_curve,
     )]
-    pub vault: SystemAccount<'info>,
+    pub vault: Account<'info, TokenAccount>,
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -263,10 +303,10 @@ pub struct Sell<'info> {
     
     #[account(
         mut,
-        seeds = [b"vault", bonding_curve.key().as_ref()],
-        bump
+        associated_token::mint = mint,
+        associated_token::authority = bonding_curve,
     )]
-    pub vault: SystemAccount<'info>,
+    pub vault: Account<'info, TokenAccount>,
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
