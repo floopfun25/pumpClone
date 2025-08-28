@@ -245,51 +245,8 @@ export class TokenCreationService {
     // 2. Minting the total supply to bonding curve reserves
     // 3. Managing all token distribution via bonding curve math
 
-    // Create metadata account (skip if Metaplex library not available)
-    try {
-      const metaplexModule = await import("@metaplex-foundation/mpl-token-metadata");
-      const createCreateMetadataAccountV3Instruction = metaplexModule.createCreateMetadataAccountV3Instruction;
-      
-      const metadataAccount = await this.getMetadataAccount(
-        mintKeypair.publicKey,
-      );
-
-      transaction.add(
-        createCreateMetadataAccountV3Instruction(
-          {
-            metadata: metadataAccount,
-            mint: mintKeypair.publicKey,
-            mintAuthority: payer, // Creator is initial authority (bonding curve will take over)
-            payer: payer,
-            updateAuthority: payer,
-          },
-          {
-            createMetadataAccountArgsV3: {
-              data: {
-                name: params.name,
-                symbol: params.symbol,
-                uri: metadataUri,
-                sellerFeeBasisPoints: 0,
-                creators: [
-                  {
-                    address: payer,
-                    verified: true,
-                    share: 100,
-                  },
-                ],
-                collection: null,
-                uses: null,
-              },
-              isMutable: true,
-              collectionDetails: null,
-            },
-          },
-        ),
-      );
-      console.log("✅ Metadata account instruction added");
-    } catch (metaplexError) {
-      console.warn("⚠️ Skipping metadata creation (Metaplex library not available):", metaplexError);
-    }
+    // Skip metadata creation for now - will be handled separately
+    console.log("⚠️ Skipping metadata creation in token creation process");
 
     // Add platform fee (0.1 SOL)
     const platformFeeAccount = new PublicKey(config.platform.feeWallet);
@@ -327,24 +284,9 @@ export class TokenCreationService {
   private async getMetadataAccount(
     mintPublicKey: PublicKey,
   ): Promise<PublicKey> {
-    try {
-      const metaplexModule = await import("@metaplex-foundation/mpl-token-metadata");
-      const METADATA_PROGRAM_ID = metaplexModule.PROGRAM_ID;
-      
-      const [metadataAccount] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          mintPublicKey.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID,
-      );
-      return metadataAccount;
-    } catch (error) {
-      // Fallback: return mint address if metadata program not available
-      console.warn("Using mint address as metadata account fallback");
-      return mintPublicKey;
-    }
+    // Fallback: return mint address (metadata creation disabled for now)
+    console.warn("Using mint address as metadata account fallback");
+    return mintPublicKey;
   }
 
   /**
@@ -375,7 +317,7 @@ export class TokenCreationService {
         market_cap: 0,
         volume_24h: 0,
         status: "active",
-        creation_signature: signature,
+        transaction_hash: signature,
         decimals: params.decimals || 9,
       })
       .select()

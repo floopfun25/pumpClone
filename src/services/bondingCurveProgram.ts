@@ -154,9 +154,14 @@ export class BondingCurveProgram {
     ]);
 
     // Get associated token account for bonding curve vault
-    const vaultAccount = getAssociatedTokenAddressSync(
-      mintAddress,
-      bondingCurveAccount, // bonding curve is the authority
+    // Using manual PDA derivation since getAssociatedTokenAddressSync fails with PDA
+    const [vaultAccount] = PublicKey.findProgramAddressSync(
+      [
+        bondingCurveAccount.toBuffer(),
+        TOKEN_PROGRAM_ID.toBuffer(),
+        mintAddress.toBuffer(),
+      ],
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
 
     const instruction = new TransactionInstruction({
@@ -226,9 +231,14 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const vaultAccount = getAssociatedTokenAddressSync(
-        mintAddress,
-        bondingCurveAccount, // bonding curve is the authority
+      // Using manual PDA derivation since getAssociatedTokenAddressSync fails with PDA
+      const [vaultAccount] = PublicKey.findProgramAddressSync(
+        [
+          bondingCurveAccount.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          mintAddress.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
 
       // Calculate expected tokens (simplified calculation)
@@ -348,9 +358,14 @@ export class BondingCurveProgram {
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
       // Get vault PDA
-      const vaultAccount = getAssociatedTokenAddressSync(
-        mintAddress,
-        bondingCurveAccount, // bonding curve is the authority
+      // Using manual PDA derivation since getAssociatedTokenAddressSync fails with PDA
+      const [vaultAccount] = PublicKey.findProgramAddressSync(
+        [
+          bondingCurveAccount.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          mintAddress.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
 
       // Calculate expected SOL
