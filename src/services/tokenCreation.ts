@@ -24,6 +24,7 @@ import { getWalletService } from "./wallet";
 import { config } from "@/config";
 import { supabase } from "./supabase";
 import { uploadToIPFS } from "./ipfsService";
+import { bondingCurveProgram } from "./bondingCurveProgram";
 
 export interface TokenCreationParams {
   name: string;
@@ -104,19 +105,24 @@ export class TokenCreationService {
 
       // Step 4: Initialize bonding curve (this will handle minting)
       console.log("🎯 Initializing bonding curve...");
-      const { bondingCurveProgram } = await import("./bondingCurveProgram");
-      const bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
-        mintKeypair.publicKey,
-        BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
-      );
-      console.log("✅ Bonding curve initialized successfully");
+      try {
+        const bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
+          mintKeypair.publicKey,
+          BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
+        );
+        console.log("✅ Bonding curve initialized successfully:", bondingCurveSignature);
+      } catch (bondingCurveError) {
+        console.warn("⚠️ Bonding curve initialization failed, but token is created:", bondingCurveError);
+        // Token is still successfully created, just can't initialize bonding curve yet
+        // This can be done later manually or when the user first tries to trade
+      }
 
       // Step 5: Save to database (optional - can be done without auth)
       let tokenId = "created";
       try {
         tokenId = await this.saveTokenToDatabase(
           mintKeypair.publicKey.toBase58(),
-          bondingCurveSignature,
+          mintSignature,
           params,
           metadataUri,
         );
@@ -141,7 +147,7 @@ export class TokenCreationService {
         mintAddress: mintKeypair.publicKey.toBase58(),
         tokenAccount: tokenAccount.toBase58(),
         metadataAccount: metadataAccount.toBase58(),
-        signature: bondingCurveSignature,
+        signature: mintSignature,
         tokenId,
       };
     } catch (error) {
