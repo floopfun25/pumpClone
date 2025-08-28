@@ -317,7 +317,7 @@ export class TokenCreationService {
         market_cap: 0,
         volume_24h: 0,
         status: "active",
-        transaction_hash: signature,
+        // Note: transaction signature not stored in tokens table
         decimals: params.decimals || 9,
       })
       .select()
