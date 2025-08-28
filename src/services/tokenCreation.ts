@@ -68,9 +68,23 @@ export class TokenCreationService {
     const initialSupply = params.initialSupply || 1_000_000_000; // 1B tokens default
 
     try {
-      // Step 1: Upload metadata to IPFS
+      // Step 1: Upload metadata to IPFS (optional - fallback if fails)
       console.log("📤 Uploading metadata to IPFS...");
-      const metadataUri = await this.uploadMetadata(params);
+      let metadataUri = "";
+      try {
+        metadataUri = await this.uploadMetadata(params);
+        console.log("✅ Metadata uploaded to IPFS:", metadataUri);
+      } catch (ipfsError) {
+        console.warn("⚠️ IPFS upload failed, using fallback metadata:", ipfsError);
+        // Create fallback metadata URI for testing
+        metadataUri = `data:application/json,${encodeURIComponent(JSON.stringify({
+          name: params.name,
+          symbol: params.symbol,
+          description: params.description,
+          image: params.imageUrl || "",
+        }))}`;
+        console.log("📝 Using fallback metadata URI for testing");
+      }
 
       // Step 2: Generate mint keypair
       const { Keypair } = await import("@solana/web3.js");
