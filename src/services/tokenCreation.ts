@@ -4,7 +4,6 @@ import {
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -302,16 +301,15 @@ export class TokenCreationService {
       await this.connection.getLatestBlockhash()
     ).blockhash;
 
-    // This would need to be signed by the wallet
-    const signedTransaction =
-      await this.walletService.signTransaction(transaction);
+    // Sign transaction with wallet service and mint keypair
+    const signedTransaction = await this.walletService.signTransaction(transaction);
     signedTransaction.partialSign(mintKeypair);
 
-    const signature = await sendAndConfirmTransaction(
-      this.connection,
-      signedTransaction,
-      [],
-    );
+    // Send the signed transaction directly
+    const signature = await this.connection.sendRawTransaction(signedTransaction.serialize());
+    
+    // Confirm the transaction
+    await this.connection.confirmTransaction(signature, "confirmed");
 
     console.log("🎉 Token created successfully! Signature:", signature);
     return signature;
