@@ -300,6 +300,17 @@ export class TokenCreationService {
   ): Promise<string> {
     console.log("💾 Saving token to database...");
 
+    // Get authenticated user ID
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error("🚫 Authentication failed for database save:", authError);
+      throw new Error("Authentication required for token creation");
+    }
+
     const { data, error } = await supabase
       .from("tokens")
       .insert({
@@ -309,7 +320,7 @@ export class TokenCreationService {
         description: params.description,
         image_url: params.imageUrl,
         metadata_uri: metadataUri,
-        creator_id: this.walletService.publicKey!.toBase58(),
+        creator_id: user.id, // Use the authenticated user's UUID
         total_supply:
           (params.initialSupply || 1_000_000_000) *
           Math.pow(10, params.decimals || 9),
