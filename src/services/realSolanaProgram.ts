@@ -407,8 +407,8 @@ export class RealSolanaProgram {
 
       if (!accountInfo) {
         // New token - use initial virtual reserves
-        const virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-        const virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+        const virtualSolReserves = BigInt(config.bonding.virtualSolReserves); // 30 SOL
+        const virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves); // 1.073B tokens
 
         // Constant product formula: k = x * y
         const k = virtualSolReserves * virtualTokenReserves;
@@ -424,8 +424,8 @@ export class RealSolanaProgram {
       // Parse existing state and calculate using proper bonding curve
       // This would parse the actual bonding curve state from the account data
       // For now, using simplified calculation with proper formula
-      const virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-      const virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+      const virtualSolReserves = BigInt(config.bonding.virtualSolReserves); // 30 SOL
+      const virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves); // 1.073B tokens
       const k = virtualSolReserves * virtualTokenReserves;
       const newSolReserves = virtualSolReserves + solIn;
       const newTokenReserves = k / newSolReserves;
@@ -455,8 +455,8 @@ export class RealSolanaProgram {
 
       if (!accountInfo) {
         // New token - use initial virtual reserves
-        const virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-        const virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+        const virtualSolReserves = BigInt(config.bonding.virtualSolReserves); // 30 SOL
+        const virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves); // 1.073B tokens
 
         // Constant product formula: k = x * y
         // After sell: (virtualSolReserves - solOut) * (virtualTokenReserves + tokenIn) = k
@@ -469,8 +469,8 @@ export class RealSolanaProgram {
       }
 
       // Parse existing state and calculate using proper bonding curve
-      const virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL);
-      const virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9));
+      const virtualSolReserves = BigInt(config.bonding.virtualSolReserves);
+      const virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves);
       const k = virtualSolReserves * virtualTokenReserves;
       const newTokenReserves = virtualTokenReserves + tokenIn;
       const newSolReserves = k / newTokenReserves;
