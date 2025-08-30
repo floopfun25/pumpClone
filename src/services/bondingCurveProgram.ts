@@ -443,9 +443,9 @@ export class BondingCurveProgram {
     try {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
-      // Use initial virtual reserves (pump.fun formula)
+      // Use initial virtual reserves (pump.fun formula)  
       let virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-      let virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+      let virtualTokenReserves = BigInt(1073000000) * BigInt(Math.pow(10, 9)); // 1.073B tokens in base units
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
@@ -471,11 +471,12 @@ export class BondingCurveProgram {
         }
       }
 
-      // Constant product formula: k = x * y
-      // After buy: (virtualSolReserves + solIn) * (virtualTokenReserves - tokensOut) = k
+      // Constant product formula using BigInt arithmetic to avoid precision issues
+      // k = x * y, after buy: (x + solIn) * (y - tokensOut) = k
+      // Solving for tokensOut: tokensOut = y - (k / (x + solIn))
       const k = virtualSolReserves * virtualTokenReserves;
       const newSolReserves = virtualSolReserves + solIn;
-      const newTokenReserves = k / newSolReserves;
+      const newTokenReserves = k / newSolReserves; // This division truncates (integer division)
       const tokensOut = virtualTokenReserves - newTokenReserves;
 
       console.log(`🧮 Bonding curve calculation:
@@ -556,7 +557,7 @@ export class BondingCurveProgram {
 
       // Use initial virtual reserves (pump.fun formula)
       let virtualSolReserves = BigInt(30 * LAMPORTS_PER_SOL); // 30 SOL
-      let virtualTokenReserves = BigInt(1073000000 * Math.pow(10, 9)); // 1.073B tokens
+      let virtualTokenReserves = BigInt(1073000000) * BigInt(Math.pow(10, 9)); // 1.073B tokens in base units
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
