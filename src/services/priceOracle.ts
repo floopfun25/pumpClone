@@ -197,7 +197,7 @@ class PriceOracleService {
 
     // All sources failed
     throw new Error(
-      `All SOL price APIs failed. This indicates network-level blocking of crypto APIs in your region/ISP. Try using a VPN. Errors: ${errors.join(", ")}`,
+      `All SOL price APIs failed: ${errors.join(", ")}`,
     );
   }
 

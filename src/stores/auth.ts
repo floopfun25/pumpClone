@@ -274,8 +274,15 @@ export const useAuthStore = defineStore("auth", () => {
    */
   async function signOut() {
     try {
-      // Sign out from Supabase auth
-      await SupabaseAuth.signOut();
+      // Check if there's an active session before attempting sign out
+      const { data: { session } } = await SupabaseAuth.supabase.auth.getSession();
+      
+      if (session) {
+        // Sign out from Supabase auth only if session exists
+        await SupabaseAuth.signOut();
+      } else {
+        console.log("Auth: No active session to sign out from");
+      }
 
       // Clear local state
       user.value = null;

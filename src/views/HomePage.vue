@@ -290,27 +290,7 @@ const loadTokens = async () => {
       solPriceUSD = solPriceData.price;
     } catch (priceError) {
       console.error("Failed to fetch SOL price:", priceError);
-
-      // Run network connectivity test to help diagnose the issue
-      if (import.meta.env.DEV) {
-        console.log("🔧 Running network connectivity test...");
-        priceOracleService
-          .testNetworkConnectivity()
-          .catch((e) => console.error("Network test failed:", e));
-      }
-
-      throw new Error(`Unable to load current SOL price: ${priceError instanceof Error ? priceError.message : "Unknown error"}.
-
-🌐 Network Issue Detected:
-Your network environment appears to be blocking external API calls. This is common in corporate/university networks or with certain ISPs.
-
-💡 Solutions:
-1. Try using a VPN or different internet connection
-2. Deploy your app to production (network restrictions may not apply)
-3. Ask your network administrator about firewall rules
-4. Note: Switching from devnet to mainnet will NOT fix this issue
-
-Check browser console for detailed network diagnosis.`);
+      // Continue without SOL price - tokens will load without USD values
     }
 
     let data;
