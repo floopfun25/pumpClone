@@ -120,7 +120,7 @@ export class BondingCurveProgram {
   async initializeBondingCurve(
     mintAddress: PublicKey,
     totalSupply: bigint, // Total token supply in base units
-    initialVirtualSolReserves: bigint = BigInt(config.bonding.virtualSolReserves), // 30 SOL
+    initialVirtualSolReserves: bigint = BigInt(config.bondingCurve.initialVirtualSolReserves), // 30 SOL
   ): Promise<string> {
     if (!this.walletService.connected || !this.walletService.publicKey) {
       throw new Error("Wallet not connected");
@@ -140,8 +140,8 @@ export class BondingCurveProgram {
       creator,
     );
 
-    // Calculate virtual token reserves (pump.fun uses ~80% of total supply)
-    const initialVirtualTokenReserves = (totalSupply * BigInt(80)) / BigInt(100);
+    // Use fixed virtual token reserves from config (pump.fun style)
+    const initialVirtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9));
     
     // Create initialize instruction
     const initializeArgs = new InitializeArgs(
@@ -442,8 +442,8 @@ export class BondingCurveProgram {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
       // Use initial virtual reserves from config (already in proper base units)
-      let virtualSolReserves = BigInt(config.bonding.virtualSolReserves); // 30 SOL in lamports
-      let virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves); // 1.073B tokens in base units
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL in lamports
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9)); // 1.073B tokens in base units
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
@@ -555,8 +555,8 @@ export class BondingCurveProgram {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
       // Use initial virtual reserves from config (already in proper base units)
-      let virtualSolReserves = BigInt(config.bonding.virtualSolReserves); // 30 SOL in lamports
-      let virtualTokenReserves = BigInt(config.bonding.virtualTokenReserves); // 1.073B tokens in base units
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL in lamports
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9)); // 1.073B tokens in base units
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
@@ -621,14 +621,14 @@ export class BondingCurveProgram {
       }
       
       // Fallback: calculate initial price based on virtual reserves from config
-      const virtualSolReserves = Number(config.bonding.virtualSolReserves) / LAMPORTS_PER_SOL; // Convert lamports to SOL
-      const virtualTokenReserves = Number(config.bonding.virtualTokenReserves) / Math.pow(10, 9); // Convert base units to human tokens
+      const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL; // Convert lamports to SOL
+      const virtualTokenReserves = Number(config.bondingCurve.initialVirtualTokenReserves); // Convert base units to human tokens
       return virtualSolReserves / virtualTokenReserves; // ~0.000000028 SOL per token
     } catch (error) {
       console.error("Failed to calculate current price:", error);
       // Calculate fallback price from config values
-      const virtualSolReserves = Number(config.bonding.virtualSolReserves) / LAMPORTS_PER_SOL; 
-      const virtualTokenReserves = Number(config.bonding.virtualTokenReserves) / Math.pow(10, 9);
+      const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL; 
+      const virtualTokenReserves = Number(config.bondingCurve.initialVirtualTokenReserves);
       return virtualSolReserves / virtualTokenReserves;
     }
   }

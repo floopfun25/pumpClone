@@ -153,8 +153,8 @@ export const config = {
 
   // Bonding curve configuration (based on pump.fun)
   bondingCurve: {
-    initialVirtualTokenReserves: 1_073_000_000, // ~1.073B tokens (correct value)
-    initialVirtualSolReserves: 30_000_000_000, // 30 SOL in lamports
+    initialVirtualTokenReserves: 1073000000, // Human value: 1.073B tokens 
+    initialVirtualSolReserves: parseInt(getEnvVar("VITE_VIRTUAL_SOL_RESERVES", "30000000000")), // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
     // Graduation parameters (matching pump.fun exactly)
     graduationMarketCapUSD: 69_000, // $69K USD market cap to graduate
