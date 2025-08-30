@@ -408,7 +408,7 @@ export class RealSolanaProgram {
       if (!accountInfo) {
         // New token - use initial virtual reserves
         const virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL
-        const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9)); // 1.073B tokens
+        const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6)); // 1.073B tokens
 
         // Constant product formula: k = x * y
         const k = virtualSolReserves * virtualTokenReserves;
@@ -425,7 +425,7 @@ export class RealSolanaProgram {
       // This would parse the actual bonding curve state from the account data
       // For now, using simplified calculation with proper formula
       const virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL
-      const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9)); // 1.073B tokens
+      const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6)); // 1.073B tokens
       const k = virtualSolReserves * virtualTokenReserves;
       const newSolReserves = virtualSolReserves + solIn;
       const newTokenReserves = k / newSolReserves;
@@ -434,7 +434,7 @@ export class RealSolanaProgram {
       console.warn("Using fallback token calculation");
       // Fallback based on early bonding curve state
       const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
-      const decimals = BigInt(Math.pow(10, 9));
+      const decimals = BigInt(Math.pow(10, 6));
       return (solIn * tokensPerSol * decimals) / BigInt(LAMPORTS_PER_SOL);
     }
   }
@@ -456,7 +456,7 @@ export class RealSolanaProgram {
       if (!accountInfo) {
         // New token - use initial virtual reserves
         const virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL
-        const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9)); // 1.073B tokens
+        const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6)); // 1.073B tokens
 
         // Constant product formula: k = x * y
         // After sell: (virtualSolReserves - solOut) * (virtualTokenReserves + tokenIn) = k
@@ -470,7 +470,7 @@ export class RealSolanaProgram {
 
       // Parse existing state and calculate using proper bonding curve
       const virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves);
-      const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 9));
+      const virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6));
       const k = virtualSolReserves * virtualTokenReserves;
       const newTokenReserves = virtualTokenReserves + tokenIn;
       const newSolReserves = k / newTokenReserves;
@@ -479,7 +479,7 @@ export class RealSolanaProgram {
       console.warn("Using fallback SOL calculation");
       // Fallback calculation
       const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
-      const decimals = BigInt(Math.pow(10, 9));
+      const decimals = BigInt(Math.pow(10, 6));
       return (tokenIn * BigInt(LAMPORTS_PER_SOL)) / (tokensPerSol * decimals);
     }
   }

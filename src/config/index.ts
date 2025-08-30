@@ -142,9 +142,9 @@ export const config = {
     description: "Create and trade meme tokens on Solana",
   },
 
-  // Token creation defaults
+  // Token creation defaults (pump.fun compatible)
   tokenDefaults: {
-    decimals: 9,
+    decimals: 6, // Pump.fun uses 6 decimals, not 9
     totalSupply: 1_000_000_000, // 1 billion tokens
     graduationThreshold: 69_000, // $69K market cap in USD (not SOL)
     platformFeePercentage: 1.0, // 1% platform fee
@@ -153,7 +153,7 @@ export const config = {
 
   // Bonding curve configuration (based on pump.fun)
   bondingCurve: {
-    initialVirtualTokenReserves: 1073000000, // Human value: 1.073B tokens 
+    initialVirtualTokenReserves: 793100000, // Human value: 793.1M tokens (pump.fun compatible) 
     initialVirtualSolReserves: parseInt(getEnvVar("VITE_VIRTUAL_SOL_RESERVES", "30000000000")), // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
     // Graduation parameters (matching pump.fun exactly)

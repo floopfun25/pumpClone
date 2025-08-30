@@ -63,7 +63,7 @@ export class TokenCreationService {
     }
 
     const payer = this.walletService.publicKey;
-    const decimals = params.decimals || 9;
+    const decimals = params.decimals || config.tokenDefaults.decimals;
     const initialSupply = params.initialSupply || 1_000_000_000; // 1B tokens default
 
     try {
@@ -317,13 +317,13 @@ export class TokenCreationService {
         creator_id: user.id, // Use the authenticated user's UUID
         total_supply:
           (params.initialSupply || 1_000_000_000) *
-          Math.pow(10, params.decimals || 9),
+          Math.pow(10, params.decimals || config.tokenDefaults.decimals),
         current_price: 0,
         market_cap: 0,
         volume_24h: 0,
         status: "active",
         // Note: transaction signature not stored in tokens table
-        decimals: params.decimals || 9,
+        decimals: params.decimals || config.tokenDefaults.decimals,
       })
       .select()
       .single();
