@@ -247,9 +247,8 @@ export class BondingCurveProgram {
         solAmountLamports,
         mintAddress,
       );
-      const minTokensWithSlippage = BigInt(
-        Math.floor((Number(expectedTokens) * (100 - slippagePercent)) / 100),
-      );
+      // Calculate slippage using BigInt arithmetic to avoid precision loss
+      const minTokensWithSlippage = (expectedTokens * BigInt(100 - slippagePercent)) / BigInt(100);
 
       // Create buy instruction
       const buyArgs = new BuyArgs(solAmountLamports, minTokensWithSlippage);
@@ -371,9 +370,8 @@ export class BondingCurveProgram {
 
       // Calculate expected SOL
       const expectedSol = await this.calculateSolOut(tokenAmount, mintAddress);
-      const minSolWithSlippage = BigInt(
-        Math.floor((Number(expectedSol) * (100 - slippagePercent)) / 100),
-      );
+      // Calculate slippage using BigInt arithmetic to avoid precision loss
+      const minSolWithSlippage = (expectedSol * BigInt(100 - slippagePercent)) / BigInt(100);
 
       // Create sell instruction
       const sellArgs = new SellArgs(tokenAmount, minSolWithSlippage);
@@ -483,7 +481,8 @@ export class BondingCurveProgram {
         SOL in: ${Number(solIn) / LAMPORTS_PER_SOL} SOL
         Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
         Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 9)} tokens
-        Tokens out: ${Number(tokensOut) / Math.pow(10, 9)} tokens
+        Tokens out (BigInt): ${tokensOut.toString()} base units
+        Tokens out (display): ${Number(tokensOut) / Math.pow(10, 9)} tokens
       `);
 
       return tokensOut > 0 ? tokensOut : BigInt(0);
