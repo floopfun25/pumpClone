@@ -141,7 +141,7 @@ export class BondingCurveProgram {
     );
 
     // Use fixed virtual token reserves from config (pump.fun style)
-    const initialVirtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6));
+    const initialVirtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves);
     
     // Create initialize instruction
     const initializeArgs = new InitializeArgs(
@@ -217,7 +217,7 @@ export class BondingCurveProgram {
         );
         await this.initializeBondingCurve(
           mintAddress,
-          BigInt(1_000_000_000 * Math.pow(10, 6)), // Default 1B tokens
+          BigInt(1_000_000_000 * Math.pow(10, 9)), // Default 1B tokens
         );
         console.log("✅ [BUY] Bonding curve initialized successfully");
       }
@@ -249,6 +249,15 @@ export class BondingCurveProgram {
       );
       // Calculate slippage using BigInt arithmetic to avoid precision loss
       const minTokensWithSlippage = (expectedTokens * BigInt(100 - slippagePercent)) / BigInt(100);
+
+      // Check u64 bounds before serialization to prevent overflow
+      const MAX_U64 = BigInt("18446744073709551615");
+      if (minTokensWithSlippage > MAX_U64) {
+        throw new Error(`Token amount ${minTokensWithSlippage.toString()} exceeds u64 maximum (${MAX_U64.toString()}). This indicates a scaling issue.`);
+      }
+      if (solAmountLamports > MAX_U64) {
+        throw new Error(`SOL amount ${solAmountLamports.toString()} exceeds u64 maximum (${MAX_U64.toString()})`);
+      }
 
       // Create buy instruction
       const buyArgs = new BuyArgs(solAmountLamports, minTokensWithSlippage);
@@ -443,7 +452,7 @@ export class BondingCurveProgram {
 
       // Use initial virtual reserves from config (already in proper base units)
       let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL in lamports
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6)); // 1.073B tokens in base units
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Already in base units, don't scale again
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
@@ -457,9 +466,7 @@ export class BondingCurveProgram {
               ),
             );
             virtualTokenReserves = BigInt(
-              Math.floor(
-                result.bondingCurveState.virtualTokenReserves * Math.pow(10, 6),
-              ),
+              Math.floor(result.bondingCurveState.virtualTokenReserves),
             );
           }
         } catch (dbError) {
@@ -477,12 +484,19 @@ export class BondingCurveProgram {
       const newTokenReserves = k / newSolReserves; // This division truncates (integer division)
       const tokensOut = virtualTokenReserves - newTokenReserves;
 
+      // Safety check: ensure result doesn't exceed u64 maximum
+      const MAX_U64 = BigInt("18446744073709551615");
+      if (tokensOut > MAX_U64) {
+        console.warn(`⚠️ Calculated tokens out ${tokensOut.toString()} exceeds u64 max, using fallback calculation`);
+        return this.fallbackTokenCalculation(solIn);
+      }
+
       console.log(`🧮 Bonding curve calculation:
         SOL in: ${Number(solIn) / LAMPORTS_PER_SOL} SOL
         Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
-        Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 6)} tokens
+        Virtual token reserves: ${virtualTokenReserves.toString()} base units
         Tokens out (BigInt): ${tokensOut.toString()} base units
-        Tokens out (display): ${Number(tokensOut) / Math.pow(10, 6)} tokens
+        Tokens out (display): ${Number(tokensOut) / Math.pow(10, 9)} tokens
       `);
 
       return tokensOut > 0 ? tokensOut : BigInt(0);
@@ -528,7 +542,7 @@ export class BondingCurveProgram {
     // At start: 30 SOL, 1.073B tokens → price ≈ 0.000000028 SOL per token
     // So 1 SOL should get approximately 35.7M tokens
     const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
-    const decimals = BigInt(Math.pow(10, 6));
+    const decimals = BigInt(Math.pow(10, 9));
     return (solIn * tokensPerSol * decimals) / BigInt(LAMPORTS_PER_SOL);
   }
 
@@ -540,7 +554,7 @@ export class BondingCurveProgram {
     // At start: price ≈ 0.000000028 SOL per token
     // So 35.7M tokens should get approximately 1 SOL
     const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
-    const decimals = BigInt(Math.pow(10, 6));
+    const decimals = BigInt(Math.pow(10, 9));
     return (tokenIn * BigInt(LAMPORTS_PER_SOL)) / (tokensPerSol * decimals);
   }
 
@@ -556,7 +570,7 @@ export class BondingCurveProgram {
 
       // Use initial virtual reserves from config (already in proper base units)
       let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL in lamports
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, 6)); // 1.073B tokens in base units
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Already in base units, don't scale again
 
       if (accountInfo && accountInfo.data.length > 0) {
         // TODO: Parse actual bonding curve state from account data
@@ -570,9 +584,7 @@ export class BondingCurveProgram {
               ),
             );
             virtualTokenReserves = BigInt(
-              Math.floor(
-                result.bondingCurveState.virtualTokenReserves * Math.pow(10, 6),
-              ),
+              Math.floor(result.bondingCurveState.virtualTokenReserves),
             );
           }
         } catch (dbError) {
@@ -590,9 +602,9 @@ export class BondingCurveProgram {
       const solOut = virtualSolReserves - newSolReserves;
 
       console.log(`🧮 Sell bonding curve calculation:
-        Token in: ${Number(tokenIn) / Math.pow(10, 6)} tokens
+        Token in: ${Number(tokenIn) / Math.pow(10, 9)} tokens
         Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
-        Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 6)} tokens
+        Virtual token reserves: ${Number(virtualTokenReserves) / Math.pow(10, 9)} tokens
         SOL out: ${Number(solOut) / LAMPORTS_PER_SOL} SOL
       `);
 
