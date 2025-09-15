@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run build:*)",
+      "Bash(solana address:*)",
+      "WebSearch",
+      "WebFetch(domain:explorer.solana.com)",
+      "WebFetch(domain:solana.stackexchange.com)",
+      "WebFetch(domain:solscan.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(anchor build)",
+      "Bash(solana:*)",
+      "Bash(node:*)",
+      "Bash(cargo build-sbf:*)",
+      "Bash(where anchor)",
+      "Bash(where solana)",
+      "Bash(where cargo)",
+      "Bash(npm run:*)",
+      "Bash(powershell:*)",
+      "Bash(npm install:*)",
+      "Bash(anchor:*)",
+      "Bash(cargo install:*)",
+      "Bash(chmod:*)",
+      "Bash(./deploy/setup.sh:*)",
+      "Read(//c/Users/Computer/**)",
+      "Bash(npm:*)",
+      "Bash(git --version)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

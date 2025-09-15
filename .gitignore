@@ -121,10 +121,25 @@ temp/
 
 # TypeScript
 *.tsbuildinfo 
-# FloppFun Security - Never commit these!
+# 🔐 CRITICAL SECURITY: NEVER COMMIT THESE FILES TO VERSION CONTROL!
+# Deployment keys and sensitive configuration
+keys/
+backups/
+deployer-keypair.json
+program-keypair.json
+upgrade-authority-keypair.json
+*.json.bak
+
+# Environment files with sensitive data
+.env.production
+.env.mainnet
+.env.devnet
+
+# Legacy security files
 secure-keys/
-*.json
 fee-wallet-*.json
 treasury-wallet-*.json
-.env.local
-.env.production
+
+# Deployment artifacts
+deployment-logs/
+build-info.json

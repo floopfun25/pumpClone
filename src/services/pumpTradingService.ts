@@ -208,7 +208,7 @@ export class PumpTradingService {
         token_mint: mintAddress,
         user_address: userAddress,
         transaction_type: type,
-        sol_amount: Number(solAmount),
+        sol_amount: Number(solAmount) / LAMPORTS_PER_SOL,
         token_amount: Number(tokenAmount),
         created_at: new Date().toISOString(),
       });

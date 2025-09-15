@@ -198,13 +198,13 @@ pub mod bonding_curve {
 
         token::burn(cpi_ctx, token_amount)?;
 
-        // Transfer SOL from bonding curve to seller (SOL is stored in bonding curve account)
-        **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
+        // Transfer SOL from vault to seller (SOL is stored in vault account)
+        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
         **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += seller_receives;
 
-        // Transfer platform fee from bonding curve
+        // Transfer platform fee from vault
         if platform_fee > 0 {
-            **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
+            **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
             **ctx.accounts.platform_fee.to_account_info().try_borrow_mut_lamports()? += platform_fee;
         }
 

@@ -20,6 +20,7 @@ import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
   getMint,
+  AccountLayout,
 } from "@solana/spl-token";
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
@@ -231,21 +232,15 @@ export class BondingCurveProgram {
       // Get platform fee account
       const platformFeeAccount = new PublicKey(config.platform.feeWallet);
 
-      // Get bonding curve PDA (authority for the vault)
-      const [bondingCurveAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from("bonding_curve"), mintAddress.toBuffer()],
-        PROGRAM_ID
-      );
-
-      // Your program expects an Associated Token Account owned by the bonding curve PDA
+      // CRITICAL FIX: Your program expects vault authority to be the bonding curve account itself
       const vaultAccount = await getAssociatedTokenAddress(
         mintAddress,
-        bondingCurveAuthority, // The bonding curve PDA is the authority
+        bondingCurveAccount, // Use bonding curve account directly as authority
         true // Allow PDA as owner
       );
       
       console.log(`🎯 [VAULT CORRECT] Using ATA owned by bonding curve PDA: ${vaultAccount.toBase58()}`);
-      console.log(`📍 [AUTHORITY] Bonding curve authority: ${bondingCurveAuthority.toBase58()}`);
+      console.log(`📍 [AUTHORITY] Bonding curve authority: ${bondingCurveAccount.toBase58()}`);
       
       const vaultInfo = await this.connection.getAccountInfo(vaultAccount);
       console.log(`🔍 [VAULT STATUS] Exists: ${vaultInfo ? 'YES' : 'NO'}`);
@@ -256,9 +251,13 @@ export class BondingCurveProgram {
       }
     
 
-      // Calculate expected tokens (simplified calculation)
+      // CRITICAL: Calculate expected tokens AFTER platform fee deduction to match Rust program
+      const platformFeePercent = config.tokenDefaults.platformFeePercentage; // 1%
+      const platformFee = (solAmountLamports * BigInt(Math.floor(platformFeePercent * 100))) / BigInt(10000);
+      const tradeAmount = solAmountLamports - platformFee; // This is what the Rust program uses
+      
       const expectedTokens = await this.calculateTokensOut(
-        solAmountLamports,
+        tradeAmount, // Use trade amount after fees, not full SOL amount
         mintAddress,
       );
       // Calculate slippage using BigInt arithmetic to avoid precision loss
@@ -321,7 +320,7 @@ export class BondingCurveProgram {
         const createVaultIx = createAssociatedTokenAccountInstruction(
           buyer, // Payer
           vaultAccount, // ATA address
-          bondingCurveAuthority, // Owner (bonding curve PDA)
+          bondingCurveAccount, // Owner (bonding curve PDA)
           mintAddress // Mint
         );
         transaction.add(createVaultIx);
@@ -439,12 +438,36 @@ export class BondingCurveProgram {
     slippagePercent: number = 10, // Increase default slippage for now
   ): Promise<TradeResult> {
     console.log("💸 [SELL] Starting sell transaction...");
+    console.log(`💸 [SELL DEBUG] Token amount to sell: ${tokenAmount.toString()} base units (${Number(tokenAmount) / 1e9} tokens)`);
 
     if (!this.walletService.connected || !this.walletService.publicKey) {
       throw new Error("Wallet not connected");
     }
 
+    // Check user's actual token balance before attempting to sell
     const seller = this.walletService.publicKey;
+    const sellerTokenAccount = await getAssociatedTokenAddress(
+      mintAddress,
+      seller,
+    );
+    
+    try {
+      const tokenAccountInfo = await this.connection.getAccountInfo(sellerTokenAccount);
+      if (tokenAccountInfo && tokenAccountInfo.data.length > 0) {
+        const accountData = AccountLayout.decode(tokenAccountInfo.data);
+        const balance = BigInt(accountData.amount.toString());
+        console.log(`💰 [SELL DEBUG] User's actual token balance: ${balance.toString()} base units (${Number(balance) / 1e9} tokens)`);
+        
+        if (tokenAmount > balance) {
+          throw new Error(`Insufficient token balance. Trying to sell ${Number(tokenAmount) / 1e9} tokens but only have ${Number(balance) / 1e9} tokens`);
+        }
+      } else {
+        throw new Error("Token account does not exist - cannot sell tokens you don't have");
+      }
+    } catch (balanceError) {
+      console.error("❌ [SELL DEBUG] Failed to check balance:", balanceError);
+      throw balanceError;
+    }
 
     try {
       // Get bonding curve account
@@ -469,6 +492,15 @@ export class BondingCurveProgram {
         true // Allow owner to be a PDA
       );
       console.log(`📦 [PUMP.FUN SELL] Using production vault: ${vaultAccount.toBase58()}`);
+
+      // Check vault account existence and create if needed
+      const vaultInfo = await this.connection.getAccountInfo(vaultAccount);
+      console.log(`🔍 [VAULT STATUS] Exists: ${vaultInfo ? 'YES' : 'NO'}`);
+      if (vaultInfo) {
+        console.log(`🔍 [VAULT STATUS] Owner: ${vaultInfo.owner.toBase58()}`);
+        console.log(`🔍 [VAULT STATUS] Data length: ${vaultInfo.data.length} bytes`);
+        console.log(`🔍 [VAULT STATUS] Lamports: ${vaultInfo.lamports}`);
+      }
 
       // Calculate expected SOL
       const expectedSol = await this.calculateSolOut(tokenAmount, mintAddress);
@@ -521,6 +553,24 @@ export class BondingCurveProgram {
 
       const transaction = new Transaction();
 
+      // Handle vault creation if it doesn't exist (your program expects an ATA)
+      if (!vaultInfo) {
+        console.log("🏗️ [VAULT] Creating Associated Token Account for vault...");
+        const createVaultIx = createAssociatedTokenAccountInstruction(
+          seller, // Payer
+          vaultAccount, // ATA address
+          bondingCurveAccount, // Owner (bonding curve PDA)
+          mintAddress // Mint
+        );
+        transaction.add(createVaultIx);
+        console.log("✅ [VAULT] Added vault creation instruction");
+      } else if (vaultInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+        console.log("✅ [VAULT] Vault already exists as SPL Token Account");
+      } else {
+        console.log(`❌ [VAULT] Unexpected vault owner: ${vaultInfo.owner.toBase58()}`);
+        console.log(`❌ [VAULT] Expected: ${TOKEN_PROGRAM_ID.toBase58()}`);
+      }
+
       // Add compute budget instructions
       transaction.add(
         ComputeBudgetProgram.setComputeUnitLimit({
@@ -533,28 +583,18 @@ export class BondingCurveProgram {
         }),
       );
 
-      // Create a properly balanced sell instruction with correct account ordering
-      // The key insight is that the program expects accounts in a specific order for proper balance validation
+      // Create sell instruction matching exact Rust Sell struct order
       const sellInstruction = new TransactionInstruction({
         keys: [
-          // User accounts (signer first)
-          { pubkey: seller, isSigner: true, isWritable: true }, // 0: Seller (receives SOL)
-          
-          // Program data accounts  
-          { pubkey: bondingCurveAccount, isSigner: false, isWritable: true }, // 1: Bonding curve state
-          
-          // Token accounts
-          { pubkey: mintAddress, isSigner: false, isWritable: true }, // 2: Token mint
-          { pubkey: sellerTokenAccount, isSigner: false, isWritable: true }, // 3: Seller's token account (tokens burned)
-          { pubkey: vaultAccount, isSigner: false, isWritable: true }, // 4: Vault account (tokens transferred from)
-          
-          // Fee accounts - this ordering is critical for proper balance validation
-          { pubkey: platformFeeAccount, isSigner: false, isWritable: true }, // 5: Platform fee recipient
-          
-          // System programs
-          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 6: SPL Token Program
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 7: System Program
-          { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }, // 8: Rent Sysvar
+          // Must match EXACT order in Rust Sell struct:
+          { pubkey: seller, isSigner: true, isWritable: true }, // 0: seller
+          { pubkey: bondingCurveAccount, isSigner: false, isWritable: true }, // 1: bonding_curve
+          { pubkey: mintAddress, isSigner: false, isWritable: true }, // 2: mint
+          { pubkey: sellerTokenAccount, isSigner: false, isWritable: true }, // 3: seller_token_account
+          { pubkey: platformFeeAccount, isSigner: false, isWritable: true }, // 4: platform_fee
+          { pubkey: vaultAccount, isSigner: false, isWritable: true }, // 5: vault
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 6: token_program
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 7: system_program
         ],
         programId: PROGRAM_ID,
         data,
@@ -602,29 +642,51 @@ export class BondingCurveProgram {
     try {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
-      // Use initial virtual reserves from config (already in proper base units)
-      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // 30 SOL in lamports
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Already in base units, don't scale again
+      // CRITICAL FIX: Parse actual bonding curve state from blockchain account
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // Default fallback
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Default fallback
 
-      if (accountInfo && accountInfo.data.length > 0) {
-        // TODO: Parse actual bonding curve state from account data
-        // For now, we'll use the database to get current state
+      if (accountInfo && accountInfo.data.length >= 80) {
         try {
-          const result = await this.getCurrentBondingCurveState(mintAddress);
-          if (result?.bondingCurveState) {
-            virtualSolReserves = BigInt(
-              Math.floor(
-                result.bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
-              ),
-            );
-            virtualTokenReserves = BigInt(
-              Math.floor(result.bondingCurveState.virtualTokenReserves),
-            );
+          // Parse bonding curve account data (match Rust struct layout)
+          const data = accountInfo.data;
+          
+          // Skip discriminator (8 bytes) + mint address (32 bytes) + creator (32 bytes) = 72 bytes
+          // Read virtual_token_reserves (u64 at offset ~72)
+          // Read virtual_sol_reserves (u64 at offset ~80) 
+          const readU64LE = (buffer: Buffer, offset: number): bigint => {
+            const low = buffer.readUInt32LE(offset);
+            const high = buffer.readUInt32LE(offset + 4);
+            return BigInt(low) + (BigInt(high) << 32n);
+          };
+          
+          // Based on Rust BondingCurve struct layout:
+          // mint_address(32) + creator(32) + virtual_token_reserves(8) + virtual_sol_reserves(8)...
+          virtualTokenReserves = readU64LE(data, 72); // virtual_token_reserves field
+          virtualSolReserves = readU64LE(data, 80);   // virtual_sol_reserves field
+          
+          console.log(`🔍 [DEBUG] Account data analysis:
+            Account data length: ${data.length} bytes
+            Raw bytes at offset 72-79 (virtual_token_reserves): ${Array.from(data.slice(72, 80)).map(b => b.toString(16).padStart(2, '0')).join(' ')}
+            Raw bytes at offset 80-87 (virtual_sol_reserves): ${Array.from(data.slice(80, 88)).map(b => b.toString(16).padStart(2, '0')).join(' ')}
+            Parsed virtual_token_reserves: ${virtualTokenReserves.toString()}
+            Parsed virtual_sol_reserves: ${virtualSolReserves.toString()}`);
+          
+          // Sanity check - if values seem wrong, try different offsets
+          if (virtualSolReserves < BigInt(1_000_000_000) || virtualTokenReserves < BigInt(100_000_000)) {
+            console.warn("⚠️ Parsed reserves seem too small, trying alternative field layout...");
+            // Try different offsets based on the actual Rust struct
+            virtualTokenReserves = readU64LE(data, 64); 
+            virtualSolReserves = readU64LE(data, 72);
+            console.log(`🔄 Alternative parsing - TokenReserves: ${virtualTokenReserves}, SOLReserves: ${virtualSolReserves}`);
           }
-        } catch (dbError) {
-          console.warn(
-            "Could not get bonding curve state from database, using defaults",
-          );
+          
+          console.log(`📊 [BONDING CURVE STATE] Parsed from blockchain:
+            Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
+            Virtual token reserves: ${virtualTokenReserves.toString()} base units`);
+          
+        } catch (parseError) {
+          console.warn("Could not parse bonding curve account data, using defaults:", parseError);
         }
       }
 
@@ -644,7 +706,7 @@ export class BondingCurveProgram {
       }
 
       console.log(`🧮 Bonding curve calculation:
-        SOL in: ${Number(solIn) / LAMPORTS_PER_SOL} SOL
+        SOL in (after fees): ${Number(solIn) / LAMPORTS_PER_SOL} SOL
         Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
         Virtual token reserves: ${virtualTokenReserves.toString()} base units
         Tokens out (BigInt): ${tokensOut.toString()} base units
