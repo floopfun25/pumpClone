@@ -685,6 +685,21 @@ const handleTrade = async (tradeData: {
         message: `Bought ${tokensReceived.toFixed(6)} ${tokenSymbol.value} for ${amount} SOL`,
       });
     } else {
+      // CRITICAL FIX: Refresh balance before sell to prevent selling more than owned
+      await loadUserTokenBalance(true); // Force refresh
+      
+      // Convert base units amount back to human-readable for validation
+      const humanReadableAmount = Number(amount) / Math.pow(10, token.value?.decimals || 9);
+      
+      if (humanReadableAmount > userTokenBalance.value) {
+        uiStore.showToast({
+          type: "error",
+          title: "Insufficient Balance",
+          message: `Cannot sell ${humanReadableAmount.toFixed(6)} tokens. You only have ${userTokenBalance.value.toFixed(6)} tokens.`,
+        });
+        return;
+      }
+      
       // Execute sell transaction using pump trading service
       const result = await pumpTradingService.sellTokens(mintAddress, BigInt(amount));
       signature = result.signature;

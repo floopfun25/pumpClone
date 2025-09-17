@@ -97,18 +97,19 @@ export class TokenCreationService {
         params,
       );
 
-      // Step 4: Initialize bonding curve (this will handle minting)
+      // Step 4: Initialize bonding curve (CRITICAL for production)
       console.log("🎯 Initializing bonding curve...");
+      let bondingCurveSignature = "";
       try {
-        const bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
+        bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
           mintKeypair.publicKey,
           BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
         );
         console.log("✅ Bonding curve initialized successfully:", bondingCurveSignature);
       } catch (bondingCurveError) {
-        console.warn("⚠️ Bonding curve initialization failed, but token is created:", bondingCurveError);
-        // Token is still successfully created, just can't initialize bonding curve yet
-        // This can be done later manually or when the user first tries to trade
+        console.error("❌ CRITICAL: Bonding curve initialization failed:", bondingCurveError);
+        // For production, bonding curve MUST be initialized for trading to work
+        throw new Error(`Token creation failed: Bonding curve initialization failed. ${bondingCurveError instanceof Error ? bondingCurveError.message : "Unknown error"}`);
       }
 
       // Step 5: Save to database (optional - can be done without auth)
@@ -242,15 +243,17 @@ export class TokenCreationService {
     // Skip metadata creation for now - will be handled separately
     console.log("⚠️ Skipping metadata creation in token creation process");
 
-    // Add platform fee (0.1 SOL)
+    // Add platform fee (use config value)
     const platformFeeAccount = new PublicKey(config.platform.feeWallet);
+    const creationFeeSOL = config.tokenDefaults.creationFee; // 0.02 SOL from config
     transaction.add(
       SystemProgram.transfer({
         fromPubkey: payer,
         toPubkey: platformFeeAccount,
-        lamports: 0.1 * LAMPORTS_PER_SOL, // 0.1 SOL fee
+        lamports: creationFeeSOL * LAMPORTS_PER_SOL,
       }),
     );
+    console.log(`💰 Platform fee: ${creationFeeSOL} SOL`);
 
     // Sign and send transaction
     transaction.feePayer = payer;
