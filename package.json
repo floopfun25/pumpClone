@@ -6,18 +6,25 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:production": "NODE_ENV=production vite build --mode production",
+    "build:mainnet": "cp .env.production .env.local && npm run build:production",
     "build-with-types": "vue-tsc && vite build",
     "preview": "vite preview",
+    "preview:production": "vite preview --mode production",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "type-check": "vue-tsc --noEmit --skipLibCheck",
+    "test:integration": "npm run build:mainnet && npm run preview:production",
     "docker:build": "docker build -t pump-fun-clone .",
     "docker:run": "docker run -p 3000:3000 pump-fun-clone",
     "deploy:setup": "bash deploy/setup.sh",
-    "deploy:configure": "bash deploy/configure.sh", 
+    "deploy:configure": "bash deploy/configure.sh",
     "deploy:build": "bash deploy/build.sh",
     "deploy:test": "bash deploy/test-deploy.sh",
-    "deploy:mainnet": "bash deploy/mainnet-deploy.sh",
-    "deploy:help": "cat deploy/README.md"
+    "deploy:mainnet": "bash deploy-mainnet.sh",
+    "deploy:help": "cat MAINNET_DEPLOYMENT_GUIDE.md",
+    "mainnet:prepare": "cp .env.production .env.local && npm run type-check && npm run lint",
+    "mainnet:build": "npm run mainnet:prepare && npm run build:production",
+    "mainnet:deploy": "npm run mainnet:build && bash deploy-mainnet.sh"
   },
   "dependencies": {
     "@babel/runtime": "^7.23.0",

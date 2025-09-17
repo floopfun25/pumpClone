@@ -1,0 +1,194 @@
+name: Deploy to Solana Mainnet
+
+on:
+  workflow_dispatch: # Manual trigger only for production
+    inputs:
+      confirm_mainnet:
+        description: 'Type "DEPLOY_TO_MAINNET" to confirm'
+        required: true
+        default: ''
+
+env:
+  SOLANA_CLI_VERSION: 1.18.17
+  ANCHOR_CLI_VERSION: 0.31.1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Verify deployment confirmation
+      if: github.event.inputs.confirm_mainnet != 'DEPLOY_TO_MAINNET'
+      run: |
+        echo "❌ Deployment not confirmed. Please type 'DEPLOY_TO_MAINNET' in the input field."
+        exit 1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Cache Solana CLI
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/solana
+          ~/.local/share/solana
+        key: solana-${{ env.SOLANA_CLI_VERSION }}
+
+    - name: Install Solana CLI
+      run: |
+        sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_CLI_VERSION }}/install)"
+        echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+    - name: Install Anchor CLI
+      run: |
+        cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+        avm install ${{ env.ANCHOR_CLI_VERSION }}
+        avm use ${{ env.ANCHOR_CLI_VERSION }}
+
+    - name: Setup deployment wallet
+      run: |
+        echo "${{ secrets.SOLANA_DEPLOYER_PRIVATE_KEY }}" > deployer-keypair.json
+        solana config set --keypair deployer-keypair.json
+        solana config set --url mainnet-beta
+
+        # Verify wallet has sufficient balance
+        BALANCE=$(solana balance --lamports)
+        MIN_BALANCE=10000000000  # 10 SOL
+        if [ "$BALANCE" -lt "$MIN_BALANCE" ]; then
+          echo "❌ Insufficient balance for deployment"
+          echo "Wallet: $(solana address)"
+          echo "Balance: $(solana balance)"
+          exit 1
+        fi
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Anchor program
+      run: |
+        anchor build
+
+        # Generate program keypair if using GitHub secrets
+        if [ -n "${{ secrets.PROGRAM_PRIVATE_KEY }}" ]; then
+          echo "${{ secrets.PROGRAM_PRIVATE_KEY }}" > target/deploy/bonding_curve-keypair.json
+        fi
+
+        PROGRAM_ID=$(solana-keygen pubkey target/deploy/bonding_curve-keypair.json)
+        echo "Program ID: $PROGRAM_ID"
+
+        # Update Anchor.toml
+        sed -i "s/bonding_curve = \".*\"/bonding_curve = \"$PROGRAM_ID\"/" Anchor.toml
+
+        # Rebuild with correct program ID
+        anchor build
+
+    - name: Deploy to mainnet
+      run: |
+        echo "🚀 Deploying to Solana mainnet..."
+        anchor deploy --provider.cluster mainnet
+
+        PROGRAM_ID=$(solana-keygen pubkey target/deploy/bonding_curve-keypair.json)
+        echo "✅ Program deployed successfully!"
+        echo "Program ID: $PROGRAM_ID"
+
+        # Verify deployment
+        solana program show "$PROGRAM_ID"
+
+    - name: Generate production wallets
+      run: |
+        mkdir -p production-wallets
+
+        # Generate production wallets
+        solana-keygen new --outfile production-wallets/fee-wallet.json --no-bip39-passphrase
+        solana-keygen new --outfile production-wallets/authority-wallet.json --no-bip39-passphrase
+        solana-keygen new --outfile production-wallets/treasury-wallet.json --no-bip39-passphrase
+
+        FEE_WALLET=$(solana-keygen pubkey production-wallets/fee-wallet.json)
+        AUTHORITY_WALLET=$(solana-keygen pubkey production-wallets/authority-wallet.json)
+        TREASURY_WALLET=$(solana-keygen pubkey production-wallets/treasury-wallet.json)
+        PROGRAM_ID=$(solana-keygen pubkey target/deploy/bonding_curve-keypair.json)
+
+        echo "Production Configuration:"
+        echo "========================"
+        echo "Program ID: $PROGRAM_ID"
+        echo "Fee Wallet: $FEE_WALLET"
+        echo "Authority: $AUTHORITY_WALLET"
+        echo "Treasury: $TREASURY_WALLET"
+
+    - name: Fund production wallets
+      run: |
+        FEE_WALLET=$(solana-keygen pubkey production-wallets/fee-wallet.json)
+        AUTHORITY_WALLET=$(solana-keygen pubkey production-wallets/authority-wallet.json)
+        TREASURY_WALLET=$(solana-keygen pubkey production-wallets/treasury-wallet.json)
+
+        # Fund with minimal SOL for rent exemption
+        solana transfer "$FEE_WALLET" 0.01 --allow-unfunded-recipient
+        solana transfer "$AUTHORITY_WALLET" 0.01 --allow-unfunded-recipient
+        solana transfer "$TREASURY_WALLET" 0.01 --allow-unfunded-recipient
+
+    - name: Build frontend
+      run: |
+        # Create production environment
+        PROGRAM_ID=$(solana-keygen pubkey target/deploy/bonding_curve-keypair.json)
+        FEE_WALLET=$(solana-keygen pubkey production-wallets/fee-wallet.json)
+        AUTHORITY_WALLET=$(solana-keygen pubkey production-wallets/authority-wallet.json)
+        TREASURY_WALLET=$(solana-keygen pubkey production-wallets/treasury-wallet.json)
+
+        cat > .env.production << EOF
+        VITE_APP_ENV=production
+        VITE_SOLANA_NETWORK=mainnet
+        VITE_MAINNET_BONDING_CURVE_PROGRAM=$PROGRAM_ID
+        VITE_MAINNET_FEE_WALLET=$FEE_WALLET
+        VITE_MAINNET_AUTHORITY=$AUTHORITY_WALLET
+        VITE_MAINNET_TREASURY=$TREASURY_WALLET
+        VITE_MAINNET_RPC_URL=https://api.mainnet-beta.solana.com
+        ${{ secrets.PRODUCTION_ENV_VARS }}
+        EOF
+
+        # Build frontend
+        npm run build
+
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-artifacts
+        path: |
+          target/deploy/
+          production-wallets/
+          .env.production
+          dist/
+
+    - name: Cleanup sensitive files
+      if: always()
+      run: |
+        rm -f deployer-keypair.json
+        rm -rf production-wallets/
+        rm -f .env.production
+
+    - name: Deployment summary
+      run: |
+        PROGRAM_ID=$(solana-keygen pubkey target/deploy/bonding_curve-keypair.json)
+        echo "🎉 Deployment completed successfully!"
+        echo "=================================="
+        echo "Program ID: $PROGRAM_ID"
+        echo "Network: Solana Mainnet"
+        echo "Frontend built and ready for hosting"
+        echo ""
+        echo "⚠️  Remember to:"
+        echo "1. Download the deployment artifacts"
+        echo "2. Backup your production wallets securely"
+        echo "3. Test with small amounts before full launch"
+        echo "4. Set up monitoring and alerts"
