@@ -92,17 +92,18 @@ pub mod bonding_curve {
         // Check slippage tolerance
         require!(tokens_to_mint >= min_tokens_received, ErrorCode::SlippageExceeded);
 
-        // Transfer SOL from buyer to bonding curve vault
+        // Transfer SOL from buyer to bonding curve PDA (not token vault)
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.buyer.key(),
-            &ctx.accounts.vault.key(),
+            &ctx.accounts.bonding_curve.key(),
             trade_amount,
         );
         anchor_lang::solana_program::program::invoke(
             &ix,
             &[
                 ctx.accounts.buyer.to_account_info(),
-                ctx.accounts.vault.to_account_info(),
+                ctx.accounts.bonding_curve.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
             ],
         )?;
 
@@ -118,6 +119,7 @@ pub mod bonding_curve {
                 &[
                     ctx.accounts.buyer.to_account_info(),
                     ctx.accounts.platform_fee.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
                 ],
             )?;
         }
@@ -198,13 +200,13 @@ pub mod bonding_curve {
 
         token::burn(cpi_ctx, token_amount)?;
 
-        // Transfer SOL from vault to seller (SOL is stored in vault account)
-        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
+        // Transfer SOL from bonding curve PDA to seller (SOL is stored in bonding curve PDA)
+        **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= seller_receives;
         **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += seller_receives;
 
-        // Transfer platform fee from vault
+        // Transfer platform fee from bonding curve PDA
         if platform_fee > 0 {
-            **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
+            **ctx.accounts.bonding_curve.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
             **ctx.accounts.platform_fee.to_account_info().try_borrow_mut_lamports()? += platform_fee;
         }
 

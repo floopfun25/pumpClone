@@ -172,6 +172,15 @@
       class="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
     >
       <div class="text-red-400 text-sm">{{ error }}</div>
+      <!-- Quick fix button for liquidity errors -->
+      <div v-if="isLiquidityError" class="mt-2">
+        <button
+          @click="useRecommendedAmount"
+          class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+        >
+          Use Max Available ({{ recommendedAmount }} tokens)
+        </button>
+      </div>
     </div>
     <!-- Connected Toast -->
     <div
@@ -204,7 +213,7 @@ const props = withDefaults(defineProps<Props & { tokenDecimals?: number }>(), {
   walletBalance: 0,
   tokenBalance: 0,
   tokenMint: "",
-  tokenDecimals: 9,
+  tokenDecimals: 6, // Default to 6 decimals (pump.fun standard)
   disabled: false,
 });
 
@@ -225,7 +234,8 @@ const tradeAmount = ref(""); // always human-readable
 const tradePreview = ref<any>(null);
 const trading = ref(false);
 const error = ref("");
-const tokenDecimals = ref(props.tokenDecimals ?? 9);
+const tokenDecimals = ref(props.tokenDecimals ?? 6);
+const recommendedAmount = ref("0");
 
 // Computed properties
 const displayBalance = computed(() => {
@@ -280,6 +290,17 @@ const showTradePreview = computed(() => {
     props.bondingCurveState
   );
 });
+
+// Detect liquidity errors and extract recommended amount
+const isLiquidityError = computed(() => {
+  return error.value.includes("Insufficient liquidity") || error.value.includes("💧");
+});
+
+// Extract recommended amount from error message
+const extractRecommendedAmount = (errorMsg: string): string => {
+  const match = errorMsg.match(/Maximum you can sell now: ([\d.]+) tokens/);
+  return match ? match[1] : "0";
+};
 
 // Methods
 const handleAmountInput = () => {
@@ -371,6 +392,13 @@ const executeTrade = async () => {
     let baseAmount = amount;
     if (tradeType.value === "sell") {
       baseAmount = amount * Math.pow(10, tokenDecimals.value);
+      
+      console.log(`🔍 [TRADING INTERFACE] Sell conversion debug:
+        User input: ${amount} tokens
+        Token decimals: ${tokenDecimals.value}
+        Conversion: ${amount} * 10^${tokenDecimals.value} = ${baseAmount}
+        Base amount: ${baseAmount}
+      `);
     }
     emit("trade", {
       type: tradeType.value,
@@ -383,8 +411,21 @@ const executeTrade = async () => {
     tradePreview.value = null;
   } catch (err: any) {
     error.value = err.message || "Trade failed";
+    // Extract recommended amount from liquidity errors
+    if (error.value.includes("💧") || error.value.includes("Insufficient liquidity")) {
+      recommendedAmount.value = extractRecommendedAmount(error.value);
+    }
   } finally {
     trading.value = false;
+  }
+};
+
+// Use the recommended amount from liquidity error
+const useRecommendedAmount = () => {
+  if (recommendedAmount.value && parseFloat(recommendedAmount.value) > 0) {
+    tradeAmount.value = recommendedAmount.value;
+    error.value = "";
+    calculateTradePreview();
   }
 };
 
@@ -420,28 +461,21 @@ watch(
   },
 );
 
+// Watch for prop changes to tokenDecimals
+watch(
+  () => props.tokenDecimals,
+  (newDecimals) => {
+    if (newDecimals !== undefined) {
+      tokenDecimals.value = newDecimals;
+      console.log(`🔄 [TRADING INTERFACE] Token decimals updated to: ${newDecimals}`);
+    }
+  },
+);
+
 // Lifecycle
 onMounted(() => {
-  // Fetch token decimals on mount
-  if (props.tokenMint) {
-    import("@solana/web3.js").then(({ PublicKey, Connection }) => {
-      // Use the default connection from your app (update as needed)
-      const connection = new Connection("https://api.mainnet-beta.solana.com");
-      connection
-        .getParsedAccountInfo(new PublicKey(props.tokenMint))
-        .then((mintInfo: any) => {
-          const data = mintInfo?.value?.data;
-          if (
-            data &&
-            typeof data === "object" &&
-            "parsed" in data &&
-            data.parsed?.info?.decimals !== undefined
-          ) {
-            tokenDecimals.value = data.parsed.info.decimals;
-          }
-        });
-    });
-  }
+  // Token decimals are now passed as props from parent component
+  console.log(`🔍 [TRADING INTERFACE] Mounted with token decimals: ${tokenDecimals.value}`);
 });
 </script>
 

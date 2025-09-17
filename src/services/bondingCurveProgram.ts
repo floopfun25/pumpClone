@@ -675,19 +675,29 @@ export class BondingCurveProgram {
       
       if (availableSol < neededSol) {
         // Calculate maximum sellable amount based on available SOL
-        const maxSellableSOL = availableSol * 0.95; // 95% safety margin
-        const maxSellablePercent = (maxSellableSOL / neededSol) * 100;
+        const maxSellableSOL = availableSol * 0.9; // 90% safety margin for fees
         
-        console.warn(`⚠️ [PRODUCTION] Limited liquidity: Available ${availableSol / LAMPORTS_PER_SOL} SOL, needed ${neededSol / LAMPORTS_PER_SOL} SOL`);
+        console.warn(`⚠️ [PRODUCTION] Insufficient liquidity in bonding curve:`);
+        console.warn(`  Available: ${availableSol / LAMPORTS_PER_SOL} SOL`);
+        console.warn(`  Needed: ${neededSol / LAMPORTS_PER_SOL} SOL`);
+        console.warn(`  Max sellable: ${maxSellableSOL / LAMPORTS_PER_SOL} SOL`);
         
-        if (maxSellableSOL < 1000000) { // Less than 0.001 SOL
-          throw new Error(`Insufficient liquidity for this trade. The bonding curve needs more buy volume before larger sells are possible.`);
+        if (maxSellableSOL < 10000000) { // Less than 0.01 SOL
+          throw new Error(`Insufficient liquidity for any trades. The bonding curve only has ${availableSol / LAMPORTS_PER_SOL} SOL. More buy volume needed before sells are possible.`);
         }
         
-        // Use the maximum available SOL (with safety margin)
-        console.log(`🔄 [PRODUCTION] Adjusting sell to available liquidity: ${maxSellableSOL / LAMPORTS_PER_SOL} SOL (${maxSellablePercent.toFixed(1)}% of requested)`);
-        // Note: In a production system, you'd want to adjust the token amount too
-        // For now, we'll proceed with available SOL and let the program handle it
+        // Calculate what percentage of tokens this represents
+        const maxSellablePercent = (maxSellableSOL / neededSol) * 100;
+        const recommendedTokenAmount = Number(tokenAmount) * (maxSellableSOL / neededSol);
+        
+        throw new Error(`💧 Insufficient liquidity for this trade size
+
+🏦 Available liquidity: ${(availableSol / LAMPORTS_PER_SOL).toFixed(3)} SOL
+💰 Your trade needs: ${(neededSol / LAMPORTS_PER_SOL).toFixed(3)} SOL
+
+✅ Maximum you can sell now: ${(recommendedTokenAmount / Math.pow(10, 6)).toFixed(6)} tokens
+
+💡 The bonding curve needs more buy volume before larger sells are possible.`);
       }
 
       // Create sell instruction matching exact Rust Sell struct order
@@ -880,6 +890,61 @@ export class BondingCurveProgram {
     const tokensPerSol = BigInt(35700000); // 35.7M tokens per SOL
     const decimals = BigInt(Math.pow(10, 9));
     return (tokenIn * BigInt(LAMPORTS_PER_SOL)) / (tokensPerSol * decimals);
+  }
+
+  /**
+   * Diagnostic: Check SOL flow and account balances
+   */
+  async diagnoseSOLFlow(mintAddress: PublicKey): Promise<void> {
+    console.log("🔍 [DIAGNOSTIC] Analyzing SOL flow for token:", mintAddress.toBase58());
+    
+    try {
+      // 1. Check bonding curve PDA balance
+      const [bondingCurvePDA] = await PublicKey.findProgramAddress(
+        [Buffer.from("bonding_curve"), mintAddress.toBytes()],
+        this.programId
+      );
+      
+      const pdaBalance = await this.connection.getBalance(bondingCurvePDA);
+      console.log(`💰 [DIAGNOSTIC] Bonding Curve PDA: ${bondingCurvePDA.toBase58()}`);
+      console.log(`💰 [DIAGNOSTIC] PDA Balance: ${pdaBalance / LAMPORTS_PER_SOL} SOL`);
+      
+      // 2. Check platform accounts
+      const feeWallet = new PublicKey(config.platform.feeWallet);
+      const authority = new PublicKey(config.platform.authority);
+      const treasury = new PublicKey(config.platform.treasury);
+      
+      const [feeBalance, authBalance, treasuryBalance] = await Promise.all([
+        this.connection.getBalance(feeWallet),
+        this.connection.getBalance(authority), 
+        this.connection.getBalance(treasury)
+      ]);
+      
+      console.log(`💰 [DIAGNOSTIC] Fee Wallet: ${(feeBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
+      console.log(`💰 [DIAGNOSTIC] Authority: ${(authBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
+      console.log(`💰 [DIAGNOSTIC] Treasury: ${(treasuryBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
+      
+      // 3. Parse bonding curve state
+      const accountInfo = await this.connection.getAccountInfo(bondingCurvePDA);
+      if (accountInfo) {
+        const data = accountInfo.data;
+        const readU64LE = (buffer: Buffer, offset: number): bigint => {
+          const low = buffer.readUInt32LE(offset);
+          const high = buffer.readUInt32LE(offset + 4);
+          return BigInt(low) + (BigInt(high) << 32n);
+        };
+        
+        const virtualTokenReserves = readU64LE(data, 72);
+        const virtualSolReserves = readU64LE(data, 80);
+        
+        console.log(`📊 [DIAGNOSTIC] Virtual SOL Reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL`);
+        console.log(`📊 [DIAGNOSTIC] Virtual Token Reserves: ${virtualTokenReserves.toString()} tokens`);
+        console.log(`⚠️ [DIAGNOSTIC] SOL Mismatch: Virtual=${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL vs Actual=${pdaBalance / LAMPORTS_PER_SOL} SOL`);
+      }
+      
+    } catch (error) {
+      console.error("❌ [DIAGNOSTIC] Failed:", error);
+    }
   }
 
   /**

@@ -246,6 +246,7 @@ import {
 import { config } from "@/config";
 import { solanaConfig } from "@/config/index";
 import { simpleBalanceService } from "@/services/simpleBalanceService";
+import { bondingCurveProgram } from "@/services/bondingCurveProgram";
 
 const route = useRoute();
 const router = useRouter();
@@ -278,7 +279,7 @@ const watchlistLoading = ref(false);
 
 // User token balance (for trading)
 const userTokenBalance = ref(0); // Store human-readable balance directly
-const tokenDecimals = ref(9);
+const tokenDecimals = ref(6); // Default to 6 decimals (pump.fun standard)
 // Load token data on page mount
 onMounted(async () => {
   await loadPublicTokenData();
@@ -689,7 +690,16 @@ const handleTrade = async (tradeData: {
       await loadUserTokenBalance(true); // Force refresh
       
       // Convert base units amount back to human-readable for validation
-      const humanReadableAmount = Number(amount) / Math.pow(10, token.value?.decimals || 9);
+      const actualDecimals = tokenDecimals.value || token.value?.decimals || 6; // Use actual token decimals
+      const humanReadableAmount = Number(amount) / Math.pow(10, actualDecimals);
+      
+      console.log(`🔍 [SELL VALIDATION] Debug:
+        Token decimals: ${actualDecimals}
+        Amount (base units): ${amount}
+        Human readable amount: ${humanReadableAmount}
+        User balance: ${userTokenBalance.value}
+        Validation passes: ${humanReadableAmount <= userTokenBalance.value}
+      `);
       
       if (humanReadableAmount > userTokenBalance.value) {
         uiStore.showToast({
@@ -699,6 +709,9 @@ const handleTrade = async (tradeData: {
         });
         return;
       }
+      
+      // Run diagnostic before sell transaction
+      await bondingCurveProgram.diagnoseSOLFlow(new PublicKey(mintAddress));
       
       // Execute sell transaction using pump trading service
       const result = await pumpTradingService.sellTokens(mintAddress, BigInt(amount));
