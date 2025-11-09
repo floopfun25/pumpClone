@@ -26,7 +26,8 @@
       "Bash(./deploy/setup.sh:*)",
       "Read(//c/Users/Computer/**)",
       "Bash(npm:*)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []
