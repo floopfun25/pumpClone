@@ -1,0 +1,16 @@
+# Production Profile
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+floppfun:
+  solana:
+    network: mainnet
+    rpc-url: https://api.mainnet-beta.solana.com
+
+logging:
+  level:
+    com.floppfun: INFO
+    org.springframework.web: WARN

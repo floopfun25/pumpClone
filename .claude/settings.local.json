@@ -28,7 +28,8 @@
       "Bash(npm:*)",
       "Bash(git --version)",
       "Bash(cp:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,15 @@
+# Development Profile
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+floppfun:
+  solana:
+    network: devnet
+    rpc-url: https://api.devnet.solana.com
+
+logging:
+  level:
+    com.floppfun: DEBUG

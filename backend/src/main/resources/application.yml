@@ -1,0 +1,98 @@
+spring:
+  application:
+    name: floppfun-backend
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/floppfun
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# Application Configuration
+floppfun:
+  # Solana Configuration
+  solana:
+    network: ${SOLANA_NETWORK:devnet}
+    rpc-url: ${SOLANA_RPC_URL:https://api.devnet.solana.com}
+    program-id: ${BONDING_CURVE_PROGRAM_ID:TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA}
+    fee-wallet: ${FEE_WALLET:D45ywEm23MkXT6hLLopWgTmnCoyF2XKooFdGFaF75tWK}
+    treasury-wallet: ${TREASURY_WALLET:4mWPd56BqWPdLH2ygdMi6jNnTQUDcxPFkjsJCfQA5g5J}
+
+  # IPFS Configuration
+  ipfs:
+    pinata-api-key: ${PINATA_API_KEY:your_pinata_api_key}
+    pinata-secret-key: ${PINATA_SECRET_KEY:your_pinata_secret_key}
+    gateway-url: ${IPFS_GATEWAY:https://ipfs.io/ipfs/}
+
+  # JWT Configuration
+  jwt:
+    secret: ${JWT_SECRET:your-super-secret-jwt-key-change-this-in-production}
+    expiration: 86400000 # 24 hours in milliseconds
+
+  # Trading Configuration
+  trading:
+    platform-fee-bps: 100 # 1%
+    min-sol-trade: 10000000 # 0.01 SOL in lamports
+    min-token-trade: 1000000
+    default-slippage: 1.0
+
+  # Bonding Curve Configuration
+  bonding-curve:
+    virtual-sol-reserves: 30000000000 # 30 SOL
+    virtual-token-reserves: 1073000000000000
+    graduation-threshold: 69000000000 # 69 SOL
+
+  # Cache Configuration
+  cache:
+    token-ttl: 30 # seconds
+    price-ttl: 10 # seconds
+    user-ttl: 300 # seconds
+
+# Logging Configuration
+logging:
+  level:
+    com.floppfun: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
