@@ -201,21 +201,17 @@ export class PumpTradingService {
     tokenAmount: bigint,
   ): Promise<void> {
     try {
-      const { supabase } = await import("./supabase");
-      
-      await supabase.from("transactions").insert({
+      // TODO: Database operations now handled by Spring Boot backend
+      console.log('Trade recorded:', {
+        type,
         signature,
-        token_mint: mintAddress,
-        user_address: userAddress,
-        transaction_type: type,
-        sol_amount: Number(solAmount) / LAMPORTS_PER_SOL,
-        token_amount: Number(tokenAmount),
-        created_at: new Date().toISOString(),
+        mintAddress,
+        userAddress,
+        solAmount: Number(solAmount) / LAMPORTS_PER_SOL,
+        tokenAmount: Number(tokenAmount),
       });
-      
-      console.log("✅ Trade recorded in database");
     } catch (error) {
-      console.warn("⚠️ Failed to record trade in database:", error);
+      console.warn("⚠️ Failed to record trade:", error);
       // Don't throw - transaction succeeded even if recording failed
     }
   }

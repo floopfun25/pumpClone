@@ -1,5 +1,6 @@
 import { ref, type Ref } from "vue";
-import { SupabaseService } from "./supabase";
+import { tradingAPI } from "./api";
+import { getTokenPriceHistory } from "./backendApi";
 import { BondingCurveService, type EnhancedTradeResult } from "./bondingCurve";
 
 export interface RealPriceData {
@@ -219,7 +220,8 @@ class RealTimePriceService {
     // Using polling-based updates instead which work reliably
     /*
     try {
-      SupabaseService.subscribeToTransactions(tokenId, (transaction: any) => {
+      // TODO: Real-time subscriptions now handled by Spring Boot backend WebSocket
+      // SupabaseService.subscribeToTransactions(tokenId, (transaction: any) => {
         // When a new transaction occurs, immediately update the price
         this.handleNewTransaction(tokenId, transaction)
       })
@@ -274,11 +276,8 @@ class RealTimePriceService {
     timeframe: string = "24h",
   ): Promise<ChartDataPoint[]> {
     try {
-      // Get price history from database
-      const priceHistory = await SupabaseService.getTokenPriceHistory(
-        tokenId,
-        timeframe,
-      );
+      // Get price history from Spring Boot backend
+      const priceHistory = await getTokenPriceHistory(tokenId, timeframe);
 
       if (priceHistory.length === 0) {
         // If no historical data, generate initial state with trend
@@ -518,17 +517,15 @@ class RealTimePriceService {
   private static async calculateRecentVolume(tokenId: string): Promise<number> {
     try {
       const currentTime = Date.now();
-      const recentTransactions = await SupabaseService.getTokenTransactions(
-        tokenId,
-        100,
-      );
+      const response = await tradingAPI.getTokenTransactions(Number(tokenId), 0, 100);
+      const recentTransactions = response.content;
       return (
         recentTransactions
           .filter(
             (tx) =>
-              new Date(tx.created_at).getTime() > currentTime - 5 * 60 * 1000,
+              new Date(tx.createdAt).getTime() > currentTime - 5 * 60 * 1000,
           )
-          .reduce((sum, tx) => sum + (tx.sol_amount || 0), 0) / 1e9
+          .reduce((sum, tx) => sum + (tx.solAmount || 0), 0) / 1e9
       );
     } catch (error) {
       console.error("Error calculating recent volume:", error);
@@ -541,10 +538,7 @@ class RealTimePriceService {
     currentPrice: number,
   ): Promise<number> {
     try {
-      const priceHistory = await SupabaseService.getTokenPriceHistory(
-        tokenId,
-        "24h",
-      );
+      const priceHistory = await getTokenPriceHistory(tokenId, "24h");
       if (priceHistory.length > 0) {
         const oldestPrice = priceHistory[0].price;
         return ((currentPrice - oldestPrice) / oldestPrice) * 100;

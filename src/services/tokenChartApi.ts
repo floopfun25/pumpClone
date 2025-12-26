@@ -1,4 +1,4 @@
-import { SupabaseService } from "@/services/supabase";
+import { getTokenPriceHistory } from "@/services/backendApi";
 export async function fetchTokenChartDataWithFallback(
   tokenId: string,
   tokenSymbol: string,
@@ -32,19 +32,16 @@ export async function fetchTokenChartDataWithFallback(
     );
     console.error("CoinGecko failed:", err);
   }
-  // Try Supabase
+  // Try Backend API
   try {
-    const supabaseData = await SupabaseService.getTokenPriceHistory(
-      tokenId,
-      interval,
-    );
-    if (supabaseData && supabaseData.length > 0) return supabaseData;
-    errorLog.push("Supabase returned no data");
+    const backendData = await getTokenPriceHistory(tokenId, interval);
+    if (backendData && backendData.length > 0) return backendData;
+    errorLog.push("Backend API returned no data");
   } catch (err) {
     errorLog.push(
-      `Supabase failed: ${err instanceof Error ? err.message : String(err)}`,
+      `Backend API failed: ${err instanceof Error ? err.message : String(err)}`,
     );
-    console.error("Supabase failed:", err);
+    console.error("Backend API failed:", err);
   }
   // All sources failed
   const errorMsg = `All chart data sources failed.\nDetails: ${errorLog.join(" | ")}`;

@@ -150,7 +150,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { SupabaseService } from "@/services/supabase";
+import { getBondingCurveProgress } from "@/services/backendApi";
 
 interface Props {
   tokenId: string;
@@ -172,7 +172,7 @@ const progressPercentage = computed(() => {
 // Methods
 const loadProgress = async () => {
   try {
-    const progress = await SupabaseService.getBondingCurveProgress(
+    const progress = await getBondingCurveProgress(
       props.tokenId,
     );
     progressData.value = progress;

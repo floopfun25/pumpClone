@@ -21,7 +21,6 @@ import {
 // Import metaplex metadata (skip metadata creation if not available)
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
-import { supabase } from "./supabase";
 import { uploadToIPFS } from "./ipfsService";
 import { bondingCurveProgram } from "./bondingCurveProgram";
 
@@ -34,6 +33,15 @@ export interface TokenCreationParams {
   decimals?: number;
   initialSupply?: number;
   creatorPercentage?: number;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+  totalSupply?: number;
+  lockPercentage?: number;
+  lockDurationDays?: number;
+  prebuyAmount?: number;
+  unlockSchedule?: string;
 }
 
 export interface CreatedTokenInfo {
@@ -297,46 +305,33 @@ export class TokenCreationService {
   ): Promise<string> {
     console.log("💾 Saving token to database...");
 
-    // Get authenticated user ID
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      console.error("🚫 Authentication failed for database save:", authError);
-      throw new Error("Authentication required for token creation");
-    }
+    try {
+      // Use backend API to create token
+      const { tokenAPI } = await import("@/services/api");
 
-    const { data, error } = await supabase
-      .from("tokens")
-      .insert({
-        mint_address: mintAddress,
+      const totalSupply = (params.initialSupply || 1_000_000_000) *
+        Math.pow(10, params.decimals || config.tokenDefaults.decimals);
+
+      // Convert image URL back to File if needed (or use the original file)
+      // For now, we'll create a placeholder since the image was already uploaded
+      const imageFile = params.imageFile || new File([], params.imageUrl || "image.png");
+
+      const token = await tokenAPI.createToken({
         name: params.name,
         symbol: params.symbol,
         description: params.description,
-        image_url: params.imageUrl,
-        metadata_uri: metadataUri,
-        creator_id: user.id, // Use the authenticated user's UUID
-        total_supply:
-          (params.initialSupply || 1_000_000_000) *
-          Math.pow(10, params.decimals || config.tokenDefaults.decimals),
-        current_price: 0,
-        market_cap: 0,
-        volume_24h: 0,
-        status: "active",
-        // Note: transaction signature not stored in tokens table
-        decimals: params.decimals || config.tokenDefaults.decimals,
-      })
-      .select()
-      .single();
+        imageFile: imageFile,
+        mintAddress: mintAddress,
+        metadataUri: metadataUri,
+        totalSupply: totalSupply,
+      });
 
-    if (error) {
-      console.error("Database save error:", error);
+      console.log("✅ Token saved to database:", token);
+      return token.id.toString();
+    } catch (error: any) {
+      console.error("🚫 Database save error:", error);
       throw new Error(`Failed to save token to database: ${error.message}`);
     }
-
-    return data.id;
   }
 
   /**

@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { priceOracleService } from "./priceOracle";
-import { SupabaseService } from "./supabase";
+import { tokenAPI, tradingAPI } from "./api";
+import { getTokenPriceHistory } from "./backendApi";
 
 export interface MarketData {
   price: number;
@@ -85,8 +86,8 @@ class MarketAnalyticsService {
     if (cached) return cached;
 
     try {
-      // Get token data from Supabase
-      const token = await SupabaseService.getTokenByMint(mintAddress);
+      // Get token data from Spring Boot backend
+      const token = await tokenAPI.getTokenByMint(mintAddress);
       if (!token) return null;
 
       // Get real-time price data
@@ -127,17 +128,15 @@ class MarketAnalyticsService {
     if (cached) return cached;
 
     try {
-      // Get tokens from database with recent activity
-      const tokens = await SupabaseService.getTrendingTokens(
-        "volume",
-        limit * 2,
-      ); // Get more to filter
+      // Get tokens from Spring Boot backend with recent activity
+      const response = await tokenAPI.getTrendingTokens(0, limit * 2);
+      const tokens = response.content;
 
       const trendingTokens: TrendingToken[] = [];
 
       for (const token of tokens) {
         const priceData = await priceOracleService.getTokenPrice(
-          token.mint_address,
+          token.mintAddress,
         );
         if (!priceData) continue;
 
@@ -147,15 +146,15 @@ class MarketAnalyticsService {
           priceChange24h: priceData.priceChangePercent24h,
           volume24h,
           marketCap: priceData.marketCap || 0,
-          age: this.getTokenAge(token.created_at),
-          holders: token.holders_count || 0,
+          age: this.getTokenAge(token.createdAt),
+          holders: 0, // TODO: Implement holders count in backend
         });
 
         trendingTokens.push({
-          mint: token.mint_address,
+          mint: token.mintAddress,
           symbol: token.symbol,
           name: token.name,
-          image_url: token.image_url,
+          image_url: token.imageUrl,
           price: priceData.price,
           priceChange24h: priceData.priceChangePercent24h,
           volume24h,
@@ -188,14 +187,21 @@ class MarketAnalyticsService {
     if (cached) return cached;
 
     try {
-      const [marketStats, topGainers, topLosers, mostActive, newListings] =
+      // Note: Market stats not yet implemented in backend
+      const [topGainers, topLosers, mostActive, newListings] =
         await Promise.all([
-          SupabaseService.getMarketStats(),
           this.getTopGainers(10),
           this.getTopLosers(10),
           this.getMostActive(10),
           this.getNewListings(10),
         ]);
+
+      const marketStats = {
+        totalMarketCap: 0,
+        totalVolume24h: 0,
+        totalTokens: 0,
+        activeTraders24h: 0,
+      };
 
       const overview: MarketOverview = {
         totalMarketCap: marketStats.totalMarketCap,
@@ -311,10 +317,7 @@ class MarketAnalyticsService {
     tokenId: string,
   ): Promise<TechnicalIndicators> {
     try {
-      const priceHistory = await SupabaseService.getTokenPriceHistory(
-        tokenId,
-        "30d",
-      );
+      const priceHistory = await getTokenPriceHistory(tokenId, "30d");
 
       if (priceHistory.length === 0) {
         return {
@@ -487,40 +490,27 @@ class MarketAnalyticsService {
       ).toISOString();
 
       // Get all completed transactions in the last 24h
-      const transactions = await SupabaseService.getTokenTransactions(
-        tokenId,
-        1000,
-      );
+      const response = await tradingAPI.getTokenTransactions(Number(tokenId), 0, 1000);
+      const transactions = response.content;
 
       if (!transactions || transactions.length === 0) return 0;
 
       // Filter transactions within last 24h
       const recent24h = transactions.filter(
         (tx) =>
-          new Date(tx.created_at).getTime() >= new Date(yesterday).getTime(),
+          new Date(tx.createdAt).getTime() >= new Date(yesterday).getTime(),
       );
 
       // Calculate total volume considering both buys and sells
-      const volume = recent24h.reduce(
-        (
-          sum: number,
-          tx: {
-            sol_amount?: number;
-            price_per_token?: number;
-            token_amount?: number;
-            created_at: string;
-          },
-        ) => {
-          const amount = tx.sol_amount || 0;
-          // Use price_per_token * token_amount if available, otherwise use sol_amount
-          const txVolume =
-            tx.price_per_token && tx.token_amount
-              ? tx.price_per_token * tx.token_amount
-              : amount;
-          return sum + txVolume;
-        },
-        0,
-      );
+      const volume = recent24h.reduce((sum: number, tx) => {
+        const amount = tx.solAmount || 0;
+        // Use pricePerToken * tokenAmount if available, otherwise use solAmount
+        const txVolume =
+          tx.pricePerToken && tx.tokenAmount
+            ? tx.pricePerToken * tx.tokenAmount
+            : amount;
+        return sum + txVolume;
+      }, 0);
 
       return volume;
     } catch (error) {
@@ -531,14 +521,12 @@ class MarketAnalyticsService {
 
   private async getTransactions24h(tokenId: string): Promise<number> {
     try {
-      const transactions = await SupabaseService.getTokenTransactions(
-        tokenId,
-        1000,
-      );
+      const response = await tradingAPI.getTokenTransactions(Number(tokenId), 0, 1000);
+      const transactions = response.content;
       const yesterday = Date.now() - 24 * 60 * 60 * 1000;
 
       return transactions.filter(
-        (tx) => new Date(tx.created_at).getTime() > yesterday,
+        (tx) => new Date(tx.createdAt).getTime() > yesterday,
       ).length;
     } catch {
       return 0;
@@ -552,7 +540,8 @@ class MarketAnalyticsService {
 
   private calculateConcentrationRisk(token: any): number {
     // This would analyze holder distribution
-    const holders = token.holders_count || 1;
+    // TODO: Implement holders count in backend
+    const holders = 1;
     return Math.max(0, 100 - Math.log10(holders) * 20);
   }
 

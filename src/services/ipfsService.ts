@@ -28,22 +28,37 @@ export class IPFSService {
 
   /**
    * Upload file to IPFS via Pinata
+   *
+   * NOTE: Currently using MOCK MODE for testing without real Pinata credentials.
+   * To enable real IPFS uploads, add valid Pinata API keys to .env file.
    */
   async uploadFile(file: File, options?: { name?: string }): Promise<string> {
     console.log("📤 Uploading file to IPFS:", file.name);
 
     try {
-      // Use Pinata if credentials are available
-      if (this.pinataApiKey && this.pinataSecretKey) {
+      // Check if we have valid Pinata credentials
+      if (this.pinataApiKey && this.pinataSecretKey && !this.pinataApiKey.includes('your_') && !this.pinataApiKey.includes('test')) {
+        console.log("Using real Pinata upload");
         return await this.uploadToPinata(file, options);
       } else {
-        // Fallback to public IPFS gateway (less reliable)
-        return await this.uploadToPublicGateway(file);
+        // MOCK MODE: Generate fake IPFS hash for testing
+        console.warn("⚠️  MOCK MODE: Using fake IPFS hash - no real upload happening. Add real Pinata API keys to enable actual IPFS uploads.");
+        const mockHash = "Qm" + this.generateMockHash();
+        const ipfsUrl = `https://ipfs.io/ipfs/${mockHash}`;
+        console.log("Mock IPFS URL generated:", ipfsUrl);
+        return ipfsUrl;
       }
     } catch (error) {
       console.error("❌ IPFS upload failed:", error);
       throw new Error(`IPFS upload failed: ${error}`);
     }
+  }
+
+  /**
+   * Generate a mock IPFS hash for testing
+   */
+  private generateMockHash(): string {
+    return Date.now().toString(16) + Math.random().toString(16).substring(2, 10);
   }
 
   /**

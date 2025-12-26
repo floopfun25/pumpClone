@@ -476,7 +476,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useTypedI18n } from "@/i18n";
 import { useWalletStore } from "@/stores/wallet";
 import { useUIStore } from "@/stores/ui";
-import { SupabaseService } from "@/services/supabase";
+import { userAPI, tradingAPI } from "@/services/api";
 import TokenCard from "@/components/token/TokenCard.vue";
 import { formatNumber, formatPrice } from "@/utils/formatters";
 
@@ -643,7 +643,7 @@ const saveProfile = async () => {
 
   saving.value = true;
   try {
-    await SupabaseService.updateUserProfile(user.value.id, {
+    await userAPI.updateProfile({
       username: editForm.value.username,
       bio: editForm.value.bio,
     });
@@ -677,22 +677,27 @@ const loadUserProfile = async () => {
     }
 
     // Load user data
-    const userData = await SupabaseService.getUserByWallet(walletAddress);
+    const userData = await userAPI.getUserByWallet(walletAddress);
 
     if (!userData) {
       throw new Error(t("profile.userNotFound"));
     }
 
-    user.value = userData;
+    user.value = {
+      id: userData.id,
+      wallet_address: userData.walletAddress,
+      username: userData.username,
+      bio: userData.bio,
+      avatar_url: userData.avatarUrl,
+      created_at: userData.createdAt,
+    };
+
     editForm.value = {
       username: userData.username || "",
       bio: userData.bio || "",
     };
 
-    // Debug: investigate token relationships (remove this later)
-    // await SupabaseService.debugUserTokens(walletAddress)
-
-    // Get current SOL price for conversion - throw error if fails
+    // Get current SOL price for conversion
     const { priceOracleService } = await import("@/services/priceOracle");
     let solPriceUSD = 0;
 
@@ -701,30 +706,29 @@ const loadUserProfile = async () => {
       solPriceUSD = solPriceData.price;
     } catch (priceError) {
       console.error("Failed to fetch SOL price:", priceError);
-      throw new Error(
-        `Unable to load current SOL price: ${priceError instanceof Error ? priceError.message : "Unknown error"}. Please check your internet connection and try again.`,
-      );
+      solPriceUSD = 0;
     }
 
-    // Load user's data in parallel
-    const [tokens, watchlist, history, holdings, activity] = await Promise.all([
-      SupabaseService.getTokensByCreator(userData.id),
-      SupabaseService.getUserWatchlist(userData.id),
-      SupabaseService.getUserTradingHistory(userData.id),
-      SupabaseService.getUserHoldings(userData.id),
-      SupabaseService.getUserActivity(userData.id),
-    ]);
+    // Load user's trading history (other features not yet implemented in backend)
+    try {
+      const historyResponse = await tradingAPI.getUserTransactions(userData.id, 0, 100);
+      tradingHistory.value = historyResponse.content;
+    } catch (err) {
+      console.log("Trading history not available:", err);
+      tradingHistory.value = [];
+    }
+
+    // Features not yet implemented in backend
+    const tokens: any[] = [];
+    const watchlist: any[] = [];
+    const holdings: any[] = [];
+    const activity: any[] = [];
 
     // Convert token prices from SOL to USD for display
-    userTokens.value = (tokens || []).map((token: any) => ({
-      ...token,
-      current_price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
-      price: (Number(token.current_price) || 0) * solPriceUSD, // Also update the price field for consistency
-    }));
-    userWatchlist.value = watchlist || [];
-    tradingHistory.value = history || [];
-    userHoldings.value = holdings || [];
-    userActivity.value = activity || [];
+    userTokens.value = tokens;
+    userWatchlist.value = watchlist;
+    userHoldings.value = holdings;
+    userActivity.value = activity;
   } catch (err) {
     console.error("Failed to load user profile:", err);
     error.value = err instanceof Error ? err.message : t("profile.loadError");
@@ -740,7 +744,8 @@ const removeFromWatchlist = async (tokenId: string) => {
   if (!user.value?.id) return;
 
   try {
-    await SupabaseService.removeFromWatchlist(user.value.id, tokenId);
+    // TODO: Implement watchlist in backend
+    console.log("Watchlist feature not yet implemented in backend");
 
     // Remove from local state
     userWatchlist.value = userWatchlist.value.filter(

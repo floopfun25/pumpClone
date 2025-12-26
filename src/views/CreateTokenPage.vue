@@ -233,7 +233,7 @@
                   {{ t("token.creatorShare") }} (%)
                 </label>
                 <select
-                  v-model.number="tokenForm.creatorSharePercentage"
+                  v-model.number="tokenForm.creatorPercentage"
                   class="input-field"
                 >
                   <option value="0">
@@ -273,8 +273,8 @@
             <!-- Token Locking Settings -->
             <div
               v-if="
-                tokenForm.creatorSharePercentage &&
-                tokenForm.creatorSharePercentage > 0
+                tokenForm.creatorPercentage &&
+                tokenForm.creatorPercentage > 0
               "
               class="space-y-4"
             >
@@ -581,7 +581,7 @@ const tokenForm = ref<TokenForm>({
   discord: "",
   // Advanced settings with defaults
   totalSupply: 1000000000, // 1B tokens default
-  creatorSharePercentage: 0,
+  creatorPercentage: 0,
   lockPercentage: 0,
   lockDurationDays: 0,
   prebuyAmount: 0,
@@ -607,7 +607,7 @@ const tokenCreationSummary = computed(() => {
   if (!tokenForm.value.totalSupply) return null;
 
   const totalSupply = tokenForm.value.totalSupply || 1000000000;
-  const creatorPercentage = tokenForm.value.creatorSharePercentage || 0;
+  const creatorPercentage = tokenForm.value.creatorPercentage || 0;
   const lockPercentage = tokenForm.value.lockPercentage || 0;
 
   const creatorTokens = Math.floor((totalSupply * creatorPercentage) / 100);
@@ -725,9 +725,9 @@ const validateAdvancedFields = (): string[] => {
   }
 
   if (
-    tokenForm.value.creatorSharePercentage &&
-    (tokenForm.value.creatorSharePercentage < 0 ||
-      tokenForm.value.creatorSharePercentage > 80)
+    tokenForm.value.creatorPercentage &&
+    (tokenForm.value.creatorPercentage < 0 ||
+      tokenForm.value.creatorPercentage > 80)
   ) {
     errors.push(t("token.errors.invalidCreatorShare"));
   }

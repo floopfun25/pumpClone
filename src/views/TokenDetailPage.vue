@@ -225,7 +225,7 @@
 import { ref, onMounted, onUnmounted, computed, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { PublicKey, Transaction, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { SupabaseService } from "@/services/supabase";
+import { tokenAPI, tradingAPI } from "@/services/api";
 import { useWalletStore } from "@/stores/wallet";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
@@ -423,7 +423,7 @@ const connectWallet = async () => {
 };
 
 /**
- * Simple authentication for trading (mobile-friendly)
+ * Simple authentication for trading (using Spring Boot backend)
  */
 const authenticateForTrading = async () => {
   if (!walletStore.walletAddress) {
@@ -431,116 +431,26 @@ const authenticateForTrading = async () => {
   }
 
   try {
-    console.log("🔐 [AUTH] Starting simple authentication for trading...");
+    console.log("🔐 [AUTH] Starting authentication for trading...");
     console.log("🔍 [AUTH] Wallet address:", walletStore.walletAddress);
 
-    // Use the simpler SupabaseAuth.signInWithWallet method directly
-    // This bypasses the complex crypto challenge flow which can fail on mobile
-    const { SupabaseAuth } = await import("@/services/supabase");
-    console.log("🔍 [AUTH] Calling SupabaseAuth.signInWithWallet...");
-    const result = await SupabaseAuth.signInWithWallet(
-      walletStore.walletAddress,
-    );
-    console.log("🔍 [AUTH] SupabaseAuth result:", {
-      hasUser: !!result.user,
-      hasSession: !!result.session,
-      userId: result.user?.id,
-    });
-
-    // Ensure user record exists after successful authentication
-    if (result.session?.user?.id) {
-      try {
-        const { supabase } = await import("@/services/supabase");
-        console.log("🔍 [AUTH] Ensuring user record exists...");
-
-        const { data: ensuredUserId, error: ensureError } = await supabase.rpc(
-          "get_or_create_user_by_wallet",
-          {
-            wallet_address: walletStore.walletAddress,
-          },
-        );
-
-        if (ensureError) {
-          console.warn(
-            "⚠️ [AUTH] Failed to ensure user exists via RPC, trying direct method...",
-          );
-
-          // Fallback method
-          const { error: createError } = await supabase.from("users").upsert({
-            id: result.session.user.id,
-            wallet_address: walletStore.walletAddress,
-            username: `user_${walletStore.walletAddress.slice(0, 8)}`,
-          });
-
-          if (createError) {
-            console.warn("⚠️ [AUTH] User record creation failed:", createError);
-          } else {
-            console.log("✅ [AUTH] User record created via fallback method");
-          }
-        } else {
-          console.log("✅ [AUTH] User record ensured via RPC:", ensuredUserId);
-        }
-      } catch (userCreationError) {
-        console.warn(
-          "⚠️ [AUTH] User record creation failed, trading may not work:",
-          userCreationError,
-        );
-      }
-    }
-
-    if (result.user && result.session) {
-      // Update auth store state manually
-      authStore.user = result.user;
-      authStore.isAuthenticated = true;
-      authStore.supabaseUser = result.user;
-      authStore.supabaseSession = result.session;
-
-      console.log("✅ [AUTH] Simple authentication successful");
-      console.log("🔍 [AUTH] Session details:", {
-        sessionUserId: result.session?.user?.id,
-        userRecordId: result.user?.id,
-        walletAddress: walletStore.walletAddress,
-        idsMatch: result.session?.user?.id === result.user?.id,
-      });
-
-      // Verify the session is valid for database operations
-      try {
-        const { SupabaseAuth } = await import("@/services/supabase");
-        const sessionCheck = await SupabaseAuth.getSession();
-        console.log("🔍 [AUTH] Current session check:", {
-          hasSession: !!sessionCheck,
-          sessionUserId: sessionCheck?.user?.id,
-          isAuthenticated: !!sessionCheck?.user,
-        });
-      } catch (sessionError) {
-        console.warn("⚠️ [AUTH] Session verification failed:", sessionError);
-      }
-
-      // Load user token balance after authentication
-      await loadUserTokenBalance();
-
-      return result;
+    // Use authStore to sign in with wallet (JWT-based)
+    if (!authStore.isAuthenticated) {
+      await authStore.signInWithWallet();
+      console.log("✅ [AUTH] Authentication successful");
     } else {
-      throw new Error("Authentication failed - no user data returned");
+      console.log("✅ [AUTH] Already authenticated");
     }
-  } catch (error: any) {
-    console.error("❌ [AUTH] Simple authentication failed:", error);
 
-    // If simple auth fails, try the full crypto challenge method as fallback
-    try {
-      console.log("🔄 [AUTH] Falling back to secure authentication...");
-      await authStore.signInWithWallet(walletStore.walletAddress);
-      await loadUserTokenBalance();
-      console.log("✅ [AUTH] Fallback authentication successful");
-    } catch (fallbackError: any) {
-      console.error(
-        "❌ [AUTH] Both authentication methods failed:",
-        fallbackError,
-      );
-      throw new Error(
-        `Authentication failed: ${fallbackError.message || "Unknown error"}`,
-      );
-    }
+    // Load user token balance after authentication
+    await loadUserTokenBalance();
+
+    return { user: authStore.user };
+  } catch (error: any) {
+    console.error("❌ [AUTH] Authentication failed:", error);
+    throw new Error(
+      `Authentication failed: ${error.message || "Unknown error"}`,
+    );
   }
 };
 
@@ -593,7 +503,7 @@ const authenticateUserWithWallet = async () => {
  * Pre-trade checks and authentication
  */
 async function prepareForTrade(): Promise<boolean> {
-  if (!authStore.isAuthenticated || !authStore.supabaseUser) {
+  if (!authStore.isAuthenticated || !authStore.user) {
     uiStore.showToast({
       type: "info",
       title: "Setting up trading...",
@@ -845,20 +755,10 @@ const loadTopHolders = async () => {
   }
 
   try {
-    console.log("🔄 Loading top holders for token:", token.value.id);
-    const holders = await SupabaseService.getTokenTopHolders(
-      token.value.id,
-      20,
-    );
-
-    if (holders.length > 0) {
-      topHolders.value = holders;
-      console.log("✅ Loaded top holders:", holders.length);
-    } else {
-      // Show empty state if no holders found
-      topHolders.value = [];
-      console.log("ℹ️ No holders found for this token");
-    }
+    console.log("🔄 Top holders not yet implemented in backend");
+    // TODO: Implement getTokenTopHolders in backend API
+    topHolders.value = [];
+    console.log("ℹ️ No holders data available yet");
   } catch (error) {
     console.error("❌ Failed to load top holders:", error);
     // Keep empty array on error
@@ -922,38 +822,64 @@ const loadPublicTokenData = async () => {
       throw new Error("No mint address provided");
     }
 
-    // Fetch token data from Supabase
-    const tokenData = await SupabaseService.getTokenByMint(mintAddress);
+    // Fetch token data from Spring Boot backend
+    const tokenData = await tokenAPI.getTokenByMint(mintAddress);
 
     if (!tokenData) {
       throw new Error("Token not found");
     }
 
-    token.value = tokenData;
-    console.log("[DEBUG] token.value after Supabase fetch:", token.value);
+    // Convert backend format to expected format
+    token.value = {
+      id: tokenData.id.toString(),
+      mint_address: tokenData.mintAddress,
+      name: tokenData.name,
+      symbol: tokenData.symbol,
+      description: tokenData.description,
+      image_url: tokenData.imageUrl,
+      metadata_uri: tokenData.metadataUri,
+      creator_id: tokenData.creatorId?.toString(),
+      total_supply: tokenData.totalSupply,
+      current_price: tokenData.currentPrice,
+      market_cap: tokenData.marketCap,
+      volume_24h: 0,
+      holders_count: 0,
+      status: tokenData.hasGraduated ? 'graduated' : 'active',
+      graduated_at: tokenData.graduatedAt,
+      created_at: tokenData.createdAt,
+      updated_at: tokenData.createdAt,
+      bonding_curve_progress: 0,
+      sol_in_bonding_curve: tokenData.solInBondingCurve,
+      virtual_sol_reserves: tokenData.virtualSolReserves,
+      virtual_token_reserves: tokenData.virtualTokenReserves,
+      creator: tokenData.creator,
+      comments_count: 0,
+    };
+
+    console.log("[DEBUG] token.value after backend fetch:", token.value);
 
     console.log("🔍 [TOKEN DETAIL] Public token data loaded:", {
       id: tokenData.id,
       name: tokenData.name,
     });
 
-    // Load data that doesn't require authentication
-    const [transactions, commentsData] = await Promise.all([
-      SupabaseService.getTokenTransactions(tokenData.id, 10),
-      SupabaseService.getTokenComments(tokenData.id, 1, 1),
-    ]);
+    // Load transactions from backend
+    try {
+      const transactionsResponse = await tradingAPI.getTokenTransactions(tokenData.id, 0, 10);
+      recentTrades.value = transactionsResponse.content.map((tx: any) => ({
+        id: tx.id,
+        type: tx.transactionType,
+        amount: `${(tx.solAmount / 1e9).toFixed(3)} SOL`,
+        time: formatTimeAgo(tx.createdAt),
+        user: tx.walletAddress?.substring(0, 4) + '...' + tx.walletAddress?.substring(tx.walletAddress.length - 4),
+      }));
+    } catch (err) {
+      console.log("Could not load transactions:", err);
+      recentTrades.value = [];
+    }
 
-    token.value.comments_count = commentsData.total || 0;
-
-    recentTrades.value = transactions.map((tx: any) => ({
-      id: tx.id,
-      type: tx.transaction_type,
-      amount: `${(tx.sol_amount / 1e9).toFixed(3)} SOL`,
-      time: formatTimeAgo(tx.created_at),
-      user:
-        tx.user?.username ||
-        `${tx.user?.wallet_address?.slice(0, 4)}...${tx.user?.wallet_address?.slice(-4)}`,
-    }));
+    // Comments not yet implemented in backend
+    token.value.comments_count = 0;
 
     // Load market analytics (does not require auth)
     try {
@@ -1092,10 +1018,12 @@ const loadBondingCurveData = async () => {
     );
     bondingCurveState.value = curveState;
 
-    // Load progress data
-    bondingProgress.value = await SupabaseService.getBondingCurveProgress(
-      token.value.id,
-    );
+    // Load progress data - use data from token directly
+    bondingProgress.value = {
+      progress: curveState.progress || 0,
+      currentSol: token.value.sol_in_bonding_curve || 0,
+      targetSol: 85, // Default graduation threshold
+    };
 
     // Update last price update time
     lastPriceUpdate.value = new Date();
@@ -1135,9 +1063,11 @@ const loadBondingCurveData = async () => {
     console.error("Failed to load bonding curve data:", error);
 
     // Fallback to basic progress calculation
-    bondingProgress.value = await SupabaseService.getBondingCurveProgress(
-      token.value.id,
-    );
+    bondingProgress.value = {
+      progress: 0,
+      currentSol: token.value?.sol_in_bonding_curve || 0,
+      targetSol: 85,
+    };
   }
 };
 
@@ -1180,7 +1110,7 @@ const currentPrice = computed(() => {
 const checkWatchlistStatus = async () => {
   if (
     !authStore.isAuthenticated ||
-    !authStore.supabaseUser?.id ||
+    !authStore.user?.id ||
     !token.value?.id
   ) {
     isInWatchlist.value = false;
@@ -1188,10 +1118,9 @@ const checkWatchlistStatus = async () => {
   }
 
   try {
-    isInWatchlist.value = await SupabaseService.isTokenInWatchlist(
-      authStore.supabaseUser.id,
-      token.value.id,
-    );
+    // TODO: Implement watchlist in backend API
+    isInWatchlist.value = false;
+    // isInWatchlist.value = await userAPI.isTokenInWatchlist(authStore.user.id, token.value.id);
   } catch (error) {
     console.error("Failed to check watchlist status:", error);
     isInWatchlist.value = false;
@@ -1211,7 +1140,7 @@ const toggleWatchlist = async () => {
     return;
   }
 
-  if (!authStore.supabaseUser?.id || !token.value?.id) {
+  if (!authStore.user?.id || !token.value?.id) {
     uiStore.showToast({
       type: "error",
       title: "Error",
@@ -1223,33 +1152,30 @@ const toggleWatchlist = async () => {
   watchlistLoading.value = true;
 
   try {
-    if (isInWatchlist.value) {
-      // Remove from watchlist
-      await SupabaseService.removeFromWatchlist(
-        authStore.supabaseUser.id,
-        token.value.id,
-      );
-      isInWatchlist.value = false;
+    // TODO: Implement watchlist in backend API
+    uiStore.showToast({
+      type: "info",
+      title: "Coming Soon",
+      message: "Watchlist feature will be available soon",
+    });
 
-      uiStore.showToast({
-        type: "success",
-        title: "Removed from Watchlist",
-        message: `${token.value.name} has been removed from your watchlist`,
-      });
-    } else {
-      // Add to watchlist
-      await SupabaseService.addToWatchlist(
-        authStore.supabaseUser.id,
-        token.value.id,
-      );
-      isInWatchlist.value = true;
-
-      uiStore.showToast({
-        type: "success",
-        title: "Added to Watchlist",
-        message: `${token.value.name} has been added to your watchlist`,
-      });
-    }
+    // if (isInWatchlist.value) {
+    //   await userAPI.removeFromWatchlist(authStore.user.id, token.value.id);
+    //   isInWatchlist.value = false;
+    //   uiStore.showToast({
+    //     type: "success",
+    //     title: "Removed from Watchlist",
+    //     message: `${token.value.name} has been removed from your watchlist`,
+    //   });
+    // } else {
+    //   await userAPI.addToWatchlist(authStore.user.id, token.value.id);
+    //   isInWatchlist.value = true;
+    //   uiStore.showToast({
+    //     type: "success",
+    //     title: "Added to Watchlist",
+    //     message: `${token.value.name} has been added to your watchlist`,
+    //   });
+    // }
   } catch (error: any) {
     console.error("Failed to toggle watchlist:", error);
 

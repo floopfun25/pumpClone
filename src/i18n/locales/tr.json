@@ -601,5 +601,14 @@
   "errors": {
     "updateFailed": "Güncelleme Başarısız",
     "tryAgain": "Lütfen tekrar deneyin"
+  },
+  "pagination": {
+    "showing": "Gösteriliyor",
+    "page": "Sayfa",
+    "of": "/",
+    "moreAvailable": "Daha fazla mevcut",
+    "loadingNext100": "Sonraki 100 token'ı yükle",
+    "previous": "Önceki",
+    "next": "Sonraki"
   }
 } 

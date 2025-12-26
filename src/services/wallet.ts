@@ -585,17 +585,32 @@ class WalletService {
 
   // Connect to specific wallet
   async connect(walletName?: string): Promise<void> {
-    if (this.connecting || this.connected) return;
+    console.log('🔍 DEBUG: connect() called with wallet:', walletName);
+    console.log('🔍 DEBUG: Current state:', {
+      connecting: this.connecting,
+      connected: this.connected,
+      isMobile: isMobile(),
+      phantomDetected: !!(window as any).phantom?.solana,
+      solflareDetected: !!(window as any).solflare
+    });
+
+    if (this.connecting || this.connected) {
+      console.log('⚠️ DEBUG: Already connecting or connected, skipping');
+      return;
+    }
 
     this._connecting.value = true;
     try {
       if (isMobile()) {
+        console.log('📱 DEBUG: Using mobile connection');
         await this.connectMobile(walletName);
       } else {
+        console.log('💻 DEBUG: Using desktop connection');
         await this.connectDesktop(walletName);
       }
       this.notifyStateChange();
     } catch (error: any) {
+      console.error('❌ DEBUG: Connection failed in connect():', error);
       this.handleError(error);
       throw error;
     } finally {
@@ -835,9 +850,48 @@ class WalletService {
     }
     this.currentWallet.value = wallet.adapter;
     this.setupWalletListeners(wallet.adapter);
+
+    console.log('🔍 DEBUG: Attempting to connect to wallet:', {
+      walletName: wallet.name,
+      readyState: wallet.adapter.readyState,
+      publicKey: wallet.adapter.publicKey?.toString(),
+      connected: wallet.adapter.connected
+    });
+
     try {
+      console.log('🔍 DEBUG: Calling wallet.adapter.connect()...');
+
+      // Check if Phantom is locked before trying to connect
+      const phantomWallet = (window as any).phantom?.solana || (window as any).solana;
+      if (walletName === 'Phantom' && phantomWallet) {
+        console.log('🔍 DEBUG: Phantom wallet state:', {
+          isPhantom: phantomWallet.isPhantom,
+          isConnected: phantomWallet.isConnected,
+          publicKey: phantomWallet.publicKey?.toString()
+        });
+
+        // If Phantom wallet object doesn't have isPhantom property, it might be locked
+        if (!phantomWallet.isPhantom) {
+          throw new WalletConnectionError('Phantom wallet is locked. Please unlock your Phantom extension and try again.');
+        }
+      }
+
       await wallet.adapter.connect();
+      console.log('✅ DEBUG: Wallet connected successfully');
     } catch (error: any) {
+      console.error('❌ DEBUG: Wallet connection failed:', {
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        errorCode: error.code,
+        fullError: error
+      });
+
+      // Provide better error message for common issues
+      if (error.message === 'Unexpected error' || !error.message) {
+        error.message = 'Failed to connect to wallet. Please make sure your wallet is unlocked and try again.';
+      }
+
       this.handleError(error);
       throw error;
     }

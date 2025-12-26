@@ -116,7 +116,7 @@ import { ref, onMounted, watch } from "vue";
 import { useTypedI18n } from "@/i18n";
 import TokenCard from "./TokenCard.vue";
 import { useRouter } from "vue-router";
-import { SupabaseService } from "@/services/supabase";
+import { tokenAPI } from "@/services/api";
 
 // Define token interface
 interface Token {
@@ -157,23 +157,23 @@ const loadTrendingTokens = async () => {
   error.value = null;
 
   try {
-    // Get trending tokens from Supabase with enhanced sorting
-    const tokens = await SupabaseService.getTrendingTokensEnhanced(12); // Get more tokens for scrolling
+    // Get trending tokens from Spring Boot backend
+    const response = await tokenAPI.getTrendingTokens(0, 12); // Get more tokens for scrolling
 
     // Map the response to our Token interface
-    trendingTokens.value = tokens.map((token: any, index: number) => {
+    trendingTokens.value = response.content.map((token: any, index: number) => {
       return {
-        id: token.id,
-        name: token.name,
-        symbol: token.symbol,
-        imageUrl: token.image_url,
-        price: token.current_price || 0,
-        priceChange24h: token.price_change_24h || 0,
-        marketCap: token.market_cap || 0, // Market cap is already in USD
-        volume24h: token.volume_24h || 0,
-        holders: token.holders_count || 0,
-        mint_address: token.mint_address,
-        trending_score: token.trendingScore,
+        id: token.id?.toString() || "",
+        name: token.name || "",
+        symbol: token.symbol || "",
+        imageUrl: token.imageUrl || "",
+        price: Number(token.currentPrice) || 0,
+        priceChange24h: 0, // Not available from backend yet
+        marketCap: Number(token.marketCap) || 0,
+        volume24h: 0, // Not available from backend yet
+        holders: 0, // Not available from backend yet
+        mint_address: token.mintAddress || "",
+        trending_score: 100 - (index * 5), // Simple trending score based on position
         rank: index + 1,
       };
     });

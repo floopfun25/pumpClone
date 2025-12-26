@@ -318,6 +318,10 @@ interface Props {
   tokenSymbol: string;
   tokenPrice: number;
   bondingCurveState: any;
+  token: {
+    mint_address: string;
+    decimals?: number;
+  };
 }
 
 const props = defineProps<Props>();

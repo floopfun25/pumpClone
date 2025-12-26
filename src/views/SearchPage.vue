@@ -256,7 +256,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { SupabaseService } from "@/services/supabase";
+import { tokenAPI } from "@/services/api";
 import AdvancedSearch from "@/components/common/AdvancedSearch.vue";
 import TokenCard from "@/components/token/TokenCard.vue";
 import { useTypedI18n } from "@/i18n";
@@ -354,23 +354,29 @@ const performSearch = async () => {
       );
     }
 
-    const result = await SupabaseService.searchTokens({
-      query: currentQuery.value.trim(),
-      filters: currentFilters.value,
-      page: page.value,
-      limit: 20,
-    });
+    const result = await tokenAPI.searchTokens(
+      currentQuery.value.trim(),
+      page.value - 1,
+      20
+    );
 
-    // Convert SOL prices to USD for display and transform for TokenCard compatibility
-    const tokensWithUSDPrices = result.tokens.map((token: any) => ({
-      ...token,
-      current_price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
-      // Add TokenCard compatible properties
-      price: (Number(token.current_price) || 0) * solPriceUSD,
-      priceChange24h: Number(token.price_change_24h) || 0,
-      marketCap: Number(token.market_cap) || 0,
-      volume24h: Number(token.volume_24h) || 0,
-      holders: Number(token.holders_count) || 0,
+    // Convert backend format to display format
+    const tokensWithUSDPrices = result.content.map((token: any) => ({
+      id: token.id?.toString() || "",
+      name: token.name || "",
+      symbol: token.symbol || "",
+      mint_address: token.mintAddress || "",
+      image_url: token.imageUrl || "",
+      current_price: (Number(token.currentPrice) || 0) * solPriceUSD, // Convert SOL to USD
+      price: (Number(token.currentPrice) || 0) * solPriceUSD,
+      price_change_24h: 0, // Not available from backend yet
+      priceChange24h: 0,
+      market_cap: Number(token.marketCap) || 0,
+      marketCap: Number(token.marketCap) || 0,
+      volume_24h: 0, // Not available from backend yet
+      volume24h: 0,
+      holders_count: 0, // Not available from backend yet
+      holders: 0,
     }));
 
     if (page.value === 1) {
@@ -379,8 +385,8 @@ const performSearch = async () => {
       tokens.value.push(...tokensWithUSDPrices);
     }
 
-    totalResults.value = result.total;
-    hasMore.value = result.hasMore;
+    totalResults.value = result.totalElements;
+    hasMore.value = !result.last;
   } catch (err) {
     console.error("Search failed:", err);
     error.value = "Failed to perform search";

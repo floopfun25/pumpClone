@@ -1,64 +1,53 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import { useWalletStore } from "./wallet";
-import { SupabaseService, SupabaseAuth } from "@/services/supabase";
+import { authAPI, userAPI, type User as APIUser } from "@/services/api";
+import bs58 from "bs58";
 
 // User interface for type safety
 export interface User {
-  id: string;
+  id: number;
   wallet_address: string;
   username?: string;
   avatar_url?: string;
   bio?: string;
+  twitter_handle?: string;
+  telegram_handle?: string;
   created_at: string;
-  total_volume_traded: number;
-  tokens_created: number;
-  reputation_score: number;
 }
 
-// Auth store for managing user authentication with Supabase integration
+// Auth store for managing user authentication with Spring Boot backend
 export const useAuthStore = defineStore("auth", () => {
   // State
   const user = ref<User | null>(null);
   const isAuthenticated = ref(false);
   const isLoading = ref(false);
-  const supabaseUser = ref<any>(null);
-  const supabaseSession = ref<any>(null);
-  let isInitializing = false; // Add a flag to prevent race conditions
+  const jwtToken = ref<string | null>(null);
+  let isInitializing = false;
 
   // Initialize wallet store reference
   const walletStore = useWalletStore();
 
-  // Watch for wallet connection changes
-  watch(
-    () => ({
-      connected: walletStore.isConnected,
-      address: walletStore.walletAddress,
-    }),
-    async (newWallet, oldWallet) => {
-      // If wallet disconnected, clear auth
-      if (!newWallet.connected) {
-        await signOut();
-        return;
-      }
+  /**
+   * Sign out
+   */
+  const signOut = async () => {
+    try {
+      console.log("Auth: 🚪 Signing out...");
 
-      // If wallet connected or address changed, try to initialize user
-      if (
-        newWallet.connected &&
-        (!oldWallet?.connected || newWallet.address !== oldWallet?.address)
-      ) {
-        try {
-          await initializeUser();
-        } catch (error) {
-          console.error(
-            "Failed to initialize user after wallet change:",
-            error,
-          );
-        }
-      }
-    },
-    { immediate: true },
-  );
+      // Clear backend session
+      authAPI.logout();
+
+      // Clear state
+      user.value = null;
+      isAuthenticated.value = false;
+      jwtToken.value = null;
+
+      console.log("Auth: ✅ User signed out");
+    } catch (error) {
+      console.error("Auth: ❌ Sign out failed:", error);
+    }
+  };
 
   /**
    * Initialize user session
@@ -93,285 +82,195 @@ export const useAuthStore = defineStore("auth", () => {
         return;
       }
 
-      // Prevent re-entrant calls to avoid race conditions
+      // Prevent re-entrant calls
       if (isInitializing) {
         console.log("Auth: ⚠️ Initialization already in progress, skipping.");
         return;
       }
 
-      console.log(
-        "Auth: 🔧 Starting user initialization for wallet:",
-        walletStore.walletAddress,
-      );
       isInitializing = true;
 
-      // Check for existing Supabase session
-      console.log("Auth: 🔍 Checking for existing Supabase session...");
-      const session = await SupabaseAuth.getSession();
-
-      console.log("Auth: 📋 Session check result:", {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userId: session?.user?.id,
-        userMetadata: session?.user?.user_metadata,
-      });
-
-      if (session?.user) {
-        // Restore user from existing session
-        const sessionWalletAddress = SupabaseAuth.getWalletAddressFromUser(
-          session.user,
-        );
-        console.log("Auth: 🔍 Session wallet address:", sessionWalletAddress);
-        console.log(
-          "Auth: 🔍 Current wallet address:",
-          walletStore.walletAddress,
-        );
-
-        if (sessionWalletAddress === walletStore.walletAddress) {
-          console.log(
-            "Auth: ✅ Session wallet matches current wallet, looking up user profile...",
-          );
-
-          const existingUser =
-            await SupabaseService.getUserByWallet(sessionWalletAddress);
-          console.log("Auth: 👤 User lookup result:", {
-            found: !!existingUser,
-            userId: existingUser?.id,
-            walletAddress: existingUser?.wallet_address,
-          });
-
-          if (existingUser) {
-            user.value = existingUser;
+      // Check if we have a stored JWT token
+      const storedToken = localStorage.getItem('jwt_token');
+      if (storedToken) {
+        try {
+          // Verify the token is still valid
+          const result = await authAPI.verify();
+          if (result.valid && result.user) {
+            user.value = convertAPIUser(result.user);
             isAuthenticated.value = true;
-            supabaseUser.value = session.user;
-            supabaseSession.value = session;
-            console.log(
-              "Auth: ✅ User restored from session:",
-              existingUser.id,
-            );
+            jwtToken.value = storedToken;
+            console.log("Auth: ✅ Restored session from JWT token");
             return;
-          } else {
-            console.log(
-              "Auth: ⚠️ No user profile found for session wallet, will need to create/sign in",
-            );
           }
-        } else {
-          console.log(
-            "Auth: ⚠️ Session wallet does not match current wallet, session will be cleared",
-          );
+        } catch (error) {
+          console.log("Auth: ⚠️ Stored JWT token is invalid, clearing");
+          localStorage.removeItem('jwt_token');
         }
-      } else {
-        console.log("Auth: ℹ️ No existing Supabase session found");
       }
 
-      // If no valid session, try to get user by wallet address
-      console.log("Auth: 🔍 Looking for existing user by wallet address...");
-      const existingUser = await SupabaseService.getUserByWallet(
-        walletStore.walletAddress,
-      );
-
-      console.log("Auth: 👤 Existing user lookup result:", {
-        found: !!existingUser,
-        userId: existingUser?.id,
-        walletAddress: existingUser?.wallet_address,
-        username: existingUser?.username,
-      });
-
-      if (existingUser) {
-        // Sign in with wallet to create session
-        console.log(
-          "Auth: 🔐 Found existing user, attempting to sign in with wallet...",
-        );
-        await signInWithWallet(walletStore.walletAddress);
-        console.log("Auth: ✅ User signed in during initialization");
-      } else {
+      // Try to get user by wallet address (user might exist but not logged in)
+      try {
+        const apiUser = await userAPI.getUserByWallet(walletStore.walletAddress!);
+        user.value = convertAPIUser(apiUser);
+        console.log("Auth: ℹ️ Found existing user (not authenticated yet)");
+      } catch (error) {
         console.log("Auth: ℹ️ No existing user found for this wallet address");
       }
-    } catch (error: any) {
-      console.error("Auth: ❌ Failed to initialize user:", error);
-      console.error("Auth: 📊 Error details:", {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-      });
-      // Don't throw error, just clear auth state
-      user.value = null;
-      isAuthenticated.value = false;
+
+      console.log("Auth: 🏁 User initialization finished.");
+    } catch (error) {
+      console.error("Auth: ❌ Error during user initialization:", error);
     } finally {
       isLoading.value = false;
       isInitializing = false;
-      console.log("Auth: 🏁 User initialization finished.");
     }
   };
 
   /**
-   * Sign in with wallet using secure challenge-response authentication
-   * Creates cryptographically verified Supabase auth session and user profile
+   * Sign in with wallet signature
    */
-  const signInWithWallet = async (walletAddress: string) => {
-    const walletStore = useWalletStore();
-
-    try {
-      console.log("🔐 Starting secure wallet authentication...");
-
-      // Step 1: Generate authentication challenge
-      const { SecureAuthService } = await import("@/services/secureAuth");
-      const challenge = SecureAuthService.generateChallenge(walletAddress);
-
-      console.log(
-        "📝 Please sign the authentication message in your wallet...",
-      );
-
-      // Step 2: Request user to sign the challenge
-      const signature = await walletStore.signAuthChallenge(
-        walletAddress,
-        challenge.challenge,
-        challenge.timestamp,
-      );
-
-      console.log("✍️ Signature received, verifying...");
-
-      // Step 3: Verify signature and authenticate
-      const authResult = await SecureAuthService.verifyAndAuthenticate(
-        walletAddress,
-        signature,
-        challenge.challenge,
-        challenge.timestamp,
-      );
-
-      if (!authResult.success) {
-        throw new Error(authResult.error || "Authentication failed");
-      }
-
-      if (authResult.user) {
-        user.value = authResult.user;
-        isAuthenticated.value = true;
-        supabaseUser.value = authResult.user;
-        supabaseSession.value = authResult.session;
-
-        console.log("✅ Secure authentication completed!");
-        return authResult.user;
-      }
-
-      throw new Error("Authentication completed but no user data returned");
-    } catch (error) {
-      console.error("❌ Secure wallet authentication failed:", error);
-
-      // Clear any partial auth state
-      user.value = null;
-      isAuthenticated.value = false;
-      supabaseUser.value = null;
-      supabaseSession.value = null;
-
-      throw error;
+  const signInWithWallet = async () => {
+    if (!walletStore.walletAddress || !walletStore.currentWallet) {
+      throw new Error("Wallet not connected");
     }
-  };
 
-  /**
-   * Sign out user
-   * Clears user session and Supabase authentication
-   */
-  async function signOut() {
     try {
-      // Check if there's an active session before attempting sign out
-      const { data: { session } } = await SupabaseAuth.supabase.auth.getSession();
-      
-      if (session) {
-        // Sign out from Supabase auth only if session exists
-        await SupabaseAuth.signOut();
-      } else {
-        console.log("Auth: No active session to sign out from");
-      }
-
-      // Clear local state
-      user.value = null;
-      isAuthenticated.value = false;
-      supabaseUser.value = null;
-      supabaseSession.value = null;
-
-      console.log("Auth: User signed out");
-    } catch (error) {
-      console.error("Failed to sign out:", error);
-      // Clear local state even if Supabase sign out fails
-      user.value = null;
-      isAuthenticated.value = false;
-      supabaseUser.value = null;
-      supabaseSession.value = null;
-    }
-  }
-
-  /**
-   * Update user profile
-   * Updates user information in database
-   */
-  async function updateProfile(updates: Partial<User>) {
-    try {
-      if (!user.value) throw new Error("No user logged in");
-
       isLoading.value = true;
 
-      // Update user profile in Supabase
-      const updatedUser = await SupabaseService.upsertUser({
-        ...user.value,
-        ...updates,
-      });
+      // Create a message to sign
+      const message = `Sign in to FloppFun\n\nWallet: ${walletStore.walletAddress}\nTimestamp: ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
 
-      if (updatedUser) {
-        // Update local user state
-        user.value = updatedUser;
-        console.log("Auth: User profile updated:", updates);
-      }
+      // Request signature from wallet
+      const signature = await walletStore.currentWallet.signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      // Login with backend
+      const response = await authAPI.login(
+        walletStore.walletAddress,
+        message,
+        signatureBase58
+      );
+
+      // Store user and token
+      user.value = convertAPIUser(response.user);
+      jwtToken.value = response.token;
+      isAuthenticated.value = true;
+
+      console.log("Auth: ✅ Successfully signed in with wallet");
+      return user.value;
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      console.error("Auth: ❌ Sign in failed:", error);
       throw error;
     } finally {
       isLoading.value = false;
     }
+  };
+
+  /**
+   * Update user profile
+   */
+  const updateProfile = async (updates: {
+    username?: string;
+    bio?: string;
+    avatar_url?: string;
+    twitter_handle?: string;
+    telegram_handle?: string;
+  }) => {
+    if (!isAuthenticated.value) {
+      throw new Error("Not authenticated");
+    }
+
+    try {
+      isLoading.value = true;
+
+      const apiUser = await userAPI.updateProfile({
+        username: updates.username,
+        bio: updates.bio,
+        avatarUrl: updates.avatar_url,
+        twitterHandle: updates.twitter_handle,
+        telegramHandle: updates.telegram_handle,
+      });
+
+      user.value = convertAPIUser(apiUser);
+      console.log("Auth: ✅ Profile updated successfully");
+      return user.value;
+    } catch (error) {
+      console.error("Auth: ❌ Profile update failed:", error);
+      throw error;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  /**
+   * Convert API user format to store format
+   */
+  function convertAPIUser(apiUser: APIUser): User {
+    return {
+      id: apiUser.id,
+      wallet_address: apiUser.walletAddress,
+      username: apiUser.username,
+      avatar_url: apiUser.avatarUrl,
+      bio: apiUser.bio,
+      twitter_handle: apiUser.twitterHandle,
+      telegram_handle: apiUser.telegramHandle,
+      created_at: apiUser.createdAt,
+    };
   }
 
   /**
-   * Setup auth state listener
-   * Listens to Supabase auth state changes
+   * Setup auth listener (for backward compatibility with App.vue)
    */
-  function setupAuthListener() {
-    return SupabaseAuth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        supabaseSession.value = session;
-        supabaseUser.value = session.user;
+  const setupAuthListener = () => {
+    console.log("Auth: Setting up auth listener (using watch)");
+    // The watch is already set up above, so this is just for compatibility
+  };
 
-        // Load user profile if wallet address is available
-        const walletAddress = session.user.user_metadata?.wallet_address;
-        if (walletAddress && !user.value) {
-          const existingUser =
-            await SupabaseService.getUserByWallet(walletAddress);
-          if (existingUser) {
-            user.value = existingUser;
-            isAuthenticated.value = true;
-          }
-        }
-      } else if (event === "SIGNED_OUT") {
-        supabaseSession.value = null;
-        supabaseUser.value = null;
-        user.value = null;
-        isAuthenticated.value = false;
+  // Watch for wallet connection changes
+  watch(
+    () => ({
+      connected: walletStore.isConnected,
+      address: walletStore.walletAddress,
+    }),
+    async (newWallet, oldWallet) => {
+      // If wallet disconnected, clear auth
+      if (!newWallet.connected) {
+        await signOut();
+        return;
       }
-    });
-  }
+
+      // If wallet connected or address changed, try to initialize user
+      if (
+        newWallet.connected &&
+        (!oldWallet?.connected || newWallet.address !== oldWallet?.address)
+      ) {
+        try {
+          await initializeUser();
+        } catch (error) {
+          console.error(
+            "Failed to initialize user after wallet change:",
+            error,
+          );
+        }
+      }
+    },
+    { immediate: true },
+  );
 
   return {
     // State
     user,
     isAuthenticated,
     isLoading,
-    supabaseUser,
-    supabaseSession,
+    jwtToken,
 
     // Actions
     initializeUser,
     signInWithWallet,
     signOut,
     updateProfile,
-    setupAuthListener,
+    setupAuthListener,  // Add for backward compatibility
   };
 });

@@ -216,7 +216,7 @@ import {
   formatMarketCap,
   formatVolume,
 } from "@/services/priceOracle";
-import { SupabaseService } from "@/services/supabase";
+import { getTokenPriceHistory } from "@/services/backendApi";
 import { MarketDataService } from "@/services/marketDataService";
 
 interface Props {
@@ -495,7 +495,7 @@ const loadChartData = async () => {
 
   try {
     // Get price history from Supabase
-    const priceHistory = await SupabaseService.getTokenPriceHistory(
+    const priceHistory = await getTokenPriceHistory(
       props.tokenId,
       selectedTimeframe.value,
     );

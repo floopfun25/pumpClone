@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { SupabaseService } from "./supabase";
+import { tokenAPI } from "./api";
 
 interface PriceUpdate {
   tokenId: string;
@@ -84,28 +84,28 @@ class PriceUpdateService {
    */
   private static async fetchAndBroadcastPrice(tokenId: string) {
     try {
-      // Fetch latest token data
-      const token = await SupabaseService.getTokenById(tokenId);
+      // Fetch latest token data from Spring Boot backend
+      const token = await tokenAPI.getTokenById(Number(tokenId));
       if (!token) return;
 
       // Get previous price for change calculation
       const previousPrice = this.getPreviousPrice(tokenId);
       const priceChange24h = previousPrice
-        ? ((token.current_price - previousPrice) / previousPrice) * 100
+        ? ((token.currentPrice - previousPrice) / previousPrice) * 100
         : 0;
 
       // Create price update
       const update: PriceUpdate = {
         tokenId,
-        price: token.current_price,
-        marketCap: token.market_cap,
-        volume24h: token.volume_24h || 0,
+        price: token.currentPrice,
+        marketCap: token.marketCap,
+        volume24h: 0, // TODO: Implement volume in backend
         priceChange24h,
         timestamp: Date.now(),
       };
 
       // Store current price for next comparison
-      this.storePreviousPrice(tokenId, token.current_price);
+      this.storePreviousPrice(tokenId, token.currentPrice);
 
       // Broadcast to all subscribers
       const subscribers = this.subscribers.get(tokenId);

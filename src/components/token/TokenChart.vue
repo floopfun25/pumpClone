@@ -121,7 +121,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import { Chart, registerables } from "chart.js";
-import { SupabaseService } from "@/services/supabase";
+// Supabase removed - using backend API now
 import { fetchTokenChartDataWithFallback } from "@/services/tokenChartApi";
 import { SolanaProgram } from "@/services/solanaProgram";
 import { getWalletService } from "@/services/wallet";

@@ -216,7 +216,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import TokenCard from "@/components/token/TokenCard.vue";
-import { SupabaseService } from "@/services/supabase";
+import { tokenAPI } from "@/services/api";
 import TrendingTokens from "@/components/token/TrendingTokens.vue";
 import { useTypedI18n } from "@/i18n";
 
@@ -297,57 +297,25 @@ const loadTokens = async () => {
     const ITEMS_PER_PAGE = 100;
 
     // Handle different filter types
-    if (activeQuickFilter.value === "trending") {
-      // For trending, we get all at once and handle pagination client-side
+    if (activeQuickFilter.value === "trending" || activeQuickFilter.value === "featured") {
+      // For trending/featured, we get all at once and handle pagination client-side
       if (allTrendingData.value.length === 0) {
         // First time loading trending data
-        const allData = await SupabaseService.getTrendingTokens("volume", 1000); // Get more for pagination
+        const response = await tokenAPI.getTrendingTokens(0, 1000); // Get more for pagination
+        const allData = response.content;
 
         // Transform and store all data with proper price conversion
         allTrendingData.value = allData.map((token: any) => ({
-          id: token.id || "",
+          id: token.id?.toString() || "",
           name: token.name || "",
           symbol: token.symbol || "",
-          imageUrl: token.image_url || null,
-          price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
-          priceChange24h: Number(token.price_change_24h) || 0,
-          marketCap: Number(token.market_cap) || 0,
-          volume24h: Number(token.volume_24h) || 0,
-          holders: Number(token.holders_count) || 0,
-          mint_address: token.mint_address || undefined,
-        }));
-
-        totalTokens.value = allTrendingData.value.length;
-        totalPages.value = Math.ceil(
-          allTrendingData.value.length / ITEMS_PER_PAGE,
-        );
-      }
-
-      // Get tokens for current page
-      const startIndex = (page.value - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      tokens.value = allTrendingData.value.slice(startIndex, endIndex);
-    } else if (activeQuickFilter.value === "featured") {
-      // For featured, we get all at once and handle pagination client-side
-      if (allTrendingData.value.length === 0) {
-        // First time loading featured data
-        const allData = await SupabaseService.getTrendingTokens(
-          "featured",
-          1000,
-        ); // Get more for pagination
-
-        // Transform and store all data with proper price conversion
-        allTrendingData.value = allData.map((token: any) => ({
-          id: token.id || "",
-          name: token.name || "",
-          symbol: token.symbol || "",
-          imageUrl: token.image_url || null,
-          price: (Number(token.current_price) || 0) * solPriceUSD, // Convert SOL to USD
-          priceChange24h: Number(token.price_change_24h) || 0,
-          marketCap: Number(token.market_cap) || 0,
-          volume24h: Number(token.volume_24h) || 0,
-          holders: Number(token.holders_count) || 0,
-          mint_address: token.mint_address || undefined,
+          imageUrl: token.imageUrl || null,
+          price: (Number(token.currentPrice) || 0) * solPriceUSD, // Convert SOL to USD
+          priceChange24h: 0, // Not available from backend yet
+          marketCap: Number(token.marketCap) || 0,
+          volume24h: 0, // Not available from backend yet
+          holders: 0, // Not available from backend yet
+          mint_address: token.mintAddress || undefined,
         }));
 
         totalTokens.value = allTrendingData.value.length;
@@ -364,47 +332,31 @@ const loadTokens = async () => {
       // Clear trending data when switching to other filters
       allTrendingData.value = [];
 
-      // Build query options based on filter
-      const queryOptions: any = {
-        page: page.value,
-        limit: ITEMS_PER_PAGE,
-        sortBy: "created_at",
-        sortOrder: "desc",
-        status: "active",
-      };
-
-      // Apply quick filter logic
-      if (activeQuickFilter.value === "graduated") {
-        queryOptions.status = "graduated";
-      } else if (activeQuickFilter.value === "newest") {
-        queryOptions.sortBy = "created_at";
-        queryOptions.sortOrder = "desc";
-      }
-
-      const result = await SupabaseService.getTokens(queryOptions);
+      // Use Spring Boot backend API for pagination
+      const response = await tokenAPI.getAllTokens(page.value - 1, ITEMS_PER_PAGE);
 
       // Transform and validate data with proper price conversion
-      tokens.value = result.data.map((token: any) => {
-        const priceSOL = Number(token.current_price) || 0;
+      tokens.value = response.content.map((token: any) => {
+        const priceSOL = Number(token.currentPrice) || 0;
         const priceUSD = priceSOL * solPriceUSD;
 
         return {
-          id: token.id || "",
+          id: token.id?.toString() || "",
           name: token.name || "",
           symbol: token.symbol || "",
-          imageUrl: token.image_url || null,
+          imageUrl: token.imageUrl || null,
           price: priceUSD, // Convert SOL to USD
-          priceChange24h: Number(token.price_change_24h) || 0,
-          marketCap: Number(token.market_cap) || 0,
-          volume24h: Number(token.volume_24h) || 0,
-          holders: Number(token.holders_count) || 0,
-          mint_address: token.mint_address || undefined,
+          priceChange24h: 0, // Not available from backend yet
+          marketCap: Number(token.marketCap) || 0,
+          volume24h: 0, // Not available from backend yet
+          holders: 0, // Not available from backend yet
+          mint_address: token.mintAddress || undefined,
         };
       });
 
-      // Use proper pagination metadata from Supabase
-      totalPages.value = result.totalPages;
-      totalTokens.value = result.total;
+      // Use proper pagination metadata from backend
+      totalPages.value = response.totalPages;
+      totalTokens.value = response.totalElements;
     }
   } catch (loadError) {
     console.error("Failed to load tokens:", loadError);

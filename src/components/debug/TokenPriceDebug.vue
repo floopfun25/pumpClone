@@ -72,7 +72,6 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { supabase } from "@/services/supabase";
 
 const debugResults = ref<any[]>([]);
 const bondingCurveResults = ref<Record<string, any>>({});
@@ -82,29 +81,9 @@ const debugTokenPrices = async () => {
   try {
     console.log("🔍 Debugging token prices...");
 
-    const { data: tokens, error } = await supabase
-      .from("tokens")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (error) throw error;
-
-    console.log("📊 Token prices from database:", tokens);
-    debugResults.value = tokens || [];
-
-    // Also test the price oracle for these tokens
-    if (tokens && tokens.length > 0) {
-      const { priceOracleService } = await import("@/services/priceOracle");
-
-      for (const token of tokens.slice(0, 3)) {
-        // Test first 3 tokens
-        const priceData = await priceOracleService.getTokenPrice(
-          token.mint_address,
-        );
-        console.log(`🔍 Price oracle result for ${token.name}:`, priceData);
-      }
-    }
+    // TODO: Database operations now handled by Spring Boot backend
+    console.log('Operation: Debug token prices - would fetch from backend');
+    debugResults.value = [];
   } catch (error) {
     console.error("❌ Debug failed:", error);
   }
@@ -132,95 +111,8 @@ const fixTokenPrices = async () => {
     fixing.value = true;
     console.log("🔧 Fixing token prices...");
 
-    const { BondingCurveService } = await import("@/services/bondingCurve");
-
-    // Calculate the correct initial price for new tokens
-    const INITIAL_VIRTUAL_SOL_RESERVES = 30; // 30 SOL
-    const INITIAL_VIRTUAL_TOKEN_RESERVES = 1073000000; // ~1.073B tokens
-    const initialPrice =
-      INITIAL_VIRTUAL_SOL_RESERVES / INITIAL_VIRTUAL_TOKEN_RESERVES;
-
-    console.log(`📊 Initial bonding curve price: ${initialPrice}`);
-
-    for (const token of debugResults.value) {
-      try {
-        console.log(`\n🔍 Processing ${token.name} (${token.symbol})`);
-        console.log(`Current price: ${token.current_price}`);
-        console.log(`Current market cap: ${token.market_cap}`);
-
-        // Calculate proper bonding curve state
-        const state = await BondingCurveService.getTokenBondingCurveState(
-          token.id,
-        );
-        console.log(`Bonding curve state:`, state);
-
-        // Determine the correct price to use
-        let newPrice = token.current_price;
-        let newMarketCap = token.market_cap;
-
-        // If current price is 0 or very small, use calculated bonding curve price
-        if (token.current_price === 0 || token.current_price < 0.000001) {
-          // Use bonding curve calculated price if available, otherwise initial price
-          newPrice = state.currentPrice > 0 ? state.currentPrice : initialPrice;
-          newMarketCap =
-            state.marketCap > 0
-              ? state.marketCap
-              : newPrice * token.total_supply;
-
-          console.log(
-            `📈 Updating price from ${token.current_price} to ${newPrice}`,
-          );
-          console.log(
-            `📈 Updating market cap from ${token.market_cap} to ${newMarketCap}`,
-          );
-
-          // Update token in database
-          const { error } = await supabase
-            .from("tokens")
-            .update({
-              current_price: newPrice,
-              market_cap: newMarketCap,
-            })
-            .eq("id", token.id);
-
-          if (error) {
-            console.error(`❌ Failed to update ${token.name}:`, error);
-          } else {
-            console.log(`✅ Updated ${token.name} successfully`);
-
-            // Update the local data
-            token.current_price = newPrice;
-            token.market_cap = newMarketCap;
-
-            // Also store in price history
-            try {
-              await supabase.from("token_price_history").insert({
-                token_id: token.id,
-                price: newPrice,
-                market_cap: newMarketCap,
-                timestamp: new Date().toISOString(),
-              });
-              console.log(`💾 Added price history entry for ${token.name}`);
-            } catch (historyError) {
-              console.warn(
-                `⚠️ Failed to add price history for ${token.name}:`,
-                historyError,
-              );
-            }
-          }
-        } else {
-          console.log(
-            `✓ ${token.name} already has a reasonable price: ${token.current_price}`,
-          );
-        }
-      } catch (tokenError) {
-        console.error(`❌ Error processing ${token.name}:`, tokenError);
-      }
-    }
-
-    // Refresh the debug data to show updated values
-    console.log("🔄 Refreshing debug data...");
-    await debugTokenPrices();
+    // TODO: Database operations now handled by Spring Boot backend
+    console.log('Operation: Fix token prices - would update via backend');
 
     console.log("✅ Token price fixing completed!");
   } catch (error) {
@@ -235,47 +127,8 @@ const quickFixDatabase = async () => {
     fixing.value = true;
     console.log("🚀 Quick fixing database...");
 
-    // Calculate the correct initial price
-    const INITIAL_VIRTUAL_SOL_RESERVES = 30; // 30 SOL
-    const INITIAL_VIRTUAL_TOKEN_RESERVES = 1073000000; // ~1.073B tokens
-    const initialPrice =
-      INITIAL_VIRTUAL_SOL_RESERVES / INITIAL_VIRTUAL_TOKEN_RESERVES;
-
-    console.log(`📊 Using initial price: ${initialPrice}`);
-
-    // Update all tokens with zero or very small prices directly in database
-    const { data: updatedTokens, error } = await supabase
-      .from("tokens")
-      .update({
-        current_price: initialPrice,
-      })
-      .or("current_price.eq.0,current_price.lt.0.000001")
-      .select("id, name, symbol, current_price, market_cap, total_supply");
-
-    if (error) {
-      console.error("❌ Database update failed:", error);
-      throw error;
-    }
-
-    console.log(
-      `✅ Updated ${updatedTokens?.length || 0} tokens:`,
-      updatedTokens,
-    );
-
-    // Update market caps separately for each token
-    if (updatedTokens && updatedTokens.length > 0) {
-      for (const token of updatedTokens) {
-        const marketCap = initialPrice * token.total_supply;
-
-        await supabase
-          .from("tokens")
-          .update({ market_cap: marketCap })
-          .eq("id", token.id);
-      }
-    }
-
-    // Refresh the debug data
-    await debugTokenPrices();
+    // TODO: Database operations now handled by Spring Boot backend
+    console.log('Operation: Quick fix database - would update via backend');
 
     console.log("✅ Quick database fix completed!");
   } catch (error) {

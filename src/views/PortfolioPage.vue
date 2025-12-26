@@ -328,7 +328,7 @@ import {
 } from "@/services/priceOracle";
 import { tokenMetadataService } from "@/services/tokenMetadataService";
 import { portfolioTrackingService } from "@/services/portfolioTrackingService";
-import { SupabaseService } from "@/services/supabase";
+import { userAPI } from "@/services/api";
 import Icon from "@/components/common/Icon.vue";
 import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
 import WalletConnectButton from "@/components/common/WalletConnectButton.vue";
@@ -486,7 +486,7 @@ const loadPortfolio = async (): Promise<void> => {
     let totalChange24h = 0;
     try {
       // Get user ID from database
-      const user = await SupabaseService.getUserByWallet(
+      const user = await userAPI.getUserByWallet(
         walletStore.publicKey.toBase58(),
       );
       if (user) {

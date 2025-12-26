@@ -35,10 +35,23 @@ public class IpfsService {
 
     /**
      * Upload image to IPFS via Pinata
+     *
+     * NOTE: Currently using MOCK MODE for testing without real Pinata credentials.
+     * To enable real IPFS uploads, add valid Pinata API keys to .env file.
      */
     public String uploadImage(MultipartFile image) throws IOException {
         log.info("Uploading image to IPFS: {}", image.getOriginalFilename());
 
+        // Check if we're in mock mode (invalid API keys)
+        if (pinataApiKey == null || pinataApiKey.contains("your_pinata_api_key")) {
+            log.warn("⚠️  MOCK MODE: Using fake IPFS hash - no real upload happening. Add real Pinata API keys to enable actual IPFS uploads.");
+            String mockHash = "Qm" + generateMockHash();
+            String imageUrl = gatewayUrl + mockHash;
+            log.info("Mock image URL generated: {}", imageUrl);
+            return imageUrl;
+        }
+
+        // Real Pinata upload
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", image.getOriginalFilename(),
@@ -69,9 +82,21 @@ public class IpfsService {
 
     /**
      * Upload metadata JSON to IPFS
+     *
+     * NOTE: Currently using MOCK MODE for testing without real Pinata credentials.
+     * To enable real IPFS uploads, add valid Pinata API keys to .env file.
      */
     public String uploadMetadata(String name, String symbol, String description, String imageUrl) throws IOException {
         log.info("Uploading metadata to IPFS for token: {}", symbol);
+
+        // Check if we're in mock mode (invalid API keys)
+        if (pinataApiKey == null || pinataApiKey.contains("your_pinata_api_key")) {
+            log.warn("⚠️  MOCK MODE: Using fake metadata hash - no real upload happening. Add real Pinata API keys to enable actual IPFS uploads.");
+            String mockHash = "Qm" + generateMockHash();
+            String metadataUri = gatewayUrl + mockHash;
+            log.info("Mock metadata URI generated: {}", metadataUri);
+            return metadataUri;
+        }
 
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("name", name);
@@ -121,6 +146,14 @@ public class IpfsService {
             log.info("Metadata uploaded successfully: {}", metadataUri);
             return metadataUri;
         }
+    }
+
+    /**
+     * Generate a mock IPFS hash for testing
+     */
+    private String generateMockHash() {
+        return Long.toHexString(System.currentTimeMillis()) +
+               Integer.toHexString((int)(Math.random() * 100000));
     }
 
     /**

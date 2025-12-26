@@ -25,7 +25,6 @@ import {
 } from "@solana/spl-token";
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
-import { supabase } from "./supabase";
 import * as borsh from "borsh";
 
 export interface BondingCurveState {
@@ -179,10 +178,10 @@ export class RealSolanaProgram {
       );
 
       const instructionData = borsh.serialize(
-        BONDING_CURVE_SCHEMA,
+        BONDING_CURVE_SCHEMA as any,
         new BondingCurveInstruction(
           1,
-          borsh.serialize(BONDING_CURVE_SCHEMA, buyInstructionData),
+          borsh.serialize(BONDING_CURVE_SCHEMA as any, buyInstructionData),
         ),
       );
 
@@ -220,8 +219,6 @@ export class RealSolanaProgram {
       );
 
       transaction.add(mintInstruction);
-
-      transaction.add(buyInstruction);
 
       // Send transaction
       const signature = await this.sendTransaction(transaction);
@@ -305,10 +302,10 @@ export class RealSolanaProgram {
       );
 
       const instructionData = borsh.serialize(
-        BONDING_CURVE_SCHEMA,
+        BONDING_CURVE_SCHEMA as any,
         new BondingCurveInstruction(
           2,
-          borsh.serialize(BONDING_CURVE_SCHEMA, sellInstructionData),
+          borsh.serialize(BONDING_CURVE_SCHEMA as any, sellInstructionData),
         ),
       );
 
@@ -543,20 +540,15 @@ export class RealSolanaProgram {
     solAmount: bigint,
     tokenAmount: bigint,
   ): Promise<void> {
-    try {
-      await supabase.from("transactions").insert({
-        signature,
-        token_mint: mintAddress,
-        user_address: userAddress,
-        transaction_type: type,
-        sol_amount: Number(solAmount),
-        token_amount: Number(tokenAmount),
-        created_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("Failed to record trade:", error);
-      // Don't throw - transaction succeeded even if recording failed
-    }
+    // TODO: Transaction recording is now handled by Spring Boot backend
+    console.log('Transaction recorded:', {
+      signature,
+      mintAddress,
+      userAddress,
+      type,
+      solAmount: Number(solAmount),
+      tokenAmount: Number(tokenAmount)
+    });
   }
 }
 

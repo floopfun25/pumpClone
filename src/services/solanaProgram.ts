@@ -21,8 +21,8 @@ import {
   bondingCurveConfig,
   tradingConfig,
 } from "@/config";
-import { useAuthStore } from "@/stores/auth"; // Assuming you have an auth store
-import { supabase } from "./supabase";
+import { useAuthStore } from "@/stores/auth";
+import { tokenAPI } from "./api";
 
 const walletService = getWalletService();
 
@@ -279,45 +279,39 @@ export class SolanaProgram {
   }
 
   /**
-   * Get bonding curve data from database (for standard SPL tokens)
+   * Get bonding curve data from Spring Boot backend (for standard SPL tokens)
    */
   async getBondingCurveFromDatabase(
     mintAddress: string,
   ): Promise<BondingCurveAccount | null> {
     try {
-      const { data: tokenData, error } = await supabase
-        .from("tokens")
-        .select("*")
-        .eq("mint_address", mintAddress)
-        .single();
+      const tokenData = await tokenAPI.getTokenByMint(mintAddress);
 
-      if (error || !tokenData) {
-        console.log("Token not found in database for:", mintAddress);
+      if (!tokenData) {
+        console.log("Token not found in backend for:", mintAddress);
         return null;
       }
 
-      // Convert database data to BondingCurveAccount format
+      // Convert backend data to BondingCurveAccount format
       return {
-        discriminator: Buffer.from([]), // Not needed for database approach
+        discriminator: Buffer.from([]),
         mintAddress: new PublicKey(mintAddress),
-        creator: new PublicKey(tokenData.creator || platformConfig.authority),
+        creator: new PublicKey(platformConfig.authority),
         virtualTokenReserves: BigInt(
-          tokenData.virtual_token_reserves ||
-            tokenData.total_supply ||
-            1000000000,
+          tokenData.virtualTokenReserves || tokenData.totalSupply || 1000000000,
         ),
         virtualSolReserves: BigInt(
-          tokenData.virtual_sol_reserves || 1073000000,
-        ), // Default from your logs
-        realTokenReserves: BigInt(tokenData.real_token_reserves || 0),
-        realSolReserves: BigInt(tokenData.real_sol_reserves || 0),
-        tokenTotalSupply: BigInt(tokenData.total_supply || 1000000000),
-        graduated: tokenData.graduated || false,
-        createdAt: BigInt(new Date(tokenData.created_at).getTime()),
-        bumpSeed: 255, // Default bump seed
+          tokenData.virtualSolReserves || 1073000000,
+        ),
+        realTokenReserves: BigInt(0),
+        realSolReserves: BigInt(0),
+        tokenTotalSupply: BigInt(tokenData.totalSupply || 1000000000),
+        graduated: tokenData.hasGraduated || false,
+        createdAt: BigInt(new Date(tokenData.createdAt).getTime()),
+        bumpSeed: 255,
       };
     } catch (error) {
-      console.error("Failed to get bonding curve from database:", error);
+      console.error("Failed to get bonding curve from backend:", error);
       return null;
     }
   }
@@ -595,8 +589,8 @@ export class SolanaProgram {
 
       // If token account doesn't exist, balance is 0
       if (
-        error.message?.includes("TokenAccountNotFoundError") ||
-        error.message?.includes("Account does not exist")
+        (error as Error).message?.includes("TokenAccountNotFoundError") ||
+        (error as Error).message?.includes("Account does not exist")
       ) {
         console.log("ℹ️ [BALANCE] Token account doesn't exist, balance is 0");
         return 0;

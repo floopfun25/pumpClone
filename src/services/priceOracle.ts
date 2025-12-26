@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { apiHealthMonitor } from "./apiHealthMonitor";
-import { supabase } from "./supabase";
+import { tokenAPI } from "./api";
 
 export interface PriceData {
   price: number;
@@ -453,52 +453,26 @@ class PriceOracleService {
     mintAddress: string,
   ): Promise<PriceData> {
     try {
-      // First try to get from database (our platform tokens)
-      const { supabase } = await import("./supabase");
-      const { data: token, error } = await supabase
-        .from("tokens")
-        .select("*")
-        .eq("mint_address", mintAddress)
-        .single();
+      // Try to get from Spring Boot backend (our platform tokens)
+      const token = await tokenAPI.getTokenByMint(mintAddress);
 
-      if (!error && token) {
-        // Use real bonding curve price from database (stored in SOL)
-        const tokenPriceSOL = token.current_price || 0.0000001;
+      if (token) {
+        // Use real bonding curve price from backend (stored in SOL)
+        const tokenPriceSOL = token.currentPrice || 0.0000001;
 
         // Convert SOL price to USD
         const solPriceData = await this.getSOLPrice();
         const tokenPriceUSD = tokenPriceSOL * solPriceData.price;
 
-        // Get 24h price change from price history if available
-        let priceChange24h = 0;
-        try {
-          const { data: priceHistory } = await supabase
-            .from("token_price_history")
-            .select("price")
-            .eq("token_id", token.id)
-            .order("timestamp", { ascending: false })
-            .limit(48); // Last 48 hours of data
-
-          if (priceHistory && priceHistory.length >= 2) {
-            const latestPriceSOL = priceHistory[0]?.price || tokenPriceSOL;
-            const oldPriceSOL =
-              priceHistory[priceHistory.length - 1]?.price || tokenPriceSOL;
-            // Calculate 24h change in SOL terms (currency-agnostic)
-            priceChange24h =
-              oldPriceSOL > 0
-                ? ((latestPriceSOL - oldPriceSOL) / oldPriceSOL) * 100
-                : 0;
-          }
-        } catch (priceHistoryError) {
-          // Ignore price history errors
-        }
+        // TODO: Get 24h price change from backend price history
+        const priceChange24h = 0;
 
         return {
-          price: tokenPriceUSD, // Now properly converted to USD
+          price: tokenPriceUSD,
           priceChange24h,
           priceChangePercent24h: priceChange24h,
-          marketCap: token.market_cap || 0, // Already in USD
-          volume24h: token.volume_24h || 0,
+          marketCap: token.marketCap || 0,
+          volume24h: 0, // TODO: Implement volume in backend
           lastUpdated: Date.now(),
         };
       }

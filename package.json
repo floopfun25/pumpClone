@@ -41,7 +41,6 @@
     "@solana/wallet-adapter-vue": "^0.4.5",
     "@solana/wallet-adapter-wallets": "^0.19.36",
     "@solana/web3.js": "^1.98.2",
-    "@supabase/supabase-js": "^2.38.4",
     "@vueuse/core": "^13.3.0",
     "borsh": "^0.7.0",
     "bs58": "^4.0.1",

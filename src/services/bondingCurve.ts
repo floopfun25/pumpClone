@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { bondingCurveConfig, tokenDefaults } from "@/config";
-import { SupabaseService } from "./supabase";
+import { tokenAPI, tradingAPI } from "./api";
 
 // Bonding curve types
 export interface BondingCurveState {
@@ -420,38 +420,41 @@ export class BondingCurveService {
     isGraduated: boolean;
   }> {
     try {
-      const token = await SupabaseService.getTokenById(tokenId);
+      const token = await tokenAPI.getTokenById(Number(tokenId));
       if (!token) {
         throw new Error("Token not found");
       }
 
       // Get total SOL raised from transactions
-      const transactions = await SupabaseService.getTokenTransactions(
-        tokenId,
+      const transactionsResponse = await tradingAPI.getTokenTransactions(
+        Number(tokenId),
+        0,
         1000,
       );
+      const transactions = transactionsResponse.content;
+
       // Correctly calculate net SOL raised by subtracting sells from buys
       const totalSolRaised = transactions.reduce((sum, tx) => {
-        if (tx.transaction_type === "buy") {
-          return sum + (tx.sol_amount || 0);
-        } else if (tx.transaction_type === "sell") {
-          return sum - (tx.sol_amount || 0);
+        if (tx.transactionType === "BUY") {
+          return sum + (tx.solAmount || 0);
+        } else if (tx.transactionType === "SELL") {
+          return sum - (tx.solAmount || 0);
         }
         return sum;
       }, 0);
 
       // Calculate scaling factor based on actual vs default supply
-      const actualTotalSupply = token.total_supply || tokenDefaults.totalSupply;
+      const actualTotalSupply = token.totalSupply || tokenDefaults.totalSupply;
       const scalingFactor = actualTotalSupply / tokenDefaults.totalSupply;
 
       // Calculate current reserves using SCALED values
       const virtualSolReserves =
         Number(this.INITIAL_VIRTUAL_SOL_RESERVES) / 1e9 + totalSolRaised;
       const tokensSold = transactions.reduce((sum, tx) => {
-        if (tx.transaction_type === "buy") {
-          return sum + (tx.token_amount || 0) / 1e9; // Convert from lamports to tokens
-        } else if (tx.transaction_type === "sell") {
-          return sum - (tx.token_amount || 0) / 1e9; // Convert from lamports to tokens
+        if (tx.transactionType === "BUY") {
+          return sum + (tx.tokenAmount || 0) / 1e9; // Convert from lamports to tokens
+        } else if (tx.transactionType === "SELL") {
+          return sum - (tx.tokenAmount || 0) / 1e9; // Convert from lamports to tokens
         }
         return sum;
       }, 0);
@@ -508,9 +511,9 @@ export class BondingCurveService {
       // Try to get token info for scaling, fallback to default if not available
       let scalingFactor = 1;
       try {
-        const token = await SupabaseService.getTokenById(tokenId);
-        if (token?.total_supply) {
-          const actualTotalSupply = token.total_supply;
+        const token = await tokenAPI.getTokenById(Number(tokenId));
+        if (token?.totalSupply) {
+          const actualTotalSupply = token.totalSupply;
           scalingFactor = actualTotalSupply / tokenDefaults.totalSupply;
         }
       } catch {
@@ -550,24 +553,10 @@ export class BondingCurveService {
       // Get current bonding curve state
       const state = await this.getTokenBondingCurveState(tokenId);
 
-      // Update token in database
-      await SupabaseService.updateToken(tokenId, {
-        current_price: tradeResult.newPrice,
-        market_cap: state.marketCap,
-        bonding_curve_progress: state.progress,
-        last_trade_at: new Date().toISOString(),
-      });
-
-      // Store price history for charts
-      await SupabaseService.storeTokenPriceData(tokenId, {
-        price: tradeResult.newPrice,
-        volume: Math.abs(tradeResult.solSpent),
-        marketCap: state.marketCap,
-        timestamp: new Date().toISOString(),
-      });
-
+      // Note: Token price updates and price history are now handled by Spring Boot backend
+      // The backend automatically updates prices when trades are executed
       console.log(
-        `Updated token ${tokenId} price to ${tradeResult.newPrice} SOL`,
+        `Token ${tokenId} price will be updated by backend to ${tradeResult.newPrice} SOL`,
       );
     } catch (error) {
       console.error("Error updating token price after trade:", error);

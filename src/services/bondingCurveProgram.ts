@@ -107,6 +107,7 @@ export interface TradeResult {
 export class BondingCurveProgram {
   private connection: Connection;
   private walletService = getWalletService();
+  private programId: PublicKey = PROGRAM_ID;
 
   constructor() {
     this.connection = new Connection(config.solana.rpcUrl, "confirmed");
@@ -547,8 +548,8 @@ export class BondingCurveProgram {
         );
 
         console.log(`🔍 [SOL VAULT DEBUG] Checking potential SOL vault accounts:`);
-        
-        for (const [name, vault] of [["sol_vault", solVault1], ["vault", solVault2], ["bonding+sol", solVault3]]) {
+
+        for (const [name, vault] of [["sol_vault", solVault1], ["vault", solVault2], ["bonding+sol", solVault3]] as [string, PublicKey][]) {
           const vaultInfo = await this.connection.getAccountInfo(vault);
           if (vaultInfo && vaultInfo.lamports > 1000000) { // More than 0.001 SOL
             console.log(`💰 [SOL VAULT FOUND] ${name}: ${vault.toBase58()} has ${vaultInfo.lamports} lamports (${Number(vaultInfo.lamports) / LAMPORTS_PER_SOL} SOL)`);
@@ -564,16 +565,16 @@ export class BondingCurveProgram {
       // PRODUCTION DEBUG: Check platform accounts for SOL
       try {
         console.log(`🏦 [PRODUCTION DEBUG] Checking platform accounts for SOL:`);
-        
+
         const platformFeeWallet = new PublicKey(config.platform.feeWallet);
         const platformAuthority = new PublicKey(config.platform.authority);
         const platformTreasury = new PublicKey(config.platform.treasury);
-        
+
         for (const [name, account] of [
-          ["Fee Wallet", platformFeeWallet], 
-          ["Authority", platformAuthority], 
+          ["Fee Wallet", platformFeeWallet],
+          ["Authority", platformAuthority],
           ["Treasury", platformTreasury]
-        ]) {
+        ] as [string, PublicKey][]) {
           const accountInfo = await this.connection.getAccountInfo(account);
           if (accountInfo) {
             console.log(`💰 [PLATFORM SOL] ${name}: ${account.toBase58()} has ${accountInfo.lamports} lamports (${Number(accountInfo.lamports) / LAMPORTS_PER_SOL} SOL)`);
@@ -845,27 +846,10 @@ export class BondingCurveProgram {
    * Get current bonding curve state from database
    */
   private async getCurrentBondingCurveState(mintAddress: PublicKey) {
-    try {
-      const { supabase } = await import("./supabase");
-
-      const { data: token } = await supabase
-        .from("tokens")
-        .select("id, current_price")
-        .eq("mint_address", mintAddress.toBase58())
-        .single();
-
-      if (!token) return null;
-
-      // Import bonding curve service
-      const { BondingCurveService } = await import("./bondingCurve");
-      const bondingCurveState =
-        await BondingCurveService.getTokenBondingCurveState(token.id);
-
-      return { token, bondingCurveState };
-    } catch (error) {
-      console.warn("Could not fetch bonding curve state:", error);
-      return null;
-    }
+    // TODO: Get bonding curve state from Spring Boot backend
+    console.log('Getting bonding curve state for:', mintAddress.toBase58());
+    // For now, return null - this should be fetched from backend
+    return null;
   }
 
   /**
@@ -1004,28 +988,9 @@ export class BondingCurveProgram {
           console.warn("Could not parse bonding curve account data, using defaults:", parseError);
         }
       } else {
-        console.warn("Bonding curve account data insufficient, using database fallback");
-        // Use database as fallback for current state
-        try {
-          const result = await this.getCurrentBondingCurveState(mintAddress);
-          if (result?.bondingCurveState) {
-            virtualSolReserves = BigInt(
-              Math.floor(
-                result.bondingCurveState.virtualSolReserves * LAMPORTS_PER_SOL,
-              ),
-            );
-            virtualTokenReserves = BigInt(
-              Math.floor(result.bondingCurveState.virtualTokenReserves),
-            );
-            console.log(`📊 [SELL DB STATE] Using database state:
-              Virtual SOL reserves: ${Number(virtualSolReserves) / LAMPORTS_PER_SOL} SOL
-              Virtual token reserves: ${virtualTokenReserves.toString()} base units`);
-          }
-        } catch (dbError) {
-          console.warn(
-            "Could not get bonding curve state from database, using config defaults",
-          );
-        }
+        console.warn("Bonding curve account data insufficient, using config defaults");
+        // Database fallback removed - using config defaults
+        // TODO: Fetch bonding curve state from Spring Boot backend if needed
       }
 
       // Constant product formula: k = x * y
@@ -1055,18 +1020,10 @@ export class BondingCurveProgram {
    */
   async getCurrentPrice(mintAddress: PublicKey): Promise<number> {
     try {
-      // Get current bonding curve state
-      const result = await this.getCurrentBondingCurveState(mintAddress);
-      
-      if (result?.bondingCurveState) {
-        const { virtualSolReserves, virtualTokenReserves } = result.bondingCurveState;
-        
-        // Price = SOL reserves / Token reserves (in proper units)
-        const pricePerToken = virtualSolReserves / virtualTokenReserves;
-        return pricePerToken;
-      }
-      
-      // Fallback: calculate initial price based on virtual reserves from config
+      // TODO: Get current bonding curve state from Spring Boot backend
+      // For now, use config defaults
+
+      // Calculate initial price based on virtual reserves from config
       const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL; // Convert lamports to SOL
       const virtualTokenReserves = Number(config.bondingCurve.initialVirtualTokenReserves); // Convert base units to human tokens
       return virtualSolReserves / virtualTokenReserves; // ~0.000000028 SOL per token

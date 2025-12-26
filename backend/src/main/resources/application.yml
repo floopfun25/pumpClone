@@ -17,14 +17,18 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false  # Disable SQL logging to reduce noise
+    open-in-view: false  # Disable to avoid warning and improve performance
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         use_sql_comments: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
 
-  # Redis Configuration
+  # Redis Configuration (used for caching only, not as a database)
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -36,6 +40,8 @@ spring:
           max-active: 8
           max-idle: 8
           min-idle: 0
+      repositories:
+        enabled: false  # Disable Redis repositories - we use PostgreSQL for data storage
 
 # Server Configuration
 server:
@@ -89,10 +95,12 @@ floppfun:
 # Logging Configuration
 logging:
   level:
-    com.floppfun: DEBUG
+    com.floppfun: INFO  # Changed from DEBUG to reduce noise
     org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.data.redis: WARN  # Suppress Redis repository warnings
+    org.hibernate.SQL: WARN  # Changed from DEBUG - SQL logging already disabled above
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN  # Changed from TRACE
+    org.hibernate.tool.schema: ERROR  # Suppress schema update logs
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
