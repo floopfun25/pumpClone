@@ -418,7 +418,7 @@ const loadChartData = async () => {
       chartData.value = generateMockChartData();
     } else {
       // Convert price history to chart format
-      chartData.value = priceHistory.map((item) => ({
+      chartData.value = priceHistory.map((item: any) => ({
         time: new Date(item.timestamp).getTime(),
         price: item.price || 0.000001,
         volume: item.volume || Math.random() * 1000,

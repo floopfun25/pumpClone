@@ -5,13 +5,16 @@
   },
   "navigation": {
     "home": "Ana Sayfa",
+    "explore": "Keşfet",
     "create": "Token Oluştur",
     "leaderboard": "Lider Tablosu",
     "about": "Hakkında",
     "profile": "Profil",
     "portfolio": "Portföy",
     "search": "Ara",
-    "settings": "Ayarlar"
+    "settings": "Ayarlar",
+    "language": "Dil",
+    "selectLanguage": "Dil Seçin"
   },
   "wallet": {
     "connect": "Cüzdan Bağla",
@@ -25,8 +28,8 @@
     "selectWallet": "Cüzdan Seç",
     "noWallet": "Cüzdan tespit edilmedi",
     "installWallet": "Devam etmek için {wallet} yükleyin",
-    "language": "Dil",
-    "selectLanguage": "Dil Seçin"
+    "openingApp": "Cüzdan uygulaması açılıyor...",
+    "approveInApp": "Lütfen {walletName} uygulamasında bağlantıyı onaylayın"
   },
   "token": {
     "create": "Token Oluştur",
@@ -72,6 +75,7 @@
     "topLosers": "En Çok Kaybeden",
     "tokens": "Tokenler",
     "createdBy": "Oluşturan",
+    "discover": "Solana'da muhteşem meme tokenları keşfedin",
     "kingOfHill": "Tepenin Kralı",
     "kingOfHillDescription": "Sıralamada yükselen en sıcak tokenler",
     "hot": "SICAK",

@@ -38,7 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tokens/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/trades/token/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/trades/**").permitAll()
 
                         // WebSocket
                         .requestMatchers("/ws/**").permitAll()

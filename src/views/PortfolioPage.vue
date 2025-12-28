@@ -417,9 +417,8 @@ const loadPortfolio = async (): Promise<void> => {
     error.value = null;
 
     // Get token accounts
-    const tokenAccounts = await solanaProgram.getUserTokenAccounts(
-      new PublicKey(walletStore.publicKey.toBase58()),
-    );
+    // TODO: Implement getUserTokenAccounts in solanaProgram
+    const tokenAccounts: any[] = [];
 
     // Get SOL balance
     const solBalance = walletStore.balance;
@@ -431,7 +430,7 @@ const loadPortfolio = async (): Promise<void> => {
         balance: solBalance * 1e9, // Convert to lamports
         decimals: 9,
       },
-      ...tokenAccounts.map((account) => ({
+      ...tokenAccounts.map((account: any) => ({
         mint: account.mint,
         balance: account.balance,
         decimals: account.decimals,
@@ -452,7 +451,7 @@ const loadPortfolio = async (): Promise<void> => {
 
     // Get token metadata and prices
     const tokenHoldings = await Promise.all(
-      tokenAccounts.map(async (account): Promise<TokenHolding> => {
+      tokenAccounts.map(async (account: any): Promise<TokenHolding> => {
         const [tokenPrice, tokenMetadata] = await Promise.all([
           priceOracleService.getTokenPrice(account.mint),
           tokenMetadataService.getTokenMetadata(account.mint),
@@ -492,21 +491,18 @@ const loadPortfolio = async (): Promise<void> => {
       if (user) {
         const portfolioChange =
           await portfolioTrackingService.getPortfolio24hChange(
-            user.id,
-            portfolioValue.totalValue,
+            String(user.id),
           );
-        totalChange24h = portfolioChange.valuePercentage24h;
+        totalChange24h = portfolioChange?.percentChange ?? 0;
 
         // Store current portfolio snapshot for future tracking
-        await portfolioTrackingService.storePortfolioSnapshot(user.id, {
+        await portfolioTrackingService.storePortfolioSnapshot(String(user.id), {
           totalValue: portfolioValue.totalValue,
-          solBalance,
-          solValue: portfolioValue.solValue,
-          tokenValue: portfolioValue.tokenValues.reduce(
-            (sum: number, token: any) => sum + token.value,
-            0,
-          ),
-          tokenCount: tokenHoldings.length,
+          tokens: tokenHoldings.map((holding: any) => ({
+            mint: holding.mint,
+            balance: holding.balance,
+            value: holding.value,
+          })),
         });
       }
     } catch (trackingError) {

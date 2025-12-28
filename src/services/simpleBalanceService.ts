@@ -57,30 +57,30 @@ export class SimpleBalanceService {
 
       let balance: TokenBalance;
 
+      // Get mint info for decimals (always needed, even if account doesn't exist)
+      const mintInfo = await getMint(this.connection, mintPubkey);
+
       try {
         // Try to get the account info
         const accountInfo = await getAccount(this.connection, tokenAccount);
-        
-        // Get mint info for decimals
-        const mintInfo = await getMint(this.connection, mintPubkey);
-        
+
         const humanReadable = Number(accountInfo.amount) / Math.pow(10, mintInfo.decimals);
-        
+
         balance = {
           balance: accountInfo.amount,
           humanReadable,
           decimals: mintInfo.decimals,
           exists: true,
         };
-        
+
         console.log("✅ Found token account with balance:", humanReadable);
       } catch (accountError) {
-        // Account doesn't exist
+        // Account doesn't exist, but we still have correct decimals from mint
         console.log("ℹ️ Token account doesn't exist (balance = 0)");
         balance = {
           balance: BigInt(0),
           humanReadable: 0,
-          decimals: 9, // default
+          decimals: mintInfo.decimals, // Use actual mint decimals, not default
           exists: false,
         };
       }

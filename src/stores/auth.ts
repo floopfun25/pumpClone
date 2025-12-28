@@ -131,7 +131,7 @@ export const useAuthStore = defineStore("auth", () => {
    * Sign in with wallet signature
    */
   const signInWithWallet = async () => {
-    if (!walletStore.walletAddress || !walletStore.currentWallet) {
+    if (!walletStore.walletAddress || !walletStore.wallet) {
       throw new Error("Wallet not connected");
     }
 
@@ -143,7 +143,7 @@ export const useAuthStore = defineStore("auth", () => {
       const messageBytes = new TextEncoder().encode(message);
 
       // Request signature from wallet
-      const signature = await walletStore.currentWallet.signMessage(messageBytes);
+      const signature = await walletStore.wallet.signMessage(messageBytes);
       const signatureBase58 = bs58.encode(signature);
 
       // Login with backend

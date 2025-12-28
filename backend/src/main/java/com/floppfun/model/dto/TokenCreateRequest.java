@@ -29,11 +29,21 @@ public class TokenCreateRequest {
     @NotNull(message = "Image is required")
     private MultipartFile image;
 
-    @NotBlank(message = "Wallet address is required")
-    private String walletAddress;
+    // Mint address (already created on-chain by frontend)
+    @NotBlank(message = "Mint address is required")
+    private String mintAddress;
 
-    @NotBlank(message = "Wallet signature is required")
-    private String signature;
+    // Metadata URI (already uploaded to IPFS by frontend)
+    @NotBlank(message = "Metadata URI is required")
+    private String metadataUri;
+
+    // Total supply (already set during on-chain creation)
+    @NotNull(message = "Total supply is required")
+    private Long totalSupply;
+
+    // Decimals (token precision, typically 6 for pump.fun style)
+    @NotNull(message = "Decimals is required")
+    private Integer decimals;
 
     private String website;
     private String twitter;

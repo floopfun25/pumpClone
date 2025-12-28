@@ -96,9 +96,9 @@ class MarketAnalyticsService {
       // Calculate analytics
       const marketData = await this.calculateMarketData(token, priceData);
       const technicalIndicators = await this.calculateTechnicalIndicators(
-        token.id,
+        String(token.id),
       );
-      const socialMetrics = await this.calculateSocialMetrics(token.id);
+      const socialMetrics = await this.calculateSocialMetrics(String(token.id));
       const riskMetrics = await this.calculateRiskMetrics(token, marketData);
 
       const analytics: TokenAnalytics = {
@@ -330,8 +330,8 @@ class MarketAnalyticsService {
         };
       }
 
-      const prices = priceHistory.map((p) => p.price);
-      const volumes = priceHistory.map((p) => p.volume || 0);
+      const prices = priceHistory.map((p: any) => p.price);
+      const volumes = priceHistory.map((p: any) => p.volume || 0);
 
       return {
         rsi: this.calculateRSI(prices),

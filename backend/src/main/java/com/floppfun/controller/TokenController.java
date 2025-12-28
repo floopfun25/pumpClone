@@ -50,10 +50,9 @@ public class TokenController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<TokenDTO> getTokenById(@PathVariable Long id) {
-        Token token = tokenService.getTokenById(id)
-                .orElseThrow(() -> new RuntimeException("Token not found"));
-
-        return ResponseEntity.ok(tokenService.toDTO(token));
+        return tokenService.getTokenById(id)
+                .map(token -> ResponseEntity.ok(tokenService.toDTO(token)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**
@@ -61,10 +60,9 @@ public class TokenController {
      */
     @GetMapping("/mint/{mintAddress}")
     public ResponseEntity<TokenDTO> getTokenByMintAddress(@PathVariable String mintAddress) {
-        Token token = tokenService.getTokenByMintAddress(mintAddress)
-                .orElseThrow(() -> new RuntimeException("Token not found"));
-
-        return ResponseEntity.ok(tokenService.toDTO(token));
+        return tokenService.getTokenByMintAddress(mintAddress)
+                .map(token -> ResponseEntity.ok(tokenService.toDTO(token)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**
@@ -99,6 +97,22 @@ public class TokenController {
     }
 
     /**
+     * Get tokens by creator ID
+     */
+    @GetMapping("/creator/{creatorId}")
+    public ResponseEntity<Page<TokenDTO>> getTokensByCreator(
+            @PathVariable Long creatorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<TokenDTO> tokens = tokenService.getTokensByCreatorId(creatorId, pageable)
+                .map(tokenService::toDTO);
+
+        return ResponseEntity.ok(tokens);
+    }
+
+    /**
      * Create a new token
      */
     @PostMapping("/create")
@@ -107,7 +121,11 @@ public class TokenController {
             Authentication authentication) {
 
         try {
-            Token token = tokenService.createToken(request);
+            // Get wallet address from authenticated user
+            String walletAddress = authentication.getName();
+            log.info("Creating token for wallet: {}", walletAddress);
+
+            Token token = tokenService.createToken(request, walletAddress);
             return ResponseEntity.ok(tokenService.toDTO(token));
         } catch (Exception e) {
             log.error("Error creating token", e);

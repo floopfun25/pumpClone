@@ -44,7 +44,6 @@ export default defineConfig({
     include: [
       "@solana/web3.js",
       "@solana/wallet-adapter-base",
-      "@supabase/supabase-js",
       "buffer",
       "vue-i18n",
     ],

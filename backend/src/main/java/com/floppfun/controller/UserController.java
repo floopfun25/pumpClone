@@ -42,10 +42,9 @@ public class UserController {
      */
     @GetMapping("/wallet/{walletAddress}")
     public ResponseEntity<UserDTO> getUserByWallet(@PathVariable String walletAddress) {
-        User user = userService.getUserByWallet(walletAddress)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        return ResponseEntity.ok(userService.toDTO(user));
+        return userService.getUserByWallet(walletAddress)
+                .map(user -> ResponseEntity.ok(userService.toDTO(user)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**

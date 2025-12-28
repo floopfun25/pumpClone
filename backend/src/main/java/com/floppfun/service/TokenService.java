@@ -29,16 +29,17 @@ public class TokenService {
     private final BondingCurveService bondingCurveService;
 
     /**
-     * Create a new token
+     * Create a new token (token already created on-chain by frontend)
      */
     @Transactional
-    public Token createToken(TokenCreateRequest request) throws IOException {
-        log.info("Creating token: {} ({})", request.getName(), request.getSymbol());
+    public Token createToken(TokenCreateRequest request, String walletAddress) throws IOException {
+        log.info("Saving token to database: {} ({}) at mint address: {}",
+                request.getName(), request.getSymbol(), request.getMintAddress());
 
-        // Get or create user
-        User creator = userService.getOrCreateUser(request.getWalletAddress());
+        // Get or create user by wallet address
+        User creator = userService.getOrCreateUser(walletAddress);
 
-        // Upload image and metadata to IPFS
+        // Upload image to IPFS (metadata already uploaded by frontend)
         Map<String, String> ipfsData = ipfsService.uploadTokenAssets(
                 request.getImage(),
                 request.getName(),
@@ -47,28 +48,21 @@ public class TokenService {
         );
 
         String imageUrl = ipfsData.get("imageUrl");
-        String metadataUri = ipfsData.get("metadataUri");
 
-        // Create token on Solana blockchain
-        String mintAddress = solanaService.createToken(
-                request.getName(),
-                request.getSymbol(),
-                metadataUri,
-                1000000000L, // 1 billion total supply
-                9 // 9 decimals
-        );
+        // Note: Token and bonding curve already created on-chain by frontend
+        // We just save the token information to our database
 
         // Save token to database
         Token token = Token.builder()
-                .mintAddress(mintAddress)
+                .mintAddress(request.getMintAddress())
                 .name(request.getName())
                 .symbol(request.getSymbol())
                 .description(request.getDescription())
                 .imageUrl(imageUrl)
-                .metadataUri(metadataUri)
+                .metadataUri(request.getMetadataUri())
                 .creator(creator)
-                .totalSupply(1000000000L)
-                .decimals(9)
+                .totalSupply(request.getTotalSupply())
+                .decimals(request.getDecimals())
                 .currentPrice(bondingCurveService.calculateCurrentPrice(
                         bondingCurveService.getInitialSolReserves(),
                         bondingCurveService.getInitialTokenReserves()
@@ -89,7 +83,7 @@ public class TokenService {
         creator.setTokensCreated(creator.getTokensCreated() + 1);
         userService.getUserById(creator.getId()); // Save happens in transaction
 
-        log.info("Token created successfully: {}", mintAddress);
+        log.info("Token saved to database successfully: {}", request.getMintAddress());
         return token;
     }
 
@@ -126,6 +120,13 @@ public class TokenService {
      */
     public Page<Token> searchTokens(String query, Pageable pageable) {
         return tokenRepository.searchTokens(query, pageable);
+    }
+
+    /**
+     * Get tokens by creator ID
+     */
+    public Page<Token> getTokensByCreatorId(Long creatorId, Pageable pageable) {
+        return tokenRepository.findByCreatorId(creatorId, pageable);
     }
 
     /**

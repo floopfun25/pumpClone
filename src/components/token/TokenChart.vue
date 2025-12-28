@@ -199,7 +199,7 @@ const loadChartData = async () => {
     );
     // Validate, normalize, sort, and filter data for Chart.js
     data = (data || [])
-      .map((d) => ({
+      .map((d: any) => ({
         timestamp:
           typeof d.timestamp === "number"
             ? d.timestamp
@@ -208,9 +208,9 @@ const loadChartData = async () => {
         volume: d.volume !== undefined ? d.volume : 0,
       }))
       .filter(
-        (d) => typeof d.price === "number" && !isNaN(d.price) && d.timestamp,
+        (d: any) => typeof d.price === "number" && !isNaN(d.price) && d.timestamp,
       )
-      .sort((a, b) => a.timestamp - b.timestamp);
+      .sort((a: any, b: any) => a.timestamp - b.timestamp);
     // ...existing code...
     priceData.value = data;
     if (data.length > 0) {

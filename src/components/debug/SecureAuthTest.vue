@@ -345,7 +345,7 @@ const testFullAuthFlow = async () => {
     }
 
     log("🚀 Starting complete authentication flow...");
-    await authStore.signInWithWallet(walletStore.walletAddress);
+    await authStore.signInWithWallet();
     log("✅ Complete authentication flow successful!");
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Full auth flow failed";

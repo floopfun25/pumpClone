@@ -15,30 +15,35 @@ import java.util.Optional;
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long> {
 
-    Optional<Token> findByMintAddress(String mintAddress);
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.id = :id")
+    Optional<Token> findById(@Param("id") Long id);
+
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.mintAddress = :mintAddress")
+    Optional<Token> findByMintAddress(@Param("mintAddress") String mintAddress);
 
     boolean existsByMintAddress(String mintAddress);
 
-    Page<Token> findByStatusOrderByCreatedAtDesc(Token.TokenStatus status, Pageable pageable);
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.status = :status ORDER BY t.createdAt DESC")
+    Page<Token> findByStatusOrderByCreatedAtDesc(@Param("status") Token.TokenStatus status, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE t.status = :status ORDER BY t.volume24h DESC")
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.status = :status ORDER BY t.volume24h DESC")
     Page<Token> findTrendingTokens(@Param("status") Token.TokenStatus status, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE t.status = :status ORDER BY t.createdAt DESC")
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.status = :status ORDER BY t.createdAt DESC")
     Page<Token> findLatestTokens(@Param("status") Token.TokenStatus status, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE t.creator.id = :creatorId ORDER BY t.createdAt DESC")
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.creator.id = :creatorId ORDER BY t.createdAt DESC")
     Page<Token> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE " +
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE " +
            "LOWER(t.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(t.symbol) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(t.description) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Token> searchTokens(@Param("query") String query, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE t.lastTradeAt > :since ORDER BY t.volume24h DESC")
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.lastTradeAt > :since ORDER BY t.volume24h DESC")
     List<Token> findActiveTokens(@Param("since") LocalDateTime since, Pageable pageable);
 
-    @Query("SELECT t FROM Token t WHERE t.isFeatured = true AND t.status = 'ACTIVE' ORDER BY t.createdAt DESC")
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.isFeatured = true AND t.status = 'ACTIVE' ORDER BY t.createdAt DESC")
     List<Token> findFeaturedTokens(Pageable pageable);
 }

@@ -198,6 +198,19 @@ export const tokenAPI = {
   },
 
   /**
+   * Get tokens by creator ID
+   */
+  async getTokensByCreator(creatorId: number, page = 0, size = 20): Promise<PageResponse<Token>> {
+    const response = await fetch(`${API_BASE_URL}/tokens/creator/${creatorId}?page=${page}&size=${size}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch creator tokens');
+    }
+
+    return response.json();
+  },
+
+  /**
    * Create a new token
    */
   async createToken(data: {
@@ -208,6 +221,7 @@ export const tokenAPI = {
     mintAddress: string;
     metadataUri: string;
     totalSupply: number;
+    decimals: number;
   }): Promise<Token> {
     const formData = new FormData();
     formData.append('name', data.name);
@@ -217,6 +231,7 @@ export const tokenAPI = {
     formData.append('mintAddress', data.mintAddress);
     formData.append('metadataUri', data.metadataUri);
     formData.append('totalSupply', data.totalSupply.toString());
+    formData.append('decimals', data.decimals.toString());
 
     const response = await fetch(`${API_BASE_URL}/tokens/create`, {
       method: 'POST',

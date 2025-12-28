@@ -649,7 +649,10 @@ const handleResize = () => {
 
 const loadMarketData = async () => {
   if (!props.token?.id) return;
-  marketData.value = await MarketDataService.getTokenMarketData(props.token.id);
+  const data = await MarketDataService.getTokenMarketData(String(props.token.id));
+  if (data) {
+    marketData.value = data;
+  }
 };
 
 // Lifecycle

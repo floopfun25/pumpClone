@@ -72,7 +72,8 @@ export class TokenCreationService {
 
     const payer = this.walletService.publicKey;
     const decimals = params.decimals || config.tokenDefaults.decimals;
-    const initialSupply = params.initialSupply || 1_000_000_000; // 1B tokens default
+    // Use totalSupply first (from form), then initialSupply, then default to 1B
+    const initialSupply = params.totalSupply || params.initialSupply || 1_000_000_000;
 
     try {
       // Step 1: Upload metadata to IPFS (optional - fallback if fails)
@@ -306,11 +307,28 @@ export class TokenCreationService {
     console.log("💾 Saving token to database...");
 
     try {
+      // Check if user is authenticated, if not, authenticate first
+      const { useAuthStore } = await import("@/stores/auth");
+      const authStore = useAuthStore();
+
+      if (!authStore.isAuthenticated) {
+        console.log("🔐 User not authenticated, signing in with wallet...");
+        try {
+          await authStore.signInWithWallet();
+          console.log("✅ User authenticated successfully");
+        } catch (authError: any) {
+          console.error("❌ Authentication failed:", authError);
+          throw new Error(`Authentication required to create token: ${authError.message}`);
+        }
+      }
+
       // Use backend API to create token
       const { tokenAPI } = await import("@/services/api");
 
-      const totalSupply = (params.initialSupply || 1_000_000_000) *
-        Math.pow(10, params.decimals || config.tokenDefaults.decimals);
+      const decimals = params.decimals || config.tokenDefaults.decimals;
+      // Use totalSupply first (from form), then initialSupply, then default to 1B
+      const supplyInTokens = params.totalSupply || params.initialSupply || 1_000_000_000;
+      const totalSupply = supplyInTokens * Math.pow(10, decimals);
 
       // Convert image URL back to File if needed (or use the original file)
       // For now, we'll create a placeholder since the image was already uploaded
@@ -324,6 +342,7 @@ export class TokenCreationService {
         mintAddress: mintAddress,
         metadataUri: metadataUri,
         totalSupply: totalSupply,
+        decimals: decimals,
       });
 
       console.log("✅ Token saved to database:", token);

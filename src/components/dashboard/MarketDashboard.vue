@@ -347,7 +347,10 @@ const loadMarketData = async () => {
   try {
     loading.value = true;
 
-    marketData.value = await MarketDataService.getTotalMarketStats();
+    const data = await MarketDataService.getTotalMarketStats();
+    if (data) {
+      marketData.value = data;
+    }
     marketOverview.value = await marketAnalyticsService.getMarketOverview();
     lastUpdateTime.value = new Date().toLocaleTimeString();
   } catch (error) {

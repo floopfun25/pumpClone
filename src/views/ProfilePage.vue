@@ -135,7 +135,7 @@
                   v-for="token in userTokens"
                   :key="token.id"
                   :token="token"
-                  @click="navigateToToken(token.mint_address || token.id)"
+                  @click="navigateToToken(token.mintAddress)"
                   class="hover:border-binance-yellow/50 transition-colors cursor-pointer"
                 />
               </div>
@@ -168,14 +168,14 @@
                   v-for="item in userWatchlist"
                   :key="item.id"
                   class="bg-trading-elevated rounded-lg border border-binance-border p-4 hover:border-binance-yellow/50 transition-colors cursor-pointer"
-                  @click="navigateToToken(item.mint_address)"
+                  @click="navigateToToken(item.mintAddress)"
                 >
                   <!-- Token Header -->
                   <div class="flex items-center gap-3 mb-3">
                     <div class="w-10 h-10 rounded-full overflow-hidden">
                       <img
-                        v-if="item.image_url"
-                        :src="item.image_url"
+                        v-if="item.imageUrl"
+                        :src="item.imageUrl"
                         :alt="item.name"
                         class="w-full h-full object-cover"
                       />
@@ -476,7 +476,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useTypedI18n } from "@/i18n";
 import { useWalletStore } from "@/stores/wallet";
 import { useUIStore } from "@/stores/ui";
-import { userAPI, tradingAPI } from "@/services/api";
+import { userAPI, tradingAPI, tokenAPI } from "@/services/api";
 import TokenCard from "@/components/token/TokenCard.vue";
 import { formatNumber, formatPrice } from "@/utils/formatters";
 
@@ -718,14 +718,21 @@ const loadUserProfile = async () => {
       tradingHistory.value = [];
     }
 
+    // Fetch tokens created by user
+    try {
+      const tokensResponse = await tokenAPI.getTokensByCreator(userData.id, 0, 100);
+      userTokens.value = tokensResponse.content;
+    } catch (err) {
+      console.log("Created tokens not available:", err);
+      userTokens.value = [];
+    }
+
     // Features not yet implemented in backend
-    const tokens: any[] = [];
     const watchlist: any[] = [];
     const holdings: any[] = [];
     const activity: any[] = [];
 
-    // Convert token prices from SOL to USD for display
-    userTokens.value = tokens;
+    // Set remaining data
     userWatchlist.value = watchlist;
     userHoldings.value = holdings;
     userActivity.value = activity;

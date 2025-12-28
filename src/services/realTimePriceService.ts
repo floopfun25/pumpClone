@@ -341,7 +341,7 @@ class RealTimePriceService {
       // Group price points into candles
       const grouped = new Map<number, any[]>();
 
-      priceHistory.forEach((point) => {
+      priceHistory.forEach((point: any) => {
         const timestamp = new Date(point.timestamp).getTime();
         const candleTime = Math.floor(timestamp / intervalMs) * intervalMs;
 
