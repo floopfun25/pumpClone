@@ -50,6 +50,7 @@ export interface CreatedTokenInfo {
   metadataAccount: string;
   signature: string;
   tokenId: string;
+  prebuySignature?: string; // ADDED: Optional prebuy transaction signature
 }
 
 export class TokenCreationService {
@@ -109,12 +110,24 @@ export class TokenCreationService {
       // Step 4: Initialize bonding curve (CRITICAL for production)
       console.log("🎯 Initializing bonding curve...");
       let bondingCurveSignature = "";
+
+      // ADDED: Calculate creator allocation in basis points (e.g., 5% = 500 bps)
+      const creatorAllocationBps = params.creatorPercentage
+        ? Math.floor(params.creatorPercentage * 100)
+        : 0;
+
       try {
         bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
           mintKeypair.publicKey,
           BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
+          BigInt(config.bondingCurve.initialVirtualSolReserves), // Initial virtual SOL reserves
+          creatorAllocationBps, // ADDED: Pass creator allocation
         );
         console.log("✅ Bonding curve initialized successfully:", bondingCurveSignature);
+
+        if (creatorAllocationBps > 0) {
+          console.log(`💎 Creator allocated: ${params.creatorPercentage}% (${creatorAllocationBps} bps)`);
+        }
       } catch (bondingCurveError) {
         console.error("❌ CRITICAL: Bonding curve initialization failed:", bondingCurveError);
         // For production, bonding curve MUST be initialized for trading to work
@@ -147,12 +160,32 @@ export class TokenCreationService {
 
       console.log("✅ Pump.fun-style token creation completed successfully!");
 
+      // Step 7: Execute prebuy if requested
+      let prebuySignature = "";
+      if (params.prebuyAmount && params.prebuyAmount > 0) {
+        console.log(`💰 Executing prebuy: ${params.prebuyAmount} SOL`);
+        try {
+          const { bondingCurveProgram } = await import("./bondingCurveProgram");
+          const prebuyResult = await bondingCurveProgram.buyTokens(
+            mintKeypair.publicKey,
+            params.prebuyAmount,
+            3, // 3% slippage
+          );
+          prebuySignature = prebuyResult.signature;
+          console.log(`✅ Prebuy completed: ${prebuyResult.signature}`);
+        } catch (prebuyError) {
+          console.error("⚠️ Prebuy failed (token still created):", prebuyError);
+          // Token creation succeeded, prebuy is optional
+        }
+      }
+
       return {
         mintAddress: mintKeypair.publicKey.toBase58(),
         tokenAccount: tokenAccount.toBase58(),
         metadataAccount: metadataAccount.toBase58(),
         signature: mintSignature,
         tokenId,
+        prebuySignature, // ADDED: Return prebuy signature if executed
       };
     } catch (error) {
       console.error("❌ Token creation failed:", error);
@@ -249,8 +282,45 @@ export class TokenCreationService {
     // 2. Minting the total supply to bonding curve reserves
     // 3. Managing all token distribution via bonding curve math
 
-    // Skip metadata creation for now - will be handled separately
-    console.log("⚠️ Skipping metadata creation in token creation process");
+    // ADDED: Create Metaplex metadata account (on-chain metadata for wallets)
+    try {
+      const { createCreateMetadataAccountV3Instruction } = await import("@metaplex-foundation/mpl-token-metadata");
+
+      const metadataAccount = await this.getMetadataAccount(mintKeypair.publicKey);
+
+      const metadataData = {
+        name: params.name,
+        symbol: params.symbol,
+        uri: metadataUri,
+        sellerFeeBasisPoints: 0,
+        creators: null,
+        collection: null,
+        uses: null,
+      };
+
+      const createMetadataIx = createCreateMetadataAccountV3Instruction(
+        {
+          metadata: metadataAccount,
+          mint: mintKeypair.publicKey,
+          mintAuthority: payer,
+          payer: payer,
+          updateAuthority: payer,
+        },
+        {
+          createMetadataAccountArgsV3: {
+            data: metadataData,
+            isMutable: true,
+            collectionDetails: null,
+          },
+        },
+      );
+
+      transaction.add(createMetadataIx);
+      console.log("✅ Added Metaplex metadata creation instruction");
+    } catch (metadataError) {
+      console.warn("⚠️ Metaplex metadata creation skipped:", metadataError);
+      // Non-critical - token will still be created
+    }
 
     // Add platform fee (use config value)
     const platformFeeAccount = new PublicKey(config.platform.feeWallet);

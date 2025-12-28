@@ -146,20 +146,20 @@ export const config = {
   tokenDefaults: {
     decimals: 6, // Pump.fun uses 6 decimals, not 9
     totalSupply: 1_000_000_000, // 1 billion tokens
-    graduationThreshold: 69_000, // $69K market cap in USD (not SOL)
+    graduationThreshold: 69, // FIXED: 69 SOL raised (not USD market cap)
     platformFeePercentage: 1.0, // 1% platform fee
     creationFee: 0.02, // 0.02 SOL creation fee
   },
 
   // Bonding curve configuration (based on pump.fun)
   bondingCurve: {
-    initialVirtualTokenReserves: 793100000, // Human value: 793.1M tokens (pump.fun compatible) 
+    initialVirtualTokenReserves: 793100000, // Human value: 793.1M tokens (pump.fun compatible)
     initialVirtualSolReserves: parseInt(getEnvVar("VITE_VIRTUAL_SOL_RESERVES", "30000000000")), // 30 SOL in lamports
     initialRealSolReserves: 0, // Start with 0 real SOL
-    // Graduation parameters (matching pump.fun exactly)
-    graduationMarketCapUSD: 69_000, // $69K USD market cap to graduate
+    // FIXED: Graduation parameters (matching pump.fun exactly)
+    graduationSolThreshold: 69, // 69 SOL raised to graduate (matches smart contract)
     graduationLiquidityUSD: 12_000, // $12K liquidity deposited to Raydium
-    graduationSolTarget: 85_000_000_000, // ~85 SOL to complete bonding curve
+    graduationSolTarget: 69, // FIXED: 69 SOL to complete bonding curve
     graduationTokensRemaining: 200_000_000_000_000, // ~200M tokens for LP
     creatorRewardSOL: 0.5, // 0.5 SOL reward to creator upon graduation
     // Fee configuration

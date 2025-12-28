@@ -202,23 +202,12 @@ export class RealSolanaProgram {
         transaction.add(createTokenAccountIx);
       }
 
-      // Create simple buy instruction using standard SPL minting
-      // This is a temporary solution until your program is deployed
-      const { createMintToInstruction } = await import("@solana/spl-token");
+      // REMOVED: This direct minting approach is wrong
+      // Buy transactions should go through the bonding curve program
+      // The bonding curve program handles minting with proper authority
+      // This realSolanaProgram.ts file should not be used - use bondingCurveProgram.ts instead
 
-      // Calculate tokens to mint based on SOL amount using bonding curve
-      const decimals = 9;
-      const tokensToMint = expectedTokens; // Use the proper bonding curve calculation
-
-      // For now, use direct minting (requires mint authority)
-      const mintInstruction = createMintToInstruction(
-        mintAddress,
-        buyerTokenAccount,
-        buyer, // This needs to be mint authority
-        tokensToMint,
-      );
-
-      transaction.add(mintInstruction);
+      throw new Error("realSolanaProgram.buyTokens is deprecated - use bondingCurveProgram.buyTokens instead");
 
       // Send transaction
       const signature = await this.sendTransaction(transaction);

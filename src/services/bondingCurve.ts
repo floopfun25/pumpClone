@@ -100,9 +100,9 @@ export class BondingCurveService {
       return 0;
     }
 
-    // Price = SOL reserves / Token reserves
+    // FIXED: Price = SOL reserves / Token reserves (with proper unit conversion)
     const solReserves = Number(state.virtualSolReserves) / 1e9; // Convert lamports to SOL
-    const tokenReserves = Number(state.virtualTokenReserves); // Already in token units, no conversion needed
+    const tokenReserves = Number(state.virtualTokenReserves) / 1e6; // FIXED: Convert base units to tokens (6 decimals)
 
     return solReserves / tokenReserves;
   }
@@ -249,7 +249,7 @@ export class BondingCurveService {
       priceImpact,
       newPrice,
       fees,
-      tokensReceived: Number(tokensOut) / 1e9,
+      tokensReceived: Number(tokensOut) / 1e6, // FIXED: Use 6 decimals
       solSpent: Number(solIn) / 1e9,
       platformFee: Number(fees) / 1e9,
     };
@@ -356,7 +356,7 @@ export class BondingCurveService {
       priceImpact,
       newPrice,
       fees,
-      tokensReceived: -Number(tokensIn) / 1e9,
+      tokensReceived: -Number(tokensIn) / 1e6, // FIXED: Use 6 decimals
       solSpent: -Number(solAfterFees) / 1e9,
       platformFee: Number(fees) / 1e9,
     };
@@ -482,9 +482,9 @@ export class BondingCurveService {
         Number(this.INITIAL_VIRTUAL_SOL_RESERVES) / 1e9 + totalSolRaised;
       const tokensSold = transactions.reduce((sum, tx) => {
         if (tx.transactionType === "BUY") {
-          return sum + (tx.tokenAmount || 0) / 1e9; // Convert from lamports to tokens
+          return sum + (tx.tokenAmount || 0) / 1e6; // FIXED: Use 6 decimals, not 9
         } else if (tx.transactionType === "SELL") {
-          return sum - (tx.tokenAmount || 0) / 1e9; // Convert from lamports to tokens
+          return sum - (tx.tokenAmount || 0) / 1e6; // FIXED: Use 6 decimals, not 9
         }
         return sum;
       }, 0);
@@ -722,7 +722,7 @@ export class BondingCurveService {
 // Utility functions
 export function formatTokenAmount(
   amount: bigint,
-  decimals: number = 9,
+  decimals: number = 6, // FIXED: Default to 6 decimals to match config
 ): string {
   return (Number(amount) / Math.pow(10, decimals)).toFixed(6);
 }

@@ -58,6 +58,7 @@ class InitializeArgs {
     public initial_virtual_token_reserves: bigint,
     public initial_virtual_sol_reserves: bigint,
     public bump: number,
+    public creator_allocation_bps: number, // ADDED: Creator allocation in basis points
   ) {}
 }
 
@@ -91,6 +92,7 @@ const SCHEMAS = new Map<any, any>([
         ["initial_virtual_token_reserves", "u64"],
         ["initial_virtual_sol_reserves", "u64"],
         ["bump", "u8"],
+        ["creator_allocation_bps", "u16"], // ADDED
       ],
     },
   ],
@@ -120,6 +122,7 @@ export class BondingCurveProgram {
     mintAddress: PublicKey,
     totalSupply: bigint, // Total token supply in base units
     initialVirtualSolReserves: bigint = BigInt(config.bondingCurve.initialVirtualSolReserves), // 30 SOL
+    creatorAllocationBps: number = 0, // Creator allocation in basis points (0-10000)
   ): Promise<string> {
     if (!this.walletService.connected || !this.walletService.publicKey) {
       throw new Error("Wallet not connected");
@@ -133,20 +136,17 @@ export class BondingCurveProgram {
       PROGRAM_ID,
     );
 
-    // Get creator's token account
-    const creatorTokenAccount = await getAssociatedTokenAddress(
-      mintAddress,
-      creator,
-    );
-
     // Use fixed virtual token reserves from config (pump.fun style)
-    const initialVirtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves);
+    // FIXED: Config value is in human-readable tokens, must convert to base units with decimals
+    const decimals = config.tokenDefaults.decimals; // 6 decimals
+    const initialVirtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, decimals));
     
     // Create initialize instruction
     const initializeArgs = new InitializeArgs(
       initialVirtualTokenReserves,
       initialVirtualSolReserves,
       bump,
+      creatorAllocationBps, // ADDED: Creator allocation parameter
     );
     const data = Buffer.concat([
       INSTRUCTION_DISCRIMINATORS.initialize,
@@ -164,12 +164,19 @@ export class BondingCurveProgram {
       ASSOCIATED_TOKEN_PROGRAM_ID,
     );
 
+    // ADDED: Get creator's token account for allocation
+    const creatorTokenAccount = await getAssociatedTokenAddress(
+      mintAddress,
+      creator,
+    );
+
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: creator, isSigner: true, isWritable: true },
         { pubkey: bondingCurveAccount, isSigner: false, isWritable: true },
         { pubkey: mintAddress, isSigner: false, isWritable: true },
         { pubkey: vaultAccount, isSigner: false, isWritable: true }, // Vault to hold bonding curve tokens
+        { pubkey: creatorTokenAccount, isSigner: false, isWritable: true }, // ADDED: Creator's token account for allocation
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
@@ -654,6 +661,70 @@ export class BondingCurveProgram {
   }
 
   /**
+   * FIXED: Parse bonding curve account data from blockchain
+   */
+  private parseBondingCurveAccount(accountData: Buffer): {
+    virtualTokenReserves: bigint;
+    virtualSolReserves: bigint;
+    realTokenReserves: bigint;
+    realSolReserves: bigint;
+    tokenTotalSupply: bigint;
+    graduated: boolean;
+  } | null {
+    if (accountData.length < 114) {
+      console.warn(`Account data too small: ${accountData.length} bytes, expected at least 114`);
+      return null;
+    }
+
+    try {
+      const readU64LE = (buffer: Buffer, offset: number): bigint => {
+        const low = buffer.readUInt32LE(offset);
+        const high = buffer.readUInt32LE(offset + 4);
+        return BigInt(low) + (BigInt(high) << 32n);
+      };
+
+      // FIXED: Correct Rust BondingCurve struct layout after Anchor discriminator:
+      // [0-7]   = Anchor discriminator (8 bytes)
+      // [8-39]  = mint_address: Pubkey (32 bytes)
+      // [40-71] = creator: Pubkey (32 bytes)
+      // [72-79] = virtual_token_reserves: u64 (8 bytes)
+      // [80-87] = virtual_sol_reserves: u64 (8 bytes)
+      // [88-95] = real_token_reserves: u64 (8 bytes)
+      // [96-103] = real_sol_reserves: u64 (8 bytes)
+      // [104-111] = token_total_supply: u64 (8 bytes)
+      // [112] = graduated: bool (1 byte)
+
+      const virtualTokenReserves = readU64LE(accountData, 72);
+      const virtualSolReserves = readU64LE(accountData, 80);
+      const realTokenReserves = readU64LE(accountData, 88);
+      const realSolReserves = readU64LE(accountData, 96);
+      const tokenTotalSupply = readU64LE(accountData, 104);
+      const graduated = accountData[112] !== 0;
+
+      console.log(`📊 [BONDING CURVE] Parsed state:`, {
+        virtualSolReserves: `${Number(virtualSolReserves) / 1e9} SOL`,
+        virtualTokenReserves: `${Number(virtualTokenReserves) / 1e6} tokens`,
+        realSolReserves: `${Number(realSolReserves) / 1e9} SOL`,
+        realTokenReserves: `${Number(realTokenReserves) / 1e6} tokens`,
+        totalSupply: `${Number(tokenTotalSupply) / 1e6} tokens`,
+        graduated,
+      });
+
+      return {
+        virtualTokenReserves,
+        virtualSolReserves,
+        realTokenReserves,
+        realSolReserves,
+        tokenTotalSupply,
+        graduated,
+      };
+    } catch (error) {
+      console.error("Failed to parse bonding curve account:", error);
+      return null;
+    }
+  }
+
+  /**
    * Calculate tokens out for SOL input using bonding curve formula
    */
   private async calculateTokensOut(
@@ -663,38 +734,15 @@ export class BondingCurveProgram {
     try {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
-      // CRITICAL FIX: Parse actual bonding curve state from blockchain account
-      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // Default fallback
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Default fallback
+      // FIXED: Parse actual bonding curve state from blockchain account
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves);
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, config.tokenDefaults.decimals));
 
-      if (accountInfo && accountInfo.data.length >= 80) {
-        try {
-          // Parse bonding curve account data (match Rust struct layout)
-          const data = accountInfo.data;
-          
-          // Skip discriminator (8 bytes) + mint address (32 bytes) + creator (32 bytes) = 72 bytes
-          // Read virtual_token_reserves (u64 at offset ~72)
-          // Read virtual_sol_reserves (u64 at offset ~80) 
-          const readU64LE = (buffer: Buffer, offset: number): bigint => {
-            const low = buffer.readUInt32LE(offset);
-            const high = buffer.readUInt32LE(offset + 4);
-            return BigInt(low) + (BigInt(high) << 32n);
-          };
-
-          // Based on Rust BondingCurve struct layout:
-          // mint_address(32) + creator(32) + virtual_token_reserves(8) + virtual_sol_reserves(8)...
-          virtualTokenReserves = readU64LE(data, 72); // virtual_token_reserves field
-          virtualSolReserves = readU64LE(data, 80);   // virtual_sol_reserves field
-
-          // Sanity check - if values seem wrong, try different offsets
-          if (virtualSolReserves < BigInt(1_000_000_000) || virtualTokenReserves < BigInt(100_000_000)) {
-            // Try different offsets based on the actual Rust struct
-            virtualTokenReserves = readU64LE(data, 64);
-            virtualSolReserves = readU64LE(data, 72);
-          }
-          
-        } catch (parseError) {
-          console.warn("Could not parse bonding curve account data, using defaults:", parseError);
+      if (accountInfo) {
+        const parsedState = this.parseBondingCurveAccount(accountInfo.data);
+        if (parsedState) {
+          virtualSolReserves = parsedState.virtualSolReserves;
+          virtualTokenReserves = parsedState.virtualTokenReserves;
         }
       }
 
@@ -819,43 +867,16 @@ export class BondingCurveProgram {
     try {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
-      // CRITICAL FIX: Parse actual bonding curve state from blockchain account
-      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves); // Default fallback
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves); // Default fallback
+      // FIXED: Parse actual bonding curve state from blockchain account
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves);
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, config.tokenDefaults.decimals));
 
-      if (accountInfo && accountInfo.data.length >= 80) {
-        try {
-          // Parse bonding curve account data (match Rust struct layout)
-          const data = accountInfo.data;
-          
-          // Skip discriminator (8 bytes) + mint address (32 bytes) + creator (32 bytes) = 72 bytes
-          // Read virtual_token_reserves (u64 at offset ~72)
-          // Read virtual_sol_reserves (u64 at offset ~80) 
-          const readU64LE = (buffer: Buffer, offset: number): bigint => {
-            const low = buffer.readUInt32LE(offset);
-            const high = buffer.readUInt32LE(offset + 4);
-            return BigInt(low) + (BigInt(high) << 32n);
-          };
-
-          // Based on Rust BondingCurve struct layout:
-          // mint_address(32) + creator(32) + virtual_token_reserves(8) + virtual_sol_reserves(8)...
-          virtualTokenReserves = readU64LE(data, 72); // virtual_token_reserves field
-          virtualSolReserves = readU64LE(data, 80);   // virtual_sol_reserves field
-
-          // Sanity check - if values seem wrong, try different offsets
-          if (virtualSolReserves < BigInt(1_000_000_000) || virtualTokenReserves < BigInt(100_000_000)) {
-            // Try different offsets based on the actual Rust struct
-            virtualTokenReserves = readU64LE(data, 64);
-            virtualSolReserves = readU64LE(data, 72);
-          }
-          
-        } catch (parseError) {
-          console.warn("Could not parse bonding curve account data, using defaults:", parseError);
+      if (accountInfo) {
+        const parsedState = this.parseBondingCurveAccount(accountInfo.data);
+        if (parsedState) {
+          virtualSolReserves = parsedState.virtualSolReserves;
+          virtualTokenReserves = parsedState.virtualTokenReserves;
         }
-      } else {
-        console.warn("Bonding curve account data insufficient, using config defaults");
-        // Database fallback removed - using config defaults
-        // TODO: Fetch bonding curve state from Spring Boot backend if needed
       }
 
       // Constant product formula: k = x * y
@@ -882,26 +903,13 @@ export class BondingCurveProgram {
       const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
       let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves);
-      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves);
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves * Math.pow(10, config.tokenDefaults.decimals));
 
-      if (accountInfo && accountInfo.data.length >= 80) {
-        try {
-          // Parse bonding curve account data (match Rust struct layout)
-          const data = accountInfo.data;
-
-          // Helper to read u64 in little-endian format
-          const readU64LE = (buffer: Buffer, offset: number): bigint => {
-            const low = buffer.readUInt32LE(offset);
-            const high = buffer.readUInt32LE(offset + 4);
-            return (BigInt(high) << 32n) | BigInt(low);
-          };
-
-          // Read actual reserves from bonding curve account
-          // Skip discriminator (8 bytes) + mint (32 bytes) + creator (32 bytes) = 72 bytes
-          virtualTokenReserves = readU64LE(data, 72); // virtual_token_reserves at offset 72
-          virtualSolReserves = readU64LE(data, 80);   // virtual_sol_reserves at offset 80
-        } catch (parseError) {
-          console.warn("Failed to parse bonding curve state, using defaults:", parseError);
+      if (accountInfo) {
+        const parsedState = this.parseBondingCurveAccount(accountInfo.data);
+        if (parsedState) {
+          virtualSolReserves = parsedState.virtualSolReserves;
+          virtualTokenReserves = parsedState.virtualTokenReserves;
         }
       }
 
@@ -909,7 +917,7 @@ export class BondingCurveProgram {
       const mintInfo = await getMint(this.connection, mintAddress);
       const TOKEN_DECIMALS = mintInfo.decimals;
 
-      // Calculate current price: (SOL reserves / token reserves)
+      // FIXED: Calculate current price: (SOL reserves / token reserves)
       // Convert SOL from lamports (10^9) and tokens from base units (using actual decimals)
       const solInHumanForm = Number(virtualSolReserves) / LAMPORTS_PER_SOL;
       const tokensInHumanForm = Number(virtualTokenReserves) / Math.pow(10, TOKEN_DECIMALS);

@@ -31,11 +31,17 @@ public class TradingService {
     private final UserHoldingRepository userHoldingRepository;
 
     /**
-     * Process a buy transaction
+     * FIXED: Record buy transaction (executed client-side)
+     * Backend only records the transaction after it's confirmed on-chain
      */
     @Transactional
     public TradeResponse buyTokens(TradeRequest request) {
-        log.info("Processing buy: {} tokens for wallet {}", request.getAmount(), request.getWalletAddress());
+        log.info("Recording buy transaction: {} tokens for wallet {}", request.getAmount(), request.getWalletAddress());
+
+        // FIXED: Transaction signature must be provided by client (already executed on-chain)
+        if (request.getSignature() == null || request.getSignature().isEmpty()) {
+            throw new RuntimeException("Transaction signature required - transactions must be executed client-side");
+        }
 
         // Get token
         Token token = tokenService.getTokenByMintAddress(request.getMintAddress())
@@ -44,33 +50,21 @@ public class TradingService {
         // Get or create user
         User user = userService.getOrCreateUser(request.getWalletAddress());
 
-        // Calculate buy price
+        // FIXED: Use actual amounts from the confirmed transaction
         Long tokensToBuy = request.getAmount();
-        Long solCost = bondingCurveService.calculateBuyPrice(
-                token.getVirtualSolReserves(),
-                token.getVirtualTokenReserves(),
-                tokensToBuy
-        );
+        Long totalSolCost = request.getSolAmount();
 
-        // Calculate platform fee
-        Long platformFee = bondingCurveService.calculatePlatformFee(solCost);
-        Long totalSolCost = solCost + platformFee;
+        // Calculate platform fee (1% of SOL amount)
+        Long platformFee = bondingCurveService.calculatePlatformFee(totalSolCost);
+        Long solCost = totalSolCost - platformFee;
 
         // Calculate price per token
         BigDecimal pricePerToken = BigDecimal.valueOf(totalSolCost)
                 .divide(BigDecimal.valueOf(tokensToBuy), 18, RoundingMode.HALF_UP);
 
-        // Slippage check
-        BigDecimal slippageTolerance = request.getSlippageTolerance() != null ?
-                request.getSlippageTolerance() : BigDecimal.ONE;
-
-        // Execute buy on Solana
-        String signature = solanaService.executeBuy(
-                token.getMintAddress(),
-                user.getWalletAddress(),
-                totalSolCost,
-                tokensToBuy
-        );
+        // REMOVED: Backend does NOT execute transactions
+        // String signature = solanaService.executeBuy(...); // ❌ WRONG
+        String signature = request.getSignature(); // ✅ Use client-provided signature
 
         // Update token reserves
         token.setVirtualSolReserves(token.getVirtualSolReserves() + solCost);
@@ -122,11 +116,17 @@ public class TradingService {
     }
 
     /**
-     * Process a sell transaction
+     * FIXED: Record sell transaction (executed client-side)
+     * Backend only records the transaction after it's confirmed on-chain
      */
     @Transactional
     public TradeResponse sellTokens(TradeRequest request) {
-        log.info("Processing sell: {} tokens for wallet {}", request.getAmount(), request.getWalletAddress());
+        log.info("Recording sell transaction: {} tokens for wallet {}", request.getAmount(), request.getWalletAddress());
+
+        // FIXED: Transaction signature must be provided by client (already executed on-chain)
+        if (request.getSignature() == null || request.getSignature().isEmpty()) {
+            throw new RuntimeException("Transaction signature required - transactions must be executed client-side");
+        }
 
         // Get token
         Token token = tokenService.getTokenByMintAddress(request.getMintAddress())
@@ -136,37 +136,24 @@ public class TradingService {
         User user = userService.getUserByWallet(request.getWalletAddress())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Check user has enough tokens
+        // Check user has enough tokens (validation only)
         UserHolding holding = userHoldingRepository.findByUserIdAndTokenId(user.getId(), token.getId())
-                .orElseThrow(() -> new RuntimeException("No tokens to sell"));
+                .orElse(null);
 
         Long tokensToSell = request.getAmount();
-        if (holding.getAmount() < tokensToSell) {
-            throw new RuntimeException("Insufficient token balance");
-        }
+        Long netSolReceived = request.getSolAmount();
 
-        // Calculate sell price
-        Long solReceived = bondingCurveService.calculateSellPrice(
-                token.getVirtualSolReserves(),
-                token.getVirtualTokenReserves(),
-                tokensToSell
-        );
-
-        // Calculate platform fee
-        Long platformFee = bondingCurveService.calculatePlatformFee(solReceived);
-        Long netSolReceived = solReceived - platformFee;
+        // Calculate platform fee (1% of SOL amount)
+        Long platformFee = bondingCurveService.calculatePlatformFee(netSolReceived);
+        Long solReceived = netSolReceived + platformFee;
 
         // Calculate price per token
         BigDecimal pricePerToken = BigDecimal.valueOf(netSolReceived)
                 .divide(BigDecimal.valueOf(tokensToSell), 18, RoundingMode.HALF_UP);
 
-        // Execute sell on Solana
-        String signature = solanaService.executeSell(
-                token.getMintAddress(),
-                user.getWalletAddress(),
-                tokensToSell,
-                netSolReceived
-        );
+        // REMOVED: Backend does NOT execute transactions
+        // String signature = solanaService.executeSell(...); // ❌ WRONG
+        String signature = request.getSignature(); // ✅ Use client-provided signature
 
         // Update token reserves
         token.setVirtualSolReserves(token.getVirtualSolReserves() - solReceived);

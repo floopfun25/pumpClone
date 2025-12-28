@@ -14,6 +14,7 @@ pub mod bonding_curve {
         initial_virtual_token_reserves: u64,
         initial_virtual_sol_reserves: u64,
         bump: u8,
+        creator_allocation_bps: u16, // Creator allocation in basis points (0-10000, e.g. 500 = 5%)
     ) -> Result<()> {
         let bonding_curve = &mut ctx.accounts.bonding_curve;
         
@@ -22,9 +23,9 @@ pub mod bonding_curve {
         bonding_curve.creator = ctx.accounts.creator.key();
         bonding_curve.virtual_token_reserves = initial_virtual_token_reserves;
         bonding_curve.virtual_sol_reserves = initial_virtual_sol_reserves;
-        bonding_curve.real_token_reserves = 0;
-        bonding_curve.real_sol_reserves = 0;
-        bonding_curve.token_total_supply = initial_virtual_token_reserves; // Total supply minted to bonding curve
+        bonding_curve.real_token_reserves = initial_virtual_token_reserves; // FIXED: Start with all tokens in vault
+        bonding_curve.real_sol_reserves = 0; // Start with 0 real SOL (virtual only for pricing)
+        bonding_curve.token_total_supply = initial_virtual_token_reserves; // Fixed total supply
         bonding_curve.graduated = false;
         bonding_curve.created_at = Clock::get()?.unix_timestamp;
         bonding_curve.bump_seed = bump;
@@ -64,6 +65,32 @@ pub mod bonding_curve {
         );
 
         token::mint_to(mint_cpi_ctx, initial_virtual_token_reserves)?;
+
+        // ADDED: Mint creator allocation if specified
+        if creator_allocation_bps > 0 && creator_allocation_bps <= 10000 {
+            let creator_tokens = (initial_virtual_token_reserves as u128)
+                .checked_mul(creator_allocation_bps as u128)
+                .unwrap()
+                .checked_div(10000)
+                .unwrap() as u64;
+
+            if creator_tokens > 0 {
+                // Mint tokens directly to creator's token account
+                let creator_mint_cpi_accounts = MintTo {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.creator_token_account.to_account_info(),
+                    authority: bonding_curve.to_account_info(),
+                };
+                let creator_mint_cpi_ctx = CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    creator_mint_cpi_accounts,
+                    signer
+                );
+                token::mint_to(creator_mint_cpi_ctx, creator_tokens)?;
+
+                msg!("Creator allocation: {} tokens ({} bps)", creator_tokens, creator_allocation_bps);
+            }
+        }
 
         msg!("Bonding curve initialized: {} tokens minted to vault", initial_virtual_token_reserves);
         Ok(())
@@ -148,8 +175,10 @@ pub mod bonding_curve {
         let bonding_curve = &mut ctx.accounts.bonding_curve;
         bonding_curve.virtual_sol_reserves += trade_amount;
         bonding_curve.virtual_token_reserves -= tokens_to_mint;
+        bonding_curve.real_token_reserves -= tokens_to_mint; // FIXED: Track real tokens leaving vault
         bonding_curve.real_sol_reserves += trade_amount;
-        bonding_curve.token_total_supply += tokens_to_mint;
+        // FIXED: token_total_supply should remain constant (all tokens minted at initialization)
+        // bonding_curve.token_total_supply is the fixed total supply, not circulating supply
 
         // Check for graduation
         if bonding_curve.real_sol_reserves >= GRADUATION_THRESHOLD {
@@ -214,8 +243,10 @@ pub mod bonding_curve {
         let bonding_curve = &mut ctx.accounts.bonding_curve;
         bonding_curve.virtual_token_reserves += token_amount;
         bonding_curve.virtual_sol_reserves -= sol_out;
+        bonding_curve.real_token_reserves += token_amount; // FIXED: Track burned tokens returning to vault
         bonding_curve.real_sol_reserves -= sol_out;
-        bonding_curve.token_total_supply -= token_amount;
+        // FIXED: token_total_supply should remain constant (tokens are burned, not removed from supply)
+        // bonding_curve.token_total_supply is the fixed total supply, not circulating supply
 
         msg!("Sell transaction completed: {} tokens sold for {} SOL", token_amount, seller_receives);
         Ok(())
@@ -224,7 +255,7 @@ pub mod bonding_curve {
 
 // Account structures
 #[derive(Accounts)]
-#[instruction(initial_virtual_token_reserves: u64, initial_virtual_sol_reserves: u64, bump: u8)]
+#[instruction(initial_virtual_token_reserves: u64, initial_virtual_sol_reserves: u64, bump: u8, creator_allocation_bps: u16)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -249,7 +280,16 @@ pub struct Initialize<'info> {
         associated_token::authority = bonding_curve,
     )]
     pub vault: Account<'info, TokenAccount>,
-    
+
+    // ADDED: Creator's token account for allocation
+    #[account(
+        init_if_needed,
+        payer = creator,
+        associated_token::mint = mint,
+        associated_token::authority = creator
+    )]
+    pub creator_token_account: Account<'info, TokenAccount>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
