@@ -5,29 +5,13 @@
       class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
     >
       <div class="max-w-7xl mx-auto px-4 py-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-              {{ t("portfolio.title") }}
-            </h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">
-              {{ t("portfolio.description") }}
-            </p>
-          </div>
-
-          <!-- Refresh Button -->
-          <button
-            @click="refreshPortfolio"
-            :disabled="loading"
-            class="flex items-center gap-2 px-4 py-2 bg-pump-purple text-white rounded-lg hover:bg-pump-purple/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Icon
-              name="refresh"
-              :class="{ 'animate-spin': loading }"
-              class="w-4 h-4"
-            />
-            {{ t("portfolio.refresh") }}
-          </button>
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+            {{ t("portfolio.title") }}
+          </h1>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">
+            {{ t("portfolio.description") }}
+          </p>
         </div>
       </div>
     </div>

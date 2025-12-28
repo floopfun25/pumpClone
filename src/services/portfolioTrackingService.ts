@@ -26,16 +26,12 @@ class PortfolioTrackingService {
    */
   async getPortfolio24hChange(userId: string, currentValue: number): Promise<Portfolio24hChange | null> {
     try {
-      console.log(`📊 [PORTFOLIO] Fetching 24h change for user ${userId}`);
-
       const response = await get24hChangeAPI(currentValue);
 
       const change: Portfolio24hChange = {
         valueChange: Number(response.valueChange),
         percentChange: Number(response.percentChange),
       };
-
-      console.log(`✅ [PORTFOLIO] 24h change: ${change.percentChange.toFixed(2)}%`);
 
       return change;
     } catch (error) {
@@ -62,8 +58,6 @@ class PortfolioTrackingService {
         tokenValue,
         tokenCount: snapshot.tokens.length,
       });
-
-      console.log(`✅ [PORTFOLIO] Snapshot stored for user ${userId}: $${snapshot.totalValue.toFixed(2)}`);
     } catch (error) {
       console.error('❌ [PORTFOLIO] Error storing snapshot:', error);
     }

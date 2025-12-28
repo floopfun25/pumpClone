@@ -425,6 +425,36 @@ export class BondingCurveService {
         throw new Error("Token not found");
       }
 
+      // Fetch real-time price and market cap from on-chain bonding curve
+      const { bondingCurveProgram } = await import("@/services/bondingCurveProgram");
+      const { priceOracleService } = await import("@/services/priceOracle");
+      const { PublicKey } = await import("@solana/web3.js");
+
+      let currentPrice = 0;
+      let marketCap = 0;
+
+      if (token.mintAddress) {
+        try {
+          // Get SOL price for market cap calculation
+          const solPriceData = await priceOracleService.getSOLPrice();
+
+          // Get real-time price from bonding curve
+          const priceInSOL = await bondingCurveProgram.getCurrentPrice(
+            new PublicKey(token.mintAddress)
+          );
+          currentPrice = priceInSOL * solPriceData.price; // Convert to USD
+
+          // Get real-time market cap
+          marketCap = await bondingCurveProgram.getMarketCap(
+            new PublicKey(token.mintAddress),
+            solPriceData.price
+          );
+        } catch (error) {
+          console.warn("Failed to fetch on-chain bonding curve data, using fallback:", error);
+          // Fall through to transaction-based calculation
+        }
+      }
+
       // Get total SOL raised from transactions
       const transactionsResponse = await tradingAPI.getTokenTransactions(
         Number(tokenId),
@@ -469,25 +499,19 @@ export class BondingCurveService {
         scaledInitialVirtualTokenReserves - tokensSold;
       const realTokenReserves = scaledInitialRealTokenReserves - tokensSold;
 
-      console.log("🔧 [BONDING CURVE STATE] Using scaled reserves:", {
-        actualTotalSupply,
-        scalingFactor,
-        originalVirtualReserves: Number(INITIAL_VIRTUAL_TOKEN_RESERVES),
-        scaledVirtualReserves: scaledInitialVirtualTokenReserves,
-        virtualTokenReserves,
-        virtualSolReserves,
-        tokensSold,
-      });
+      // Use on-chain price if available, otherwise calculate from reserves
+      if (currentPrice === 0) {
+        currentPrice = this.calculatePriceFromReserves(
+          virtualSolReserves,
+          virtualTokenReserves,
+        );
+      }
 
-      // Calculate current price
-      const currentPrice = this.calculatePriceFromReserves(
-        virtualSolReserves,
-        virtualTokenReserves,
-      );
-
-      // Calculate market cap (circulating supply * price)
-      const circulatingSupply = tokensSold;
-      const marketCap = circulatingSupply * currentPrice;
+      // Use on-chain market cap if available, otherwise calculate from circulating supply
+      if (marketCap === 0) {
+        const circulatingSupply = tokensSold;
+        marketCap = circulatingSupply * currentPrice;
+      }
 
       // Calculate graduation progress
       const progress = Math.min(
@@ -616,16 +640,6 @@ export class BondingCurveService {
     const scaledRealTokenReserves = BigInt(
       Math.floor(Number(BONDING_CURVE_TOKENS) * scalingFactor),
     );
-
-    console.log("🔧 [BONDING CURVE] Creating initial state with scaling:", {
-      actualTotalSupply: totalSupply,
-      defaultTotalSupply: tokenDefaults.totalSupply,
-      scalingFactor,
-      originalVirtualReserves: Number(INITIAL_VIRTUAL_TOKEN_RESERVES),
-      scaledVirtualReserves: Number(scaledVirtualTokenReserves),
-      originalRealReserves: Number(BONDING_CURVE_TOKENS),
-      scaledRealReserves: Number(scaledRealTokenReserves),
-    });
 
     return {
       virtualTokenReserves: scaledVirtualTokenReserves,

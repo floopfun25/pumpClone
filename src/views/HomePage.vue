@@ -304,19 +304,42 @@ const loadTokens = async () => {
         const response = await tokenAPI.getTrendingTokens(0, 1000); // Get more for pagination
         const allData = response.content;
 
-        // Transform and store all data with proper price conversion
-        allTrendingData.value = allData.map((token: any) => ({
-          id: token.id?.toString() || "",
-          name: token.name || "",
-          symbol: token.symbol || "",
-          imageUrl: token.imageUrl || null,
-          price: (Number(token.currentPrice) || 0) * solPriceUSD, // Convert SOL to USD
-          priceChange24h: 0, // Not available from backend yet
-          marketCap: Number(token.marketCap) || 0,
-          volume24h: 0, // Not available from backend yet
-          holders: 0, // Not available from backend yet
-          mint_address: token.mintAddress || undefined,
-        }));
+        // Transform and store all data with real-time prices from bonding curve
+        allTrendingData.value = await Promise.all(
+          allData.map(async (token: any) => {
+            // Fetch real-time price from bonding curve instead of using stale database price
+            let price = 0;
+            let priceChange24h = 0;
+            let marketCap = 0;
+
+            if (token.mintAddress) {
+              try {
+                const priceData = await priceOracleService.getTokenPrice(token.mintAddress);
+                price = priceData?.price || 0;
+                priceChange24h = priceData?.priceChangePercent24h || 0;
+                marketCap = priceData?.marketCap || 0;
+              } catch (error) {
+                console.warn(`Failed to fetch price for ${token.name}:`, error);
+                // Fallback to database price if bonding curve fetch fails
+                price = (Number(token.currentPrice) || 0) * solPriceUSD;
+                marketCap = Number(token.marketCap) || 0;
+              }
+            }
+
+            return {
+              id: token.id?.toString() || "",
+              name: token.name || "",
+              symbol: token.symbol || "",
+              imageUrl: token.imageUrl || null,
+              price,
+              priceChange24h,
+              marketCap,
+              volume24h: 0, // Not available from backend yet
+              holders: 0, // Not available from backend yet
+              mint_address: token.mintAddress || undefined,
+            };
+          })
+        );
 
         totalTokens.value = allTrendingData.value.length;
         totalPages.value = Math.ceil(
@@ -335,24 +358,43 @@ const loadTokens = async () => {
       // Use Spring Boot backend API for pagination
       const response = await tokenAPI.getAllTokens(page.value - 1, ITEMS_PER_PAGE);
 
-      // Transform and validate data with proper price conversion
-      tokens.value = response.content.map((token: any) => {
-        const priceSOL = Number(token.currentPrice) || 0;
-        const priceUSD = priceSOL * solPriceUSD;
+      // Transform and validate data with real-time prices from bonding curve
+      tokens.value = await Promise.all(
+        response.content.map(async (token: any) => {
+          // Fetch real-time price from bonding curve instead of using stale database price
+          let price = 0;
+          let priceChange24h = 0;
+          let marketCap = 0;
 
-        return {
-          id: token.id?.toString() || "",
-          name: token.name || "",
-          symbol: token.symbol || "",
-          imageUrl: token.imageUrl || null,
-          price: priceUSD, // Convert SOL to USD
-          priceChange24h: 0, // Not available from backend yet
-          marketCap: Number(token.marketCap) || 0,
-          volume24h: 0, // Not available from backend yet
-          holders: 0, // Not available from backend yet
-          mint_address: token.mintAddress || undefined,
-        };
-      });
+          if (token.mintAddress) {
+            try {
+              const priceData = await priceOracleService.getTokenPrice(token.mintAddress);
+              price = priceData?.price || 0;
+              priceChange24h = priceData?.priceChangePercent24h || 0;
+              marketCap = priceData?.marketCap || 0;
+            } catch (error) {
+              console.warn(`Failed to fetch price for ${token.name}:`, error);
+              // Fallback to database price if bonding curve fetch fails
+              const priceSOL = Number(token.currentPrice) || 0;
+              price = priceSOL * solPriceUSD;
+              marketCap = Number(token.marketCap) || 0;
+            }
+          }
+
+          return {
+            id: token.id?.toString() || "",
+            name: token.name || "",
+            symbol: token.symbol || "",
+            imageUrl: token.imageUrl || null,
+            price,
+            priceChange24h,
+            marketCap,
+            volume24h: 0, // Not available from backend yet
+            holders: 0, // Not available from backend yet
+            mint_address: token.mintAddress || undefined,
+          };
+        })
+      );
 
       // Use proper pagination metadata from backend
       totalPages.value = response.totalPages;

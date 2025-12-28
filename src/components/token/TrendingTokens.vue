@@ -160,23 +160,47 @@ const loadTrendingTokens = async () => {
     // Get trending tokens from Spring Boot backend
     const response = await tokenAPI.getTrendingTokens(0, 12); // Get more tokens for scrolling
 
-    // Map the response to our Token interface
-    trendingTokens.value = response.content.map((token: any, index: number) => {
-      return {
-        id: token.id?.toString() || "",
-        name: token.name || "",
-        symbol: token.symbol || "",
-        imageUrl: token.imageUrl || "",
-        price: Number(token.currentPrice) || 0,
-        priceChange24h: 0, // Not available from backend yet
-        marketCap: Number(token.marketCap) || 0,
-        volume24h: 0, // Not available from backend yet
-        holders: 0, // Not available from backend yet
-        mint_address: token.mintAddress || "",
-        trending_score: 100 - (index * 5), // Simple trending score based on position
-        rank: index + 1,
-      };
-    });
+    // Get price oracle for real-time prices
+    const { priceOracleService } = await import("@/services/priceOracle");
+
+    // Map the response to our Token interface with real-time prices
+    trendingTokens.value = await Promise.all(
+      response.content.map(async (token: any, index: number) => {
+        // Fetch real-time price from bonding curve instead of using stale database price
+        let price = 0;
+        let priceChange24h = 0;
+        let marketCap = 0;
+
+        if (token.mintAddress) {
+          try {
+            const priceData = await priceOracleService.getTokenPrice(token.mintAddress);
+            price = priceData?.price || 0;
+            priceChange24h = priceData?.priceChangePercent24h || 0;
+            marketCap = priceData?.marketCap || 0;
+          } catch (error) {
+            console.warn(`Failed to fetch price for ${token.name}:`, error);
+            // Fallback to database price if bonding curve fetch fails
+            price = Number(token.currentPrice) || 0;
+            marketCap = Number(token.marketCap) || 0;
+          }
+        }
+
+        return {
+          id: token.id?.toString() || "",
+          name: token.name || "",
+          symbol: token.symbol || "",
+          imageUrl: token.imageUrl || "",
+          price,
+          priceChange24h,
+          marketCap,
+          volume24h: 0, // Not available from backend yet
+          holders: 0, // Not available from backend yet
+          mint_address: token.mintAddress || "",
+          trending_score: 100 - (index * 5), // Simple trending score based on position
+          rank: index + 1,
+        };
+      })
+    );
 
     // Check scroll state after data is loaded
     setTimeout(checkScroll, 100);

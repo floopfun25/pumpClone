@@ -33,8 +33,6 @@ export const useAuthStore = defineStore("auth", () => {
    */
   const signOut = async () => {
     try {
-      console.log("Auth: 🚪 Signing out...");
-
       // Clear backend session
       authAPI.logout();
 
@@ -45,8 +43,6 @@ export const useAuthStore = defineStore("auth", () => {
 
       // Remove JWT token from localStorage
       localStorage.removeItem('jwtToken');
-
-      console.log("Auth: ✅ User signed out");
     } catch (error) {
       console.error("Auth: ❌ Sign out failed:", error);
     }
@@ -60,15 +56,8 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       isLoading.value = true;
 
-      console.log("Auth: 🚀 Starting user initialization...");
-      console.log("Auth: 🔍 Checking wallet connection state:", {
-        isConnected: walletStore.isConnected,
-        walletAddress: walletStore.walletAddress,
-      });
-
       // If wallet is not connected, clear auth state and return
       if (!walletStore.isConnected || !walletStore.walletAddress) {
-        console.log("Auth: ❌ Wallet not connected, clearing auth state");
         user.value = null;
         isAuthenticated.value = false;
         return;
@@ -79,15 +68,11 @@ export const useAuthStore = defineStore("auth", () => {
         isAuthenticated.value &&
         user.value?.wallet_address === walletStore.walletAddress
       ) {
-        console.log(
-          "Auth: ✅ Already authenticated with same wallet, skipping initialization",
-        );
         return;
       }
 
       // Prevent re-entrant calls
       if (isInitializing) {
-        console.log("Auth: ⚠️ Initialization already in progress, skipping.");
         return;
       }
 
@@ -103,10 +88,8 @@ export const useAuthStore = defineStore("auth", () => {
           user.value = convertAPIUser(apiUser);
           isAuthenticated.value = true;
           jwtToken.value = storedToken;
-          console.log("Auth: ✅ Restored session from JWT token");
           return;
         } catch (error) {
-          console.log("Auth: ⚠️ Stored JWT token is invalid or expired, clearing");
           localStorage.removeItem('jwtToken');
           jwtToken.value = null;
           isAuthenticated.value = false;
@@ -117,12 +100,9 @@ export const useAuthStore = defineStore("auth", () => {
       try {
         const apiUser = await userAPI.getUserByWallet(walletStore.walletAddress!);
         user.value = convertAPIUser(apiUser);
-        console.log("Auth: ℹ️ Found existing user (not authenticated yet)");
       } catch (error) {
-        console.log("Auth: ℹ️ No existing user found for this wallet address");
+        // No existing user found
       }
-
-      console.log("Auth: 🏁 User initialization finished.");
     } catch (error) {
       console.error("Auth: ❌ Error during user initialization:", error);
     } finally {
@@ -164,8 +144,6 @@ export const useAuthStore = defineStore("auth", () => {
 
       // Save JWT token to localStorage for API requests
       localStorage.setItem('jwtToken', response.token);
-
-      console.log("Auth: ✅ Successfully signed in with wallet");
       return user.value;
     } catch (error) {
       console.error("Auth: ❌ Sign in failed:", error);
@@ -201,7 +179,6 @@ export const useAuthStore = defineStore("auth", () => {
       });
 
       user.value = convertAPIUser(apiUser);
-      console.log("Auth: ✅ Profile updated successfully");
       return user.value;
     } catch (error) {
       console.error("Auth: ❌ Profile update failed:", error);
@@ -231,7 +208,6 @@ export const useAuthStore = defineStore("auth", () => {
    * Setup auth listener (for backward compatibility with App.vue)
    */
   const setupAuthListener = () => {
-    console.log("Auth: Setting up auth listener (using watch)");
     // The watch is already set up above, so this is just for compatibility
   };
 

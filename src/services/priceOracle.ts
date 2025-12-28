@@ -475,7 +475,6 @@ class PriceOracleService {
 
       if (token) {
         // Get real-time price from on-chain bonding curve state
-        console.log(`📊 [BONDING CURVE] Fetching on-chain price for ${token.name}`);
         const tokenPriceSOL = await bondingCurveProgram.getCurrentPrice(
           new PublicKey(mintAddress)
         );
@@ -484,7 +483,20 @@ class PriceOracleService {
         const solPriceData = await this.getSOLPrice();
         const tokenPriceUSD = tokenPriceSOL * solPriceData.price;
 
-        console.log(`💰 [BONDING CURVE] Price: ${tokenPriceSOL} SOL = $${tokenPriceUSD.toFixed(8)}`);
+        // Calculate real-time market cap from bonding curve
+        const marketCap = await bondingCurveProgram.getMarketCap(
+          new PublicKey(mintAddress),
+          solPriceData.price
+        );
+
+        // Get 24h volume from transactions
+        const volume24h = await bondingCurveProgram.get24hVolume(
+          String(token.id),
+          solPriceData.price
+        );
+
+        // NOTE: Holder count is expensive (rate limited on free RPC)
+        // Only fetch on token detail page, not on listings
 
         // TODO: Get 24h price change from backend price history
         const priceChange24h = 0;
@@ -493,8 +505,8 @@ class PriceOracleService {
           price: tokenPriceUSD,
           priceChange24h,
           priceChangePercent24h: priceChange24h,
-          marketCap: token.marketCap || 0,
-          volume24h: 0, // TODO: Implement volume in backend
+          marketCap,
+          volume24h,
           lastUpdated: Date.now(),
         };
       }
