@@ -2,10 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Burn, SetAuthority};
 use anchor_spl::associated_token::{AssociatedToken};
 
-mod vesting;
-pub use vesting::*;
-
-declare_id!("Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY");
+declare_id!("Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M");
 
 #[program]
 pub mod bonding_curve {
@@ -255,23 +252,6 @@ pub mod bonding_curve {
         Ok(())
     }
 
-    // ADDED: Vesting instructions
-
-    /// Initialize a vesting schedule for creator tokens
-    pub fn initialize_vesting(
-        ctx: Context<InitializeVesting>,
-        total_amount: u64,
-        start_time: i64,
-        end_time: i64,
-        cliff_time: i64,
-    ) -> Result<()> {
-        vesting::initialize_vesting(ctx, total_amount, start_time, end_time, cliff_time)
-    }
-
-    /// Claim vested tokens
-    pub fn claim_vested_tokens(ctx: Context<ClaimVestedTokens>) -> Result<()> {
-        vesting::claim_vested_tokens(ctx)
-    }
 }
 
 // Account structures

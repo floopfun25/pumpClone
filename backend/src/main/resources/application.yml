@@ -54,11 +54,11 @@ server:
 
 # Application Configuration
 floppfun:
-  # Solana Configuration
+  # Solana Configuration (UPDATED - Deployed Dec 28, 2025)
   solana:
     network: ${SOLANA_NETWORK:devnet}
     rpc-url: ${SOLANA_RPC_URL:https://api.devnet.solana.com}
-    program-id: ${BONDING_CURVE_PROGRAM_ID:TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA}
+    program-id: ${BONDING_CURVE_PROGRAM_ID:Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M}
     fee-wallet: ${FEE_WALLET:D45ywEm23MkXT6hLLopWgTmnCoyF2XKooFdGFaF75tWK}
     treasury-wallet: ${TREASURY_WALLET:4mWPd56BqWPdLH2ygdMi6jNnTQUDcxPFkjsJCfQA5g5J}
 
