@@ -57,8 +57,8 @@ class PriceOracleService {
       "https://public-api.birdeye.so/defi";
   private readonly JUPITER_BASE_URL = import.meta.env.DEV
     ? "/api/jupiter"
-    : import.meta.env.VITE_JUPITER_API_URL || "https://price.jup.ag/v6";
-  private readonly JUPITER_FALLBACK_URL = "https://public.jup.ag/v6"; // Alternative Jupiter endpoint for price API
+    : import.meta.env.VITE_JUPITER_API_URL || "https://api.jup.ag/price/v2";
+  private readonly JUPITER_FALLBACK_URL = "https://api.jup.ag/price/v2"; // Official Jupiter Price API V2
 
   // Additional fallback APIs for regions with restrictions
   private readonly ALTERNATIVE_APIS = [

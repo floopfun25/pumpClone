@@ -239,6 +239,7 @@
 import { ref, computed } from "vue";
 import { useTypedI18n } from "@/i18n";
 import { useWalletStore } from "@/stores/wallet";
+import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { isMobile } from "@/utils/mobile";
 import { getWalletFallbackImage } from "@/utils/paths";
@@ -256,6 +257,7 @@ const emit = defineEmits<{
 // Composables
 const { t } = useTypedI18n();
 const walletStore = useWalletStore();
+const authStore = useAuthStore();
 const uiStore = useUIStore();
 
 // State
@@ -305,6 +307,16 @@ const connectWallet = async (walletName: string) => {
 
   try {
     await walletStore.connectWallet(walletName);
+
+    // Automatically sign in to get JWT token after wallet connection
+    try {
+      await authStore.signInWithWallet();
+      console.log("WalletModal: ✅ Auto sign-in successful after wallet connection");
+    } catch (signInError) {
+      console.error("WalletModal: ⚠️ Auto sign-in failed, user will need to sign in manually:", signInError);
+      // Don't throw - wallet is still connected, just not authenticated
+    }
+
     emit("connected", walletName);
     closeModal();
   } catch (err) {

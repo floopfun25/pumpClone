@@ -172,12 +172,17 @@ router.beforeEach(async (to, from, next) => {
         await new Promise((resolve) => setTimeout(resolve, checkInterval));
         waitTime += checkInterval;
 
-        // If wallet store shows connected but auth store doesn't, try to sign in
+        // If wallet store shows connected but auth store doesn't, try to initialize first
         const walletStore = (await import("@/stores/wallet")).useWalletStore();
         if (walletStore.isConnected && !authStore.isAuthenticated) {
           try {
-            // Try to sign in with wallet to get JWT token
-            await authStore.signInWithWallet();
+            // First try to initialize user (checks for existing JWT token)
+            await authStore.initializeUser();
+
+            // Only ask for signature if initialization didn't work and we're still not authenticated
+            if (!authStore.isAuthenticated) {
+              await authStore.signInWithWallet();
+            }
           } catch (error) {
             console.error("Router guard: Failed to auto-sign in:", error);
           }

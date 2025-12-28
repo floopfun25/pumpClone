@@ -72,6 +72,7 @@
 
       <!-- Portfolio -->
       <router-link
+        v-if="walletStore.isConnected"
         to="/portfolio"
         class="sidebar-item"
         :class="[

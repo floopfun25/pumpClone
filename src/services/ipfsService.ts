@@ -105,7 +105,8 @@ export class IPFSService {
     }
 
     const result: PinataResponse = await response.json();
-    const ipfsUrl = `https://ipfs.io/ipfs/${result.IpfsHash}`;
+    // Use Pinata's dedicated gateway for better reliability
+    const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
 
     console.log("✅ File uploaded to IPFS via Pinata:", ipfsUrl);
     return ipfsUrl;
