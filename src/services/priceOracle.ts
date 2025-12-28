@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { apiHealthMonitor } from "./apiHealthMonitor";
 import { tokenAPI } from "./api";
+import { bondingCurveProgram } from "./bondingCurveProgram";
 
 export interface PriceData {
   price: number;
@@ -55,10 +56,8 @@ class PriceOracleService {
     ? "/api/birdeye"
     : import.meta.env.VITE_BIRDEYE_API_URL ||
       "https://public-api.birdeye.so/defi";
-  private readonly JUPITER_BASE_URL = import.meta.env.DEV
-    ? "/api/jupiter"
-    : import.meta.env.VITE_JUPITER_API_URL || "https://api.jup.ag/price/v2";
-  private readonly JUPITER_FALLBACK_URL = "https://api.jup.ag/price/v2"; // Official Jupiter Price API V2
+  private readonly JUPITER_API_KEY = import.meta.env.VITE_JUPITER_API_KEY || "";
+  private readonly JUPITER_BASE_URL = "https://api.jup.ag"; // Jupiter API (requires free API key as of 2025)
 
   // Additional fallback APIs for regions with restrictions
   private readonly ALTERNATIVE_APIS = [
@@ -91,7 +90,7 @@ class PriceOracleService {
     console.log("🌐 [NETWORK TEST] Checking API connectivity...");
 
     const testEndpoints = [
-      { name: "Jupiter", url: "https://price.jup.ag" },
+      { name: "Jupiter", url: "https://api.jup.ag" },
       { name: "CoinGecko", url: "https://api.coingecko.com" },
       { name: "Birdeye", url: "https://public-api.birdeye.so" },
     ];
@@ -205,39 +204,57 @@ class PriceOracleService {
    * Fetches SOL price from Jupiter, using the proxy.
    */
   private async _fetchJupiterPrice(): Promise<PriceData> {
-    // Jupiter Price API v6 - more reliable endpoint
+    // Jupiter Price API v3 - requires free API key (as of Jan 2025)
     const SOL_MINT =
       import.meta.env.VITE_SOL_MINT ||
       "So11111111111111111111111111111111111111112";
-    const USDC_MINT =
-      import.meta.env.VITE_USDC_MINT ||
-      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-    // Create a list of URLs to try, with the primary first.
-    const urlsToTry = [
-      `https://price.jup.ag/v6/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}`,
-      `${this.JUPITER_FALLBACK_URL}/price?ids=${SOL_MINT}&vsToken=${USDC_MINT}`, // Use the fallback URL
-    ];
+    // Check if API key is configured
+    if (!this.JUPITER_API_KEY) {
+      throw new Error(
+        "Jupiter API key not configured. Get free key at https://portal.jup.ag/"
+      );
+    }
 
-    const jupiterData = await this._fetchWithFallbacks(urlsToTry);
-    if (!jupiterData?.data?.[SOL_MINT]) {
+    const url = `${this.JUPITER_BASE_URL}/price/v3?ids=${SOL_MINT}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "x-api-key": this.JUPITER_API_KEY,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Jupiter API request failed with status ${response.status}. Check your API key at https://portal.jup.ag/`
+      );
+    }
+
+    const jupiterData = await response.json();
+
+    // Jupiter V3 returns data directly at root level: { "So111...": { usdPrice: 124.36, ... } }
+    if (!jupiterData?.[SOL_MINT]) {
       throw new Error("Invalid Jupiter response format - no SOL data found");
     }
 
-    const solData = jupiterData.data[SOL_MINT];
-    const price = parseFloat(solData.price) || 0;
+    const solData = jupiterData[SOL_MINT];
+    const price = parseFloat(solData.usdPrice) || 0; // V3 uses 'usdPrice' not 'price'
+    const priceChange24h = solData.priceChange24h || 0;
 
     const priceData: PriceData = {
       price: price,
-      priceChange24h: 0, // Jupiter doesn't provide 24h change (we can calculate later)
-      priceChangePercent24h: 0, // Jupiter doesn't provide 24h change
-      marketCap: 0, // Jupiter focuses on price, not market cap
-      volume24h: 0, // Jupiter doesn't provide volume
+      priceChange24h: 0, // Calculate from percentage
+      priceChangePercent24h: priceChange24h,
+      marketCap: 0, // Jupiter V3 focuses on price
+      volume24h: 0, // Not provided
       lastUpdated: Date.now(),
     };
 
     console.log(
-      `✅ [JUPITER] SOL price fetched successfully: $${priceData.price}`,
+      `✅ [JUPITER V3] SOL price fetched successfully: $${priceData.price} (${priceChange24h > 0 ? '+' : ''}${priceChange24h}%)`,
     );
     return priceData;
   }
@@ -457,12 +474,17 @@ class PriceOracleService {
       const token = await tokenAPI.getTokenByMint(mintAddress);
 
       if (token) {
-        // Use real bonding curve price from backend (stored in SOL)
-        const tokenPriceSOL = token.currentPrice || 0.0000001;
+        // Get real-time price from on-chain bonding curve state
+        console.log(`📊 [BONDING CURVE] Fetching on-chain price for ${token.name}`);
+        const tokenPriceSOL = await bondingCurveProgram.getCurrentPrice(
+          new PublicKey(mintAddress)
+        );
 
         // Convert SOL price to USD
         const solPriceData = await this.getSOLPrice();
         const tokenPriceUSD = tokenPriceSOL * solPriceData.price;
+
+        console.log(`💰 [BONDING CURVE] Price: ${tokenPriceSOL} SOL = $${tokenPriceUSD.toFixed(8)}`);
 
         // TODO: Get 24h price change from backend price history
         const priceChange24h = 0;
@@ -518,41 +540,59 @@ class PriceOracleService {
     return Math.abs(hash);
   }
 
-  // Get token price from Jupiter API (Solana-native, free, no API key required)
+  // Get token price from Jupiter API (Solana-native, requires free API key as of 2025)
   private async getTokenPriceFromJupiter(
     mintAddress: string,
   ): Promise<TokenPriceData | null> {
     try {
-      // Use USDC as base currency for token prices
-      const usdcMint =
-        import.meta.env.VITE_USDC_MINT ||
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-      const urlsToTry = [
-        `https://price.jup.ag/v6/price?ids=${mintAddress}&vsToken=${usdcMint}`,
-        `${this.JUPITER_FALLBACK_URL}/price?ids=${mintAddress}&vsToken=${usdcMint}`,
-      ];
+      // Check if API key is configured
+      if (!this.JUPITER_API_KEY) {
+        console.warn(
+          "[JUPITER] API key not configured. Get free key at https://portal.jup.ag/",
+        );
+        return null;
+      }
 
-      const jupiterData = await this._fetchWithFallbacks(urlsToTry);
+      const url = `${this.JUPITER_BASE_URL}/price/v3?ids=${mintAddress}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "x-api-key": this.JUPITER_API_KEY,
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) {
+        console.warn(
+          `[JUPITER] API request failed with status ${response.status}`,
+        );
+        return null;
+      }
+
+      const jupiterData = await response.json();
 
       if (!jupiterData) {
         console.warn(
-          "[JUPITER] API proxy returned no data for token:",
+          "[JUPITER V3] No data returned for token:",
           mintAddress,
         );
         return null;
       }
 
-      // Jupiter v2 response format: { data: { [mintAddress]: { price: "123.45" } } }
-      if (jupiterData.data && jupiterData.data[mintAddress]) {
+      // Jupiter V3 returns data directly at root level: { "mint_address": { usdPrice: 0.123, ... } }
+      if (jupiterData[mintAddress]) {
         apiHealthMonitor.recordSuccess("jupiter");
 
-        const tokenData = jupiterData.data[mintAddress];
-        const price = parseFloat(tokenData.price) || 0;
+        const tokenData = jupiterData[mintAddress];
+        const price = parseFloat(tokenData.usdPrice) || 0; // V3 uses 'usdPrice' not 'price'
+        const priceChange24h = tokenData.priceChange24h || 0;
 
         const priceData: PriceData = {
           price: price,
-          priceChange24h: 0, // Jupiter doesn't provide 24h change
-          priceChangePercent24h: 0,
+          priceChange24h: 0, // Calculate from percentage if needed
+          priceChangePercent24h: priceChange24h,
           lastUpdated: Date.now(),
         };
 
@@ -588,7 +628,7 @@ class PriceOracleService {
           apiHealthMonitor.recordFailure("token_metadata", "Network error");
         }
 
-        console.log(`✅ [JUPITER] Token price fetched: ${symbol} = $${price}`);
+        console.log(`✅ [JUPITER V3] Token price fetched: ${symbol} = $${price} (${priceChange24h > 0 ? '+' : ''}${priceChange24h}%)`);
 
         return {
           mint: mintAddress,

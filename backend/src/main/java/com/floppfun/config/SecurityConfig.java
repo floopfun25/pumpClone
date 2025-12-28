@@ -33,7 +33,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // Public endpoints (without /api prefix - context path is added by servlet)
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tokens/**").permitAll()
@@ -43,10 +43,17 @@ public class SecurityConfig {
                         // WebSocket
                         .requestMatchers("/ws/**").permitAll()
 
-                        // Protected endpoints
+                        // Protected endpoints - require authentication
                         .requestMatchers(HttpMethod.POST, "/tokens/create").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/tokens/*/comments/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/tokens/*/comments/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/tokens/*/comments/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/trades/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/users/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/watchlist/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/watchlist/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/portfolio/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/portfolio/**").authenticated()
 
                         // Any other request needs authentication
                         .anyRequest().authenticated()

@@ -1020,17 +1020,54 @@ export class BondingCurveProgram {
    */
   async getCurrentPrice(mintAddress: PublicKey): Promise<number> {
     try {
-      // TODO: Get current bonding curve state from Spring Boot backend
-      // For now, use config defaults
+      // Get actual bonding curve state from blockchain
+      const accountInfo = await this.getBondingCurveAccount(mintAddress);
 
-      // Calculate initial price based on virtual reserves from config
-      const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL; // Convert lamports to SOL
-      const virtualTokenReserves = Number(config.bondingCurve.initialVirtualTokenReserves); // Convert base units to human tokens
-      return virtualSolReserves / virtualTokenReserves; // ~0.000000028 SOL per token
+      let virtualSolReserves = BigInt(config.bondingCurve.initialVirtualSolReserves);
+      let virtualTokenReserves = BigInt(config.bondingCurve.initialVirtualTokenReserves);
+
+      if (accountInfo && accountInfo.data.length >= 80) {
+        try {
+          // Parse bonding curve account data (match Rust struct layout)
+          const data = accountInfo.data;
+
+          // Helper to read u64 in little-endian format
+          const readU64LE = (buffer: Buffer, offset: number): bigint => {
+            const low = buffer.readUInt32LE(offset);
+            const high = buffer.readUInt32LE(offset + 4);
+            return (BigInt(high) << 32n) | BigInt(low);
+          };
+
+          // Read actual reserves from bonding curve account
+          // Skip discriminator (8 bytes) + mint (32 bytes) + creator (32 bytes) = 72 bytes
+          virtualTokenReserves = readU64LE(data, 72); // virtual_token_reserves at offset 72
+          virtualSolReserves = readU64LE(data, 80);   // virtual_sol_reserves at offset 80
+
+          console.log(`📊 [BONDING CURVE] Current reserves - Token: ${virtualTokenReserves}, SOL: ${virtualSolReserves}`);
+        } catch (parseError) {
+          console.warn("Failed to parse bonding curve state, using defaults:", parseError);
+        }
+      }
+
+      // Get token decimals from mint account to properly convert base units to human-readable
+      const mintInfo = await getMint(this.connection, mintAddress);
+      const TOKEN_DECIMALS = mintInfo.decimals;
+
+      // Calculate current price: (SOL reserves / token reserves)
+      // Convert SOL from lamports (10^9) and tokens from base units (using actual decimals)
+      const solInHumanForm = Number(virtualSolReserves) / LAMPORTS_PER_SOL;
+      const tokensInHumanForm = Number(virtualTokenReserves) / Math.pow(10, TOKEN_DECIMALS);
+      const priceInSOL = solInHumanForm / tokensInHumanForm;
+
+      console.log(`💰 [PRICE] Token decimals: ${TOKEN_DECIMALS}`);
+      console.log(`💰 [PRICE] Reserves: ${solInHumanForm.toFixed(4)} SOL / ${tokensInHumanForm.toFixed(2)} tokens`);
+      console.log(`💰 [PRICE] Current price: ${priceInSOL} SOL per token`);
+
+      return priceInSOL;
     } catch (error) {
       console.error("Failed to calculate current price:", error);
       // Calculate fallback price from config values
-      const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL; 
+      const virtualSolReserves = Number(config.bondingCurve.initialVirtualSolReserves) / LAMPORTS_PER_SOL;
       const virtualTokenReserves = Number(config.bondingCurve.initialVirtualTokenReserves);
       return virtualSolReserves / virtualTokenReserves;
     }

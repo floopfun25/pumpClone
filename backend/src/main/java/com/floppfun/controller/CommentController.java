@@ -2,6 +2,8 @@ package com.floppfun.controller;
 
 import com.floppfun.dto.CommentCreateRequest;
 import com.floppfun.dto.CommentDTO;
+import com.floppfun.model.entity.User;
+import com.floppfun.repository.UserRepository;
 import com.floppfun.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class CommentController {
 
     private final CommentService commentService;
+    private final UserRepository userRepository;
 
     /**
      * Get comments for a token
@@ -131,17 +134,19 @@ public class CommentController {
 
     /**
      * Get current user ID from authentication
+     * Authentication contains wallet address, so we need to look up the user ID
      */
     private Long getCurrentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;
         }
 
-        try {
-            return Long.parseLong(authentication.getName());
-        } catch (NumberFormatException e) {
-            log.warn("Failed to parse user ID from authentication: {}", authentication.getName());
-            return null;
-        }
+        // Authentication.getName() returns the wallet address (from JWT token)
+        String walletAddress = authentication.getName();
+
+        // Look up user by wallet address
+        return userRepository.findByWalletAddress(walletAddress)
+                .map(User::getId)
+                .orElse(null);
     }
 }

@@ -13,6 +13,21 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+// ==================== TOKEN METADATA ====================
+
+export async function getTokenByMintAddress(mintAddress: string) {
+  const response = await fetch(`${API_BASE_URL}/tokens/mint/${mintAddress}`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+    throw new Error('Failed to fetch token metadata');
+  }
+  return await response.json();
+}
+
 // ==================== PRICE HISTORY ====================
 
 export async function getTokenPriceHistory(tokenId: string, timeframe: string = '24h') {
@@ -137,6 +152,31 @@ export async function isTokenInWatchlist(tokenId: string) {
   if (!response.ok) return false;
   const data = await response.json();
   return data.isInWatchlist;
+}
+
+// ==================== PORTFOLIO TRACKING ====================
+
+export async function storePortfolioSnapshot(snapshot: {
+  totalValue: number;
+  solBalance: number;
+  solValue: number;
+  tokenValue: number;
+  tokenCount: number;
+}) {
+  const response = await fetch(`${API_BASE_URL}/portfolio/snapshot`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(snapshot)
+  });
+  if (!response.ok) throw new Error('Failed to store portfolio snapshot');
+}
+
+export async function get24hPortfolioChange(currentValue: number) {
+  const response = await fetch(`${API_BASE_URL}/portfolio/24h-change?currentValue=${currentValue}`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to get 24h portfolio change');
+  return await response.json();
 }
 
 // ==================== BONDING CURVE ====================

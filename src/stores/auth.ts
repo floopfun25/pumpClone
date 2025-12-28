@@ -43,6 +43,9 @@ export const useAuthStore = defineStore("auth", () => {
       isAuthenticated.value = false;
       jwtToken.value = null;
 
+      // Remove JWT token from localStorage
+      localStorage.removeItem('jwtToken');
+
       console.log("Auth: ✅ User signed out");
     } catch (error) {
       console.error("Auth: ❌ Sign out failed:", error);
@@ -91,25 +94,26 @@ export const useAuthStore = defineStore("auth", () => {
       isInitializing = true;
 
       // Check if we have a stored JWT token
-      const storedToken = localStorage.getItem('jwt_token');
+      const storedToken = localStorage.getItem('jwtToken');
       if (storedToken) {
+        // Try to get user info to verify token is still valid
         try {
-          // Verify the token is still valid
-          const result = await authAPI.verify();
-          if (result.valid && result.user) {
-            user.value = convertAPIUser(result.user);
-            isAuthenticated.value = true;
-            jwtToken.value = storedToken;
-            console.log("Auth: ✅ Restored session from JWT token");
-            return;
-          }
+          const apiUser = await userAPI.getUserByWallet(walletStore.walletAddress!);
+          // If we successfully got user info, the token is valid
+          user.value = convertAPIUser(apiUser);
+          isAuthenticated.value = true;
+          jwtToken.value = storedToken;
+          console.log("Auth: ✅ Restored session from JWT token");
+          return;
         } catch (error) {
-          console.log("Auth: ⚠️ Stored JWT token is invalid, clearing");
-          localStorage.removeItem('jwt_token');
+          console.log("Auth: ⚠️ Stored JWT token is invalid or expired, clearing");
+          localStorage.removeItem('jwtToken');
+          jwtToken.value = null;
+          isAuthenticated.value = false;
         }
       }
 
-      // Try to get user by wallet address (user might exist but not logged in)
+      // If we get here, no valid token - fetch user info but don't authenticate
       try {
         const apiUser = await userAPI.getUserByWallet(walletStore.walletAddress!);
         user.value = convertAPIUser(apiUser);
@@ -157,6 +161,9 @@ export const useAuthStore = defineStore("auth", () => {
       user.value = convertAPIUser(response.user);
       jwtToken.value = response.token;
       isAuthenticated.value = true;
+
+      // Save JWT token to localStorage for API requests
+      localStorage.setItem('jwtToken', response.token);
 
       console.log("Auth: ✅ Successfully signed in with wallet");
       return user.value;
@@ -235,8 +242,8 @@ export const useAuthStore = defineStore("auth", () => {
       address: walletStore.walletAddress,
     }),
     async (newWallet, oldWallet) => {
-      // If wallet disconnected, clear auth
-      if (!newWallet.connected) {
+      // If wallet disconnected (but only if it was previously connected), clear auth
+      if (!newWallet.connected && oldWallet?.connected) {
         await signOut();
         return;
       }

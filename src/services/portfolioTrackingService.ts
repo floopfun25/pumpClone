@@ -1,7 +1,9 @@
 /**
  * Portfolio Tracking Service
- * Tracks user portfolio changes and snapshots
+ * Tracks user portfolio changes and snapshots using backend API
  */
+
+import { storePortfolioSnapshot as storeSnapshotAPI, get24hPortfolioChange as get24hChangeAPI } from './backendApi';
 
 export interface PortfolioSnapshot {
   totalValue: number;
@@ -22,18 +24,26 @@ class PortfolioTrackingService {
   /**
    * Get portfolio 24h change for a user
    */
-  async getPortfolio24hChange(userId: string): Promise<Portfolio24hChange | null> {
+  async getPortfolio24hChange(userId: string, currentValue: number): Promise<Portfolio24hChange | null> {
     try {
-      // TODO: Implement actual portfolio change tracking from Spring Boot backend
-      console.warn(`PortfolioTrackingService.getPortfolio24hChange not implemented for user: ${userId}`);
+      console.log(`📊 [PORTFOLIO] Fetching 24h change for user ${userId}`);
 
+      const response = await get24hChangeAPI(currentValue);
+
+      const change: Portfolio24hChange = {
+        valueChange: Number(response.valueChange),
+        percentChange: Number(response.percentChange),
+      };
+
+      console.log(`✅ [PORTFOLIO] 24h change: ${change.percentChange.toFixed(2)}%`);
+
+      return change;
+    } catch (error) {
+      console.error('❌ [PORTFOLIO] Error getting 24h change:', error);
       return {
         valueChange: 0,
         percentChange: 0,
       };
-    } catch (error) {
-      console.error('Error getting portfolio 24h change:', error);
-      return null;
     }
   }
 
@@ -42,11 +52,20 @@ class PortfolioTrackingService {
    */
   async storePortfolioSnapshot(userId: string, snapshot: PortfolioSnapshot): Promise<void> {
     try {
-      // TODO: Implement actual portfolio snapshot storage to Spring Boot backend
-      console.warn(`PortfolioTrackingService.storePortfolioSnapshot not implemented for user: ${userId}`);
-      console.log('Snapshot to store:', snapshot);
+      // Calculate totals
+      const tokenValue = snapshot.tokens.reduce((sum, token) => sum + token.value, 0);
+
+      await storeSnapshotAPI({
+        totalValue: snapshot.totalValue,
+        solBalance: 0, // Will be calculated in PortfolioPage
+        solValue: 0,
+        tokenValue,
+        tokenCount: snapshot.tokens.length,
+      });
+
+      console.log(`✅ [PORTFOLIO] Snapshot stored for user ${userId}: $${snapshot.totalValue.toFixed(2)}`);
     } catch (error) {
-      console.error('Error storing portfolio snapshot:', error);
+      console.error('❌ [PORTFOLIO] Error storing snapshot:', error);
     }
   }
 }

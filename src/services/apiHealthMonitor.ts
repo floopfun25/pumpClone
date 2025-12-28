@@ -237,7 +237,7 @@ class ApiHealthMonitor {
     const start = Date.now();
     try {
       const response = await fetch(
-        "https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112",
+        "https://price.jup.ag/v4/price?ids=So11111111111111111111111111111111111111112",
       );
 
       const responseTime = Date.now() - start;

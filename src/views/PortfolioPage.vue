@@ -416,9 +416,10 @@ const loadPortfolio = async (): Promise<void> => {
     loading.value = true;
     error.value = null;
 
-    // Get token accounts
-    // TODO: Implement getUserTokenAccounts in solanaProgram
-    const tokenAccounts: any[] = [];
+    // Get token accounts from blockchain
+    const tokenAccounts = await solanaProgram.getUserTokenAccounts(
+      walletStore.publicKey,
+    );
 
     // Get SOL balance
     const solBalance = walletStore.balance;
@@ -492,6 +493,7 @@ const loadPortfolio = async (): Promise<void> => {
         const portfolioChange =
           await portfolioTrackingService.getPortfolio24hChange(
             String(user.id),
+            portfolioValue.totalValue,
           );
         totalChange24h = portfolioChange?.percentChange ?? 0;
 

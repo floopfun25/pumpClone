@@ -599,6 +599,76 @@ export class SolanaProgram {
       return 0;
     }
   }
+
+  /**
+   * Get all token accounts owned by a user
+   */
+  async getUserTokenAccounts(
+    userPublicKey: PublicKey,
+  ): Promise<
+    Array<{
+      mint: string;
+      balance: number;
+      decimals: number;
+    }>
+  > {
+    try {
+      console.log(
+        "🔍 [TOKEN ACCOUNTS] Fetching token accounts for:",
+        userPublicKey.toBase58(),
+      );
+
+      // Get all token accounts owned by the user
+      const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
+        userPublicKey,
+        {
+          programId: TOKEN_PROGRAM_ID,
+        },
+      );
+
+      console.log(
+        `📊 [TOKEN ACCOUNTS] Found ${tokenAccounts.value.length} token accounts`,
+      );
+
+      // Parse and filter token accounts
+      const accounts = tokenAccounts.value
+        .map((accountInfo) => {
+          const parsedInfo = accountInfo.account.data.parsed?.info;
+          if (!parsedInfo) return null;
+
+          const mint = parsedInfo.mint;
+          const balance = Number(parsedInfo.tokenAmount.uiAmount) || 0;
+          const decimals = parsedInfo.tokenAmount.decimals;
+
+          // Only include accounts with non-zero balance
+          if (balance === 0) return null;
+
+          return {
+            mint,
+            balance,
+            decimals,
+          };
+        })
+        .filter(
+          (
+            account,
+          ): account is {
+            mint: string;
+            balance: number;
+            decimals: number;
+          } => account !== null,
+        );
+
+      console.log(
+        `✅ [TOKEN ACCOUNTS] Returning ${accounts.length} accounts with non-zero balance`,
+      );
+
+      return accounts;
+    } catch (error) {
+      console.error("❌ [TOKEN ACCOUNTS] Failed to get token accounts:", error);
+      return [];
+    }
+  }
 }
 
 // Export singleton instance

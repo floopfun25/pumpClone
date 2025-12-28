@@ -3,6 +3,8 @@
  * Fetches and caches token metadata
  */
 
+import { getTokenByMintAddress } from './backendApi';
+
 export interface TokenMetadata {
   name: string;
   symbol: string;
@@ -18,7 +20,7 @@ class TokenMetadataService {
   private cache: Map<string, TokenMetadata> = new Map();
 
   /**
-   * Get token metadata
+   * Get token metadata from backend database
    */
   async getTokenMetadata(mint: string): Promise<TokenMetadata | null> {
     try {
@@ -27,13 +29,36 @@ class TokenMetadataService {
         return this.cache.get(mint)!;
       }
 
-      // TODO: Implement actual metadata fetching from Solana blockchain or Spring Boot backend
-      console.warn(`TokenMetadataService.getTokenMetadata not fully implemented for mint: ${mint}`);
+      console.log(`🔍 [METADATA] Fetching metadata for mint: ${mint}`);
 
-      // Return null for now
-      return null;
+      // Fetch from backend database
+      const tokenData = await getTokenByMintAddress(mint);
+
+      if (!tokenData) {
+        console.log(`⚠️ [METADATA] Token not found in database: ${mint}`);
+        return null;
+      }
+
+      // Convert backend DTO to TokenMetadata
+      const metadata: TokenMetadata = {
+        name: tokenData.name,
+        symbol: tokenData.symbol,
+        decimals: 6, // Your tokens use 6 decimals
+        image: tokenData.image_url,
+        description: tokenData.description,
+        creator: tokenData.creator?.wallet_address,
+        verified: false,
+        source: 'database',
+      };
+
+      // Cache it
+      this.cache.set(mint, metadata);
+
+      console.log(`✅ [METADATA] Loaded metadata for ${metadata.name} (${metadata.symbol})`);
+
+      return metadata;
     } catch (error) {
-      console.error('Error fetching token metadata:', error);
+      console.error('❌ [METADATA] Error fetching token metadata:', error);
       return null;
     }
   }

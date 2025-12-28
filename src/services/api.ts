@@ -70,7 +70,7 @@ export interface PageResponse<T> {
 
 // Helper function to get JWT token
 function getAuthHeader(): Record<string, string> {
-  const token = localStorage.getItem('jwt_token');
+  const token = localStorage.getItem('jwtToken');
   if (token) {
     return { 'Authorization': `Bearer ${token}` };
   }

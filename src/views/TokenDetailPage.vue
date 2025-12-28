@@ -122,8 +122,8 @@
               />
             </ErrorBoundary>
 
-            <!-- Mobile Trading Interface - Show under chart on mobile only -->
-            <div class="lg:hidden mobile-trading-section">
+            <!-- Mobile Trading Interface - Show under chart on mobile only (when connected) -->
+            <div v-if="walletStore.isConnected" class="lg:hidden mobile-trading-section">
               <ErrorBoundary
                 title="Trading Interface Error"
                 message="The trading interface couldn't load properly."
@@ -148,7 +148,7 @@
             >
               <TokenComments
                 v-if="token?.id"
-                :token-id="token.id"
+                :token-id="Number(token.id)"
                 :token-creator="token.creator?.wallet_address"
                 @connect-wallet="connectWallet"
                 class="mobile-comments"
@@ -158,8 +158,9 @@
 
           <!-- Right Sidebar: Trading & Token Info (1/3 width) - Desktop Only -->
           <div class="hidden lg:block space-y-4 mobile-sidebar">
-            <!-- Trading Interface -->
+            <!-- Trading Interface (only show when wallet is connected) -->
             <ErrorBoundary
+              v-if="walletStore.isConnected"
               title="Trading Interface Error"
               message="The trading interface couldn't load properly."
             >
