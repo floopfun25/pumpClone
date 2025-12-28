@@ -46,4 +46,7 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
 
     @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.isFeatured = true AND t.status = 'ACTIVE' ORDER BY t.createdAt DESC")
     List<Token> findFeaturedTokens(Pageable pageable);
+
+    @Query("SELECT t FROM Token t LEFT JOIN FETCH t.creator WHERE t.status = :status")
+    List<Token> findByStatus(@Param("status") Token.TokenStatus status);
 }
