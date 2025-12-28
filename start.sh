@@ -51,9 +51,11 @@ kill_port 3000  # Frontend
 echo -e "${BLUE}📦 Setting up backend...${NC}"
 load_env "$SCRIPT_DIR/backend/.env"
 
-# Start backend in background
+# Start backend in background with Java 21
 echo -e "${GREEN}🟢 Starting backend on port 8080...${NC}"
 cd "$SCRIPT_DIR/backend"
+# Set JAVA_HOME to Java 21 for compatibility
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 mvn spring-boot:run > backend.log 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}✅ Backend started (PID: $BACKEND_PID)${NC}"

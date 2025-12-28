@@ -286,7 +286,16 @@ export class TokenCreationService {
     try {
       const { createCreateMetadataAccountV3Instruction } = await import("@metaplex-foundation/mpl-token-metadata");
 
-      const metadataAccount = await this.getMetadataAccount(mintKeypair.publicKey);
+      // Derive metadata account PDA
+      const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+      const [metadataAccount] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          METADATA_PROGRAM_ID.toBuffer(),
+          mintKeypair.publicKey.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID
+      );
 
       const metadataData = {
         name: params.name,
@@ -319,7 +328,7 @@ export class TokenCreationService {
       console.log("✅ Added Metaplex metadata creation instruction");
     } catch (metadataError) {
       console.warn("⚠️ Metaplex metadata creation skipped:", metadataError);
-      // Non-critical - token will still be created
+      // Non-critical - token will still be created, but won't display properly in wallets
     }
 
     // Add platform fee (use config value)

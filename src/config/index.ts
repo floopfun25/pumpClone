@@ -58,16 +58,16 @@ export const config = {
 
   // FloppFun Program Addresses (production-ready)
   programs: {
-    // Your custom bonding curve program (NOT SPL Token Program)
+    // Your custom bonding curve program (deployed on devnet Dec 28, 2025)
     bondingCurve:
       getEnvVar("VITE_SOLANA_NETWORK", "devnet") === "mainnet"
         ? getEnvVar(
             "VITE_MAINNET_BONDING_CURVE_PROGRAM",
-            "Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY",
+            "Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M",
           )
         : getEnvVar(
             "VITE_DEVNET_BONDING_CURVE_PROGRAM",
-            "Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY",
+            "Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M",
           ),
     // Token factory program (standard SPL)
     tokenFactory:

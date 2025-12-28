@@ -26,9 +26,9 @@ import { getWalletService } from "./wallet";
 import { config } from "@/config";
 import * as borsh from "borsh";
 
-// Program ID for your custom bonding curve program (update after deployment)
+// Program ID for your custom bonding curve program (deployed on devnet Dec 28, 2025)
 const PROGRAM_ID = new PublicKey(
-  "Hg4PXsCRaVRjeYgx75GJioGqCQ6GiGWGGHTnpcTLE9CY",
+  "Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M",
 );
 
 // Instruction discriminators (based on Anchor IDL)
@@ -170,6 +170,22 @@ export class BondingCurveProgram {
       creator,
     );
 
+    // Create transaction first
+    const transaction = new Transaction();
+
+    // Check if creator token account exists, if not create it
+    const creatorTokenAccountInfo = await this.connection.getAccountInfo(creatorTokenAccount);
+    if (!creatorTokenAccountInfo) {
+      console.log("Creating creator token account:", creatorTokenAccount.toBase58());
+      const createAtaIx = createAssociatedTokenAccountInstruction(
+        creator,
+        creatorTokenAccount,
+        creator,
+        mintAddress,
+      );
+      transaction.add(createAtaIx);
+    }
+
     const instruction = new TransactionInstruction({
       keys: [
         { pubkey: creator, isSigner: true, isWritable: true },
@@ -185,8 +201,6 @@ export class BondingCurveProgram {
       programId: PROGRAM_ID,
       data,
     });
-
-    const transaction = new Transaction();
     
     // PRODUCTION FIX: Fund with minimal real SOL, use virtual reserves for math
     // Users can't afford 30 SOL upfront - this grows from trading activity

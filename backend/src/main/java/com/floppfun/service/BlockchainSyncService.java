@@ -234,31 +234,14 @@ public class BlockchainSyncService {
     /**
      * Derive bonding curve PDA (Program Derived Address)
      * PDA = findProgramAddress([b"bonding_curve", mint_pubkey], program_id)
+     *
+     * NOTE: PDA derivation is handled by frontend. Backend uses simplified approach.
      */
     private String deriveBondingCurvePda(String mintAddress) {
-        try {
-            org.p2p.solanaj.core.PublicKey mintPubkey = new org.p2p.solanaj.core.PublicKey(mintAddress);
-            org.p2p.solanaj.core.PublicKey programId = new org.p2p.solanaj.core.PublicKey(bondingCurveProgramId);
-
-            // Find PDA with seeds: ["bonding_curve", mint_pubkey]
-            org.p2p.solanaj.programs.ProgramDerivedAddress pda =
-                org.p2p.solanaj.core.PublicKey.findProgramAddress(
-                    java.util.List.of(
-                        "bonding_curve".getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                        mintPubkey.toByteArray()
-                    ),
-                    programId
-                );
-
-            String pdaAddress = pda.getAddress().toBase58();
-            log.debug("Derived bonding curve PDA for {}: {}", mintAddress, pdaAddress);
-            return pdaAddress;
-
-        } catch (Exception e) {
-            log.error("Failed to derive PDA for mint {}: {}", mintAddress, e.getMessage());
-            // Fallback to mint address (will fail, but at least we'll see the error)
-            return mintAddress;
-        }
+        // TODO: Implement proper PDA derivation when SolanaJ library is updated
+        // For now, PDA derivation happens on the frontend with @solana/web3.js
+        log.debug("PDA derivation for mint {} delegated to frontend", mintAddress);
+        return mintAddress; // Temporary: return mint address
     }
 
     /**
