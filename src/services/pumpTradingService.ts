@@ -52,23 +52,55 @@ export class PumpTradingService {
     }
 
     try {
-      // Use the bonding curve program for actual trading
-      const result = await bondingCurveProgram.buyTokens(
+      // Convert SOL amount to lamports
+      const solAmountLamports = BigInt(Math.floor(solAmount * LAMPORTS_PER_SOL));
+
+      // Calculate expected tokens from bonding curve
+      const expectedTokens = await bondingCurveProgram.calculateTokensForSol(
         mintAddress,
-        solAmount,
-        slippagePercent,
+        solAmountLamports
       );
 
-      console.log("✅ [PUMP BUY] Buy transaction completed:", result.signature);
+      // Apply slippage tolerance to get minimum tokens
+      const minTokensReceived = BigInt(
+        Math.floor(Number(expectedTokens) * (1 - slippagePercent / 100))
+      );
+
+      console.log(
+        `💰 [PUMP BUY] Expecting ~${Number(expectedTokens) / 1_000_000} tokens (min: ${Number(minTokensReceived) / 1_000_000})`
+      );
+
+      // Use the bonding curve program for actual trading
+      const signature = await bondingCurveProgram.buyTokens(
+        mintAddress,
+        solAmountLamports,
+        minTokensReceived,
+      );
+
+      console.log("✅ [PUMP BUY] Buy transaction completed:", signature);
+
+      // Get updated price and market cap
+      const newPrice = await bondingCurveProgram.getCurrentPrice(mintAddress);
+      const solPriceUSD = 100; // TODO: Get real SOL price from oracle
+      const marketCap = await bondingCurveProgram.getMarketCap(mintAddress, solPriceUSD);
+
+      // Create result object
+      const result: TradeResult = {
+        signature,
+        tokensTraded: expectedTokens, // Approximation - actual value may differ slightly
+        solAmount: solAmountLamports,
+        newPrice,
+        marketCap,
+      };
 
       // Update database with transaction record
       await this.recordTrade(
         "buy",
-        result.signature,
+        signature,
         mintAddress.toBase58(),
         this.walletService.publicKey.toBase58(),
-        result.solAmount,
-        result.tokensTraded,
+        solAmountLamports,
+        expectedTokens,
       );
 
       return result;
@@ -95,23 +127,52 @@ export class PumpTradingService {
     }
 
     try {
-      // Use the bonding curve program for actual trading
-      const result = await bondingCurveProgram.sellTokens(
+      // Calculate expected SOL from bonding curve
+      const expectedSol = await bondingCurveProgram.calculateSolForTokens(
         mintAddress,
-        tokenAmount,
-        slippagePercent,
+        tokenAmount
       );
 
-      console.log("✅ [PUMP SELL] Sell transaction completed:", result.signature);
+      // Apply slippage tolerance to get minimum SOL
+      const minSolReceived = BigInt(
+        Math.floor(Number(expectedSol) * (1 - slippagePercent / 100))
+      );
+
+      console.log(
+        `💸 [PUMP SELL] Expecting ~${Number(expectedSol) / LAMPORTS_PER_SOL} SOL (min: ${Number(minSolReceived) / LAMPORTS_PER_SOL})`
+      );
+
+      // Use the bonding curve program for actual trading
+      const signature = await bondingCurveProgram.sellTokens(
+        mintAddress,
+        tokenAmount,
+        minSolReceived,
+      );
+
+      console.log("✅ [PUMP SELL] Sell transaction completed:", signature);
+
+      // Get updated price and market cap
+      const newPrice = await bondingCurveProgram.getCurrentPrice(mintAddress);
+      const solPriceUSD = 100; // TODO: Get real SOL price from oracle
+      const marketCap = await bondingCurveProgram.getMarketCap(mintAddress, solPriceUSD);
+
+      // Create result object
+      const result: TradeResult = {
+        signature,
+        tokensTraded: tokenAmount,
+        solAmount: expectedSol, // Approximation - actual value may differ slightly
+        newPrice,
+        marketCap,
+      };
 
       // Update database with transaction record
       await this.recordTrade(
         "sell",
-        result.signature,
+        signature,
         mintAddress.toBase58(),
         this.walletService.publicKey.toBase58(),
-        result.solAmount,
-        result.tokensTraded,
+        expectedSol,
+        tokenAmount,
       );
 
       return result;
@@ -233,7 +294,8 @@ export class PumpTradingService {
    */
   async getMarketCap(mintAddress: PublicKey): Promise<number> {
     try {
-      return await bondingCurveProgram.getMarketCap(mintAddress);
+      const solPriceUSD = 100; // TODO: Get real SOL price from oracle
+      return await bondingCurveProgram.getMarketCap(mintAddress, solPriceUSD);
     } catch (error) {
       console.warn("Failed to get market cap:", error);
       return 0;

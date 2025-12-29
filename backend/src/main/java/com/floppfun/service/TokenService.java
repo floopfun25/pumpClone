@@ -64,11 +64,12 @@ public class TokenService {
                 .totalSupply(request.getTotalSupply())
                 .decimals(request.getDecimals())
                 .currentPrice(bondingCurveService.calculateCurrentPrice(
-                        bondingCurveService.getInitialSolReserves(),
-                        bondingCurveService.getInitialTokenReserves()
+                        bondingCurveService.getInitialVirtualSolReserves(),
+                        bondingCurveService.getInitialVirtualTokenReserves()
                 ))
-                .virtualSolReserves(bondingCurveService.getInitialSolReserves())
-                .virtualTokenReserves(bondingCurveService.getInitialTokenReserves())
+                .virtualSolReserves(bondingCurveService.getInitialVirtualSolReserves())
+                .virtualTokenReserves(bondingCurveService.getInitialVirtualTokenReserves())
+                .realTokenReserves(bondingCurveService.getInitialRealTokenReserves())
                 .website(request.getWebsite())
                 .twitter(request.getTwitter())
                 .telegram(request.getTelegram())
@@ -142,25 +143,24 @@ public class TokenService {
 
         // Update market cap
         token.setMarketCap(bondingCurveService.calculateMarketCap(
-                token.getTotalSupply(),
                 token.getVirtualSolReserves(),
                 token.getVirtualTokenReserves()
         ));
 
         // Update bonding curve progress
         token.setBondingCurveProgress(bondingCurveService.calculateProgress(
-                token.getVirtualSolReserves()
+                token.getRealTokenReserves()
         ));
 
         // Update last trade time
         token.setLastTradeAt(LocalDateTime.now());
 
-        // Check graduation
-        if (bondingCurveService.hasGraduated(token.getVirtualSolReserves()) &&
+        // Check completion (all tokens sold)
+        if (bondingCurveService.isComplete(token.getRealTokenReserves()) &&
             token.getStatus() != Token.TokenStatus.GRADUATED) {
             token.setStatus(Token.TokenStatus.GRADUATED);
             token.setGraduatedAt(LocalDateTime.now());
-            log.info("Token {} has graduated!", token.getSymbol());
+            log.info("Token {} bonding curve complete - ready for DEX migration!", token.getSymbol());
         }
 
         tokenRepository.save(token);

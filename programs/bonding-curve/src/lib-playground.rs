@@ -2,9 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
 
-// Migration module for DEX integration
-pub mod migration;
-
 declare_id!("Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M");
 
 /// Production Pump.fun Clone - Bonding Curve Program
@@ -28,7 +25,7 @@ pub mod bonding_curve {
 
         global.authority = ctx.accounts.authority.key();
         global.fee_recipient = ctx.accounts.fee_recipient.key();
-        global.migration_authority = ctx.accounts.migration_authority.key();
+        global.migration_authority = ctx.accounts.authority.key();
 
         // Pump.fun standard parameters (with 6 decimals)
         global.initial_virtual_token_reserves = 1_073_000_000_000_000; // 1.073B tokens
@@ -264,13 +261,6 @@ pub mod bonding_curve {
         Ok(())
     }
 
-    /// Migrate bonding curve to DEX (Meteora DAMM)
-    /// Permissionless when complete == true
-    /// Creates CLMM pool with all collected liquidity
-    pub fn migrate(ctx: Context<migration::MigrateToDEX>) -> Result<()> {
-        migration::execute_migration(ctx)
-    }
-
     /// Admin: Update global parameters
     #[access_control(is_authority(&ctx.accounts.global, &ctx.accounts.authority))]
     pub fn update_global(
@@ -324,9 +314,6 @@ pub struct InitializeGlobal<'info> {
 
     /// CHECK: Fee recipient can be any account
     pub fee_recipient: AccountInfo<'info>,
-
-    /// CHECK: Migration authority can be any account
-    pub migration_authority: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -419,8 +406,6 @@ pub struct Buy<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
-
-// Migrate accounts moved to migration.rs module
 
 #[derive(Accounts)]
 pub struct UpdateGlobal<'info> {

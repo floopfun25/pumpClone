@@ -129,6 +129,10 @@ public class Token {
     @Builder.Default
     private Long virtualTokenReserves = 1073000000000000L;
 
+    @Column(name = "real_token_reserves")
+    @Builder.Default
+    private Long realTokenReserves = 793100000000000L;
+
     @Column(name = "is_nsfw")
     @Builder.Default
     private Boolean isNsfw = false;

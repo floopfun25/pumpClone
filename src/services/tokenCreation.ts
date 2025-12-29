@@ -108,30 +108,21 @@ export class TokenCreationService {
       );
 
       // Step 4: Initialize bonding curve (CRITICAL for production)
-      console.log("🎯 Initializing bonding curve...");
+      console.log("🎯 Creating token with bonding curve...");
       let bondingCurveSignature = "";
 
-      // ADDED: Calculate creator allocation in basis points (e.g., 5% = 500 bps)
-      const creatorAllocationBps = params.creatorPercentage
-        ? Math.floor(params.creatorPercentage * 100)
-        : 0;
-
       try {
-        bondingCurveSignature = await bondingCurveProgram.initializeBondingCurve(
+        bondingCurveSignature = await bondingCurveProgram.createToken(
           mintKeypair.publicKey,
-          BigInt(initialSupply * Math.pow(10, decimals)), // Total supply in base units
-          BigInt(config.bondingCurve.initialVirtualSolReserves), // Initial virtual SOL reserves
-          creatorAllocationBps, // ADDED: Pass creator allocation
+          params.name,
+          params.symbol,
+          metadataUri
         );
-        console.log("✅ Bonding curve initialized successfully:", bondingCurveSignature);
-
-        if (creatorAllocationBps > 0) {
-          console.log(`💎 Creator allocated: ${params.creatorPercentage}% (${creatorAllocationBps} bps)`);
-        }
+        console.log("✅ Token and bonding curve created successfully:", bondingCurveSignature);
       } catch (bondingCurveError) {
-        console.error("❌ CRITICAL: Bonding curve initialization failed:", bondingCurveError);
+        console.error("❌ CRITICAL: Bonding curve creation failed:", bondingCurveError);
         // For production, bonding curve MUST be initialized for trading to work
-        throw new Error(`Token creation failed: Bonding curve initialization failed. ${bondingCurveError instanceof Error ? bondingCurveError.message : "Unknown error"}`);
+        throw new Error(`Token creation failed: Bonding curve creation failed. ${bondingCurveError instanceof Error ? bondingCurveError.message : "Unknown error"}`);
       }
 
       // Step 5: Save to database (optional - can be done without auth)
@@ -165,14 +156,13 @@ export class TokenCreationService {
       if (params.prebuyAmount && params.prebuyAmount > 0) {
         console.log(`💰 Executing prebuy: ${params.prebuyAmount} SOL`);
         try {
-          const { bondingCurveProgram } = await import("./bondingCurveProgram");
           const prebuyResult = await bondingCurveProgram.buyTokens(
             mintKeypair.publicKey,
-            params.prebuyAmount,
-            3, // 3% slippage
+            BigInt(params.prebuyAmount * LAMPORTS_PER_SOL),
+            BigInt(999999999 * LAMPORTS_PER_SOL), // Max SOL cost (very high for initial buy)
           );
-          prebuySignature = prebuyResult.signature;
-          console.log(`✅ Prebuy completed: ${prebuyResult.signature}`);
+          prebuySignature = prebuyResult;
+          console.log(`✅ Prebuy completed: ${prebuyResult}`);
         } catch (prebuyError) {
           console.error("⚠️ Prebuy failed (token still created):", prebuyError);
           // Token creation succeeded, prebuy is optional

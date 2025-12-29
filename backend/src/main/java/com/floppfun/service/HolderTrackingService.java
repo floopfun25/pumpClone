@@ -175,10 +175,25 @@ public class HolderTrackingService {
 
         // Calculate percentage of total supply
         if (token.getTotalSupply() != null && token.getTotalSupply() > 0) {
-            BigDecimal percentage = new BigDecimal(accountInfo.balance)
-                    .multiply(BigDecimal.valueOf(100))
-                    .divide(new BigDecimal(token.getTotalSupply()), 4, RoundingMode.HALF_UP);
-            holder.setPercentage(percentage);
+            try {
+                BigDecimal percentage = new BigDecimal(accountInfo.balance)
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(new BigDecimal(token.getTotalSupply()), 2, RoundingMode.HALF_UP);
+
+                // Ensure percentage doesn't exceed 100.00 (database constraint is DECIMAL(5,2) = max 999.99)
+                // but logically percentage should be 0-100
+                if (percentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+                    log.warn("Calculated percentage {} exceeds 100% for token {} holder {}, capping at 100",
+                            percentage, token.getMintAddress(), accountInfo.owner);
+                    percentage = BigDecimal.valueOf(100);
+                }
+
+                holder.setPercentage(percentage);
+            } catch (ArithmeticException e) {
+                log.error("Failed to calculate percentage for token {} holder {}: balance={}, totalSupply={}",
+                        token.getMintAddress(), accountInfo.owner, accountInfo.balance, token.getTotalSupply(), e);
+                holder.setPercentage(BigDecimal.ZERO);
+            }
         }
 
         if (isNewHolder) {

@@ -58,7 +58,7 @@ export const config = {
 
   // FloppFun Program Addresses (production-ready)
   programs: {
-    // Your custom bonding curve program (deployed on devnet Dec 28, 2025)
+    // Your custom bonding curve program (deployed on devnet Dec 29, 2025)
     bondingCurve:
       getEnvVar("VITE_SOLANA_NETWORK", "devnet") === "mainnet"
         ? getEnvVar(
@@ -67,7 +67,7 @@ export const config = {
           )
         : getEnvVar(
             "VITE_DEVNET_BONDING_CURVE_PROGRAM",
-            "Cxiw2xXiCCNywNS6qH1mPH81yaVkG8jhu7x6ma7oTK9M",
+            "9JQyYqCSRwhgaCPPSiyBauPb3x1wf5fnpidqgndowbWp",
           ),
     // Token factory program (standard SPL)
     tokenFactory:
@@ -142,29 +142,34 @@ export const config = {
     description: "Create and trade meme tokens on Solana",
   },
 
-  // Token creation defaults (pump.fun compatible)
+  // Token creation defaults (PRODUCTION PUMP.FUN CLONE)
   tokenDefaults: {
-    decimals: 6, // Pump.fun uses 6 decimals, not 9
-    totalSupply: 1_000_000_000, // 1 billion tokens
-    graduationThreshold: 69, // FIXED: 69 SOL raised (not USD market cap)
+    decimals: 6, // Pump.fun standard: 6 decimals
+    totalSupply: 1_000_000_000, // 1 billion tokens total
     platformFeePercentage: 1.0, // 1% platform fee
     creationFee: 0.02, // 0.02 SOL creation fee
   },
 
-  // Bonding curve configuration (based on pump.fun)
+  // Bonding curve configuration (EXACT PUMP.FUN PARAMETERS)
   bondingCurve: {
-    initialVirtualTokenReserves: 793100000, // Human value: 793.1M tokens (pump.fun compatible)
+    // Virtual reserves (for pricing calculations)
+    initialVirtualTokenReserves: 1_073_000_000, // 1.073B tokens (with 6 decimals: 1_073_000_000_000_000)
     initialVirtualSolReserves: parseInt(getEnvVar("VITE_VIRTUAL_SOL_RESERVES", "30000000000")), // 30 SOL in lamports
-    initialRealSolReserves: 0, // Start with 0 real SOL
-    // FIXED: Graduation parameters (matching pump.fun exactly)
-    graduationSolThreshold: 69, // 69 SOL raised to graduate (matches smart contract)
-    graduationLiquidityUSD: 12_000, // $12K liquidity deposited to Raydium
-    graduationSolTarget: 69, // FIXED: 69 SOL to complete bonding curve
-    graduationTokensRemaining: 200_000_000_000_000, // ~200M tokens for LP
-    creatorRewardSOL: 0.5, // 0.5 SOL reward to creator upon graduation
+
+    // Real reserves (actual tradeable amounts)
+    initialRealTokenReserves: 793_100_000, // 793.1M tokens for bonding curve (with 6 decimals: 793_100_000_000_000)
+    initialRealSolReserves: 0, // Starts at 0, grows from trades
+
+    // Creator allocation
+    creatorAllocation: 206_900_000, // 206.9M tokens to creator (with 6 decimals: 206_900_000_000_000)
+
+    // Completion criteria (CRITICAL: based on tokens sold, not SOL)
+    // Bonding curve completes when real_token_reserves == 0 (all 793.1M tokens sold)
+    // This typically happens around 85 SOL collected
+
     // Fee configuration
     tradeFeePercentage: 1.0, // 1% trading fee
-    platformFeeSOL: 6_000_000_000, // 6 SOL fee deducted during graduation
+    platformFeeBps: 100, // 100 basis points = 1%
   },
 
   // Trading configuration
