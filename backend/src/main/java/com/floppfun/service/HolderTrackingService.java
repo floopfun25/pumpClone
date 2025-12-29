@@ -176,7 +176,13 @@ public class HolderTrackingService {
         // Calculate percentage of total supply
         if (token.getTotalSupply() != null && token.getTotalSupply() > 0) {
             try {
-                BigDecimal percentage = new BigDecimal(accountInfo.balance)
+                // Normalize balance by dividing by 10^decimals since balance is stored WITH decimals
+                // but totalSupply is stored WITHOUT decimals
+                int decimals = token.getDecimals() != null ? token.getDecimals() : 6;
+                BigDecimal normalizedBalance = new BigDecimal(accountInfo.balance)
+                        .divide(BigDecimal.TEN.pow(decimals), 2, RoundingMode.HALF_UP);
+
+                BigDecimal percentage = normalizedBalance
                         .multiply(BigDecimal.valueOf(100))
                         .divide(new BigDecimal(token.getTotalSupply()), 2, RoundingMode.HALF_UP);
 
