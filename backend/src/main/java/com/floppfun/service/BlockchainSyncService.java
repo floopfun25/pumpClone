@@ -10,14 +10,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.p2p.solanaj.core.PublicKey;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Arrays;
 
 /**
  * Service to sync database with on-chain bonding curve state
@@ -234,14 +237,28 @@ public class BlockchainSyncService {
     /**
      * Derive bonding curve PDA (Program Derived Address)
      * PDA = findProgramAddress([b"bonding_curve", mint_pubkey], program_id)
-     *
-     * NOTE: PDA derivation is handled by frontend. Backend uses simplified approach.
      */
     private String deriveBondingCurvePda(String mintAddress) {
-        // TODO: Implement proper PDA derivation when SolanaJ library is updated
-        // For now, PDA derivation happens on the frontend with @solana/web3.js
-        log.debug("PDA derivation for mint {} delegated to frontend", mintAddress);
-        return mintAddress; // Temporary: return mint address
+        try {
+            PublicKey mintPubkey = new PublicKey(mintAddress);
+            PublicKey programId = new PublicKey(bondingCurveProgramId);
+
+            // Seeds for PDA derivation: ["bonding_curve", mint_pubkey]
+            List<byte[]> seeds = Arrays.asList(
+                "bonding_curve".getBytes(StandardCharsets.UTF_8),
+                mintPubkey.toByteArray()
+            );
+
+            // Find PDA
+            PublicKey.ProgramDerivedAddress pda = PublicKey.findProgramAddress(seeds, programId);
+            String pdaAddress = pda.getAddress().toBase58();
+
+            log.debug("Derived PDA {} for mint {}", pdaAddress, mintAddress);
+            return pdaAddress;
+        } catch (Exception e) {
+            log.error("Failed to derive PDA for mint {}: {}", mintAddress, e.getMessage());
+            return null;
+        }
     }
 
     /**

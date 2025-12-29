@@ -16,19 +16,10 @@ pub mod bonding_curve {
         bump: u8,
         creator_allocation_bps: u16, // Creator allocation in basis points (0-10000, e.g. 500 = 5%)
     ) -> Result<()> {
-        let bonding_curve = &mut ctx.accounts.bonding_curve;
-        
-        // Initialize bonding curve state
-        bonding_curve.mint_address = ctx.accounts.mint.key();
-        bonding_curve.creator = ctx.accounts.creator.key();
-        bonding_curve.virtual_token_reserves = initial_virtual_token_reserves;
-        bonding_curve.virtual_sol_reserves = initial_virtual_sol_reserves;
-        bonding_curve.real_token_reserves = initial_virtual_token_reserves; // FIXED: Start with all tokens in vault
-        bonding_curve.real_sol_reserves = 0; // Start with 0 real SOL (virtual only for pricing)
-        bonding_curve.token_total_supply = initial_virtual_token_reserves; // Fixed total supply
-        bonding_curve.graduated = false;
-        bonding_curve.created_at = Clock::get()?.unix_timestamp;
-        bonding_curve.bump_seed = bump;
+        // Get all the keys we need FIRST, before any borrows
+        let bonding_curve_key = ctx.accounts.bonding_curve.key();
+        let mint_key = ctx.accounts.mint.key();
+        let creator_key = ctx.accounts.creator.key();
 
         // Transfer mint authority to bonding curve PDA
         let cpi_accounts = SetAuthority {
@@ -37,27 +28,27 @@ pub mod bonding_curve {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        
+
         token::set_authority(
             cpi_ctx,
             anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
-            Some(bonding_curve.key()),
+            Some(bonding_curve_key),
         )?;
 
         // Mint all tokens to the vault (bonding curve reserves)
-        let mint_cpi_accounts = MintTo {
-            mint: ctx.accounts.mint.to_account_info(),
-            to: ctx.accounts.vault.to_account_info(),
-            authority: bonding_curve.to_account_info(),
-        };
-        
-        let mint_key = ctx.accounts.mint.key();
         let seeds = &[
             b"bonding_curve",
             mint_key.as_ref(),
             &[bump]
         ];
         let signer = &[&seeds[..]];
+
+        let mint_cpi_accounts = MintTo {
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.vault.to_account_info(),
+            authority: ctx.accounts.bonding_curve.to_account_info(),
+        };
+
         let mint_cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             mint_cpi_accounts,
@@ -79,7 +70,7 @@ pub mod bonding_curve {
                 let creator_mint_cpi_accounts = MintTo {
                     mint: ctx.accounts.mint.to_account_info(),
                     to: ctx.accounts.creator_token_account.to_account_info(),
-                    authority: bonding_curve.to_account_info(),
+                    authority: ctx.accounts.bonding_curve.to_account_info(),
                 };
                 let creator_mint_cpi_ctx = CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
@@ -91,6 +82,19 @@ pub mod bonding_curve {
                 msg!("Creator allocation: {} tokens ({} bps)", creator_tokens, creator_allocation_bps);
             }
         }
+
+        // Initialize bonding curve state AFTER all CPI calls
+        let bonding_curve = &mut ctx.accounts.bonding_curve;
+        bonding_curve.mint_address = mint_key;
+        bonding_curve.creator = creator_key;
+        bonding_curve.virtual_token_reserves = initial_virtual_token_reserves;
+        bonding_curve.virtual_sol_reserves = initial_virtual_sol_reserves;
+        bonding_curve.real_token_reserves = initial_virtual_token_reserves;
+        bonding_curve.real_sol_reserves = 0;
+        bonding_curve.token_total_supply = initial_virtual_token_reserves;
+        bonding_curve.graduated = false;
+        bonding_curve.created_at = Clock::get()?.unix_timestamp;
+        bonding_curve.bump_seed = bump;
 
         msg!("Bonding curve initialized: {} tokens minted to vault", initial_virtual_token_reserves);
         Ok(())

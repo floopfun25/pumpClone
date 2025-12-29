@@ -984,12 +984,22 @@ class WalletService {
 
   private handleError = (error: Error): void => {
     console.error("Wallet error:", error);
-    notificationService.emit("showToast", {
-      type: "error",
-      title: "Wallet Error",
-      message: error.message || "An unknown wallet error occurred.",
-    });
-    this.handleDisconnect(); // Reset state on error
+
+    // Don't disconnect on sign message/transaction errors - these are user actions, not connection issues
+    const errorName = error.name || '';
+    const isSignError = errorName.includes('WalletSignMessageError') ||
+                       errorName.includes('WalletSignTransactionError') ||
+                       errorName.includes('User rejected');
+
+    if (!isSignError) {
+      notificationService.emit("showToast", {
+        type: "error",
+        title: "Wallet Error",
+        message: error.message || "An unknown wallet error occurred.",
+      });
+      this.handleDisconnect(); // Reset state on error
+    }
+    // For sign errors, just log - don't disconnect or show toast (calling code will handle it)
   };
 
   private cleanup(): void {
