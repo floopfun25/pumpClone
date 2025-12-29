@@ -317,9 +317,11 @@ const setQuickAmount = (amount: string) => {
     } else {
       // Percentage for sell orders (human-readable)
       const percentage = parseFloat(amount.replace("%", "")) / 100;
-      tradeAmount.value = (props.tokenBalance * percentage).toFixed(
-        tokenDecimals.value,
-      );
+      const calculatedAmount = props.tokenBalance * percentage;
+      // Round to whole tokens for cleaner display, or use max 2 decimals if needed
+      tradeAmount.value = calculatedAmount >= 1
+        ? Math.floor(calculatedAmount).toString()
+        : calculatedAmount.toFixed(2);
     }
     calculateTradePreview();
   } catch (err) {

@@ -61,20 +61,21 @@ export class PumpTradingService {
         solAmountLamports
       );
 
-      // Apply slippage tolerance to get minimum tokens
-      const minTokensReceived = BigInt(
-        Math.floor(Number(expectedTokens) * (1 - slippagePercent / 100))
+      // Apply slippage tolerance to get max SOL cost
+      const maxSolCost = BigInt(
+        Math.floor(Number(solAmountLamports) * (1 + slippagePercent / 100))
       );
 
       console.log(
-        `💰 [PUMP BUY] Expecting ~${Number(expectedTokens) / 1_000_000} tokens (min: ${Number(minTokensReceived) / 1_000_000})`
+        `💰 [PUMP BUY] Buying ${Number(expectedTokens) / 1_000_000} tokens (max cost: ${Number(maxSolCost) / LAMPORTS_PER_SOL} SOL)`
       );
 
       // Use the bonding curve program for actual trading
+      // NOTE: Program expects exact token amount and max SOL cost
       const signature = await bondingCurveProgram.buyTokens(
         mintAddress,
-        solAmountLamports,
-        minTokensReceived,
+        expectedTokens,
+        maxSolCost,
       );
 
       console.log("✅ [PUMP BUY] Buy transaction completed:", signature);

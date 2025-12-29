@@ -264,6 +264,106 @@ pub mod bonding_curve {
         Ok(())
     }
 
+    /// Sell tokens back to bonding curve
+    /// Uses constant product formula: x * y = k
+    pub fn sell(
+        ctx: Context<Sell>,
+        token_amount: u64,      // Exact tokens to sell
+        min_sol_received: u64,  // Minimum SOL expected (slippage protection)
+    ) -> Result<()> {
+        let global = &ctx.accounts.global;
+        let bonding_curve = &mut ctx.accounts.bonding_curve;
+
+        // Security checks
+        require!(!global.paused, ErrorCode::ProgramPaused);
+        require!(!bonding_curve.complete, ErrorCode::BondingCurveComplete);
+        require!(!bonding_curve.migrated, ErrorCode::AlreadyMigrated);
+        require!(token_amount > 0, ErrorCode::InvalidAmount);
+
+        // Calculate SOL to receive using constant product formula
+        // Formula: sol_out = (virtual_sol * tokens_in) / (virtual_tokens + tokens_in)
+        let sol_received = calculate_sell_price(
+            bonding_curve.virtual_sol_reserves,
+            bonding_curve.virtual_token_reserves,
+            token_amount,
+        )?;
+
+        // Calculate platform fee
+        let platform_fee = sol_received
+            .checked_mul(global.fee_basis_points as u64)
+            .ok_or(ErrorCode::Overflow)?
+            .checked_div(10_000)
+            .ok_or(ErrorCode::Overflow)?;
+
+        let net_sol_received = sol_received
+            .checked_sub(platform_fee)
+            .ok_or(ErrorCode::Underflow)?;
+
+        // Slippage protection
+        require!(net_sol_received >= min_sol_received, ErrorCode::SlippageExceeded);
+
+        // Check bonding curve has enough SOL
+        require!(
+            bonding_curve.real_sol_reserves >= sol_received,
+            ErrorCode::InsufficientLiquidity
+        );
+
+        // STATE UPDATE FIRST (reentrancy protection)
+        // Update virtual reserves for pricing
+        bonding_curve.virtual_token_reserves = bonding_curve.virtual_token_reserves
+            .checked_add(token_amount)
+            .ok_or(ErrorCode::Overflow)?;
+
+        bonding_curve.virtual_sol_reserves = bonding_curve.virtual_sol_reserves
+            .checked_sub(sol_received)
+            .ok_or(ErrorCode::Underflow)?;
+
+        // Update real reserves
+        bonding_curve.real_token_reserves = bonding_curve.real_token_reserves
+            .checked_add(token_amount)
+            .ok_or(ErrorCode::Overflow)?;
+
+        bonding_curve.real_sol_reserves = bonding_curve.real_sol_reserves
+            .checked_sub(sol_received)
+            .ok_or(ErrorCode::Underflow)?;
+
+        // THEN make external calls
+        // Transfer tokens from seller to vault
+        let transfer_tokens_cpi = Transfer {
+            from: ctx.accounts.seller_token_account.to_account_info(),
+            to: ctx.accounts.vault.to_account_info(),
+            authority: ctx.accounts.seller.to_account_info(),
+        };
+        let transfer_tokens_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_tokens_cpi,
+        );
+        token::transfer(transfer_tokens_ctx, token_amount)?;
+
+        // Transfer SOL from bonding curve PDA to seller
+        let mint_key = bonding_curve.mint;
+        let seeds = &[
+            b"bonding-curve",
+            mint_key.as_ref(),
+            &[bonding_curve.bump],
+        ];
+        let signer = &[&seeds[..]];
+
+        **bonding_curve.to_account_info().try_borrow_mut_lamports()? -= net_sol_received;
+        **ctx.accounts.seller.to_account_info().try_borrow_mut_lamports()? += net_sol_received;
+
+        // Transfer platform fee to fee recipient
+        if platform_fee > 0 {
+            **bonding_curve.to_account_info().try_borrow_mut_lamports()? -= platform_fee;
+            **ctx.accounts.fee_recipient.to_account_info().try_borrow_mut_lamports()? += platform_fee;
+        }
+
+        msg!("Sell completed: {} tokens for {} lamports (- {} fee)",
+            token_amount, net_sol_received, platform_fee);
+
+        Ok(())
+    }
+
     /// Migrate bonding curve to DEX (Meteora DAMM)
     /// Permissionless when complete == true
     /// Creates CLMM pool with all collected liquidity
@@ -420,6 +520,48 @@ pub struct Buy<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+#[derive(Accounts)]
+pub struct Sell<'info> {
+    #[account(seeds = [b"global"], bump = global.bump)]
+    pub global: Account<'info, Global>,
+
+    #[account(
+        mut,
+        seeds = [b"bonding-curve", bonding_curve.mint.as_ref()],
+        bump = bonding_curve.bump,
+    )]
+    pub bonding_curve: Account<'info, BondingCurve>,
+
+    #[account(mut)]
+    pub seller: Signer<'info>,
+
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+
+    /// Seller's token account
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = seller,
+    )]
+    pub seller_token_account: Account<'info, TokenAccount>,
+
+    /// Token vault
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = bonding_curve,
+    )]
+    pub vault: Account<'info, TokenAccount>,
+
+    /// CHECK: Fee recipient from global config
+    #[account(mut, address = global.fee_recipient)]
+    pub fee_recipient: AccountInfo<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
 // Migrate accounts moved to migration.rs module
 
 #[derive(Accounts)]
@@ -529,6 +671,35 @@ fn calculate_buy_price(
 
     // Ensure result fits in u64
     u64::try_from(sol_cost).map_err(|_| ErrorCode::Overflow.into())
+}
+
+/// Calculate SOL received for selling exact token amount
+/// Formula: sol_out = (virtual_sol * token_amount) / (virtual_tokens + token_amount)
+fn calculate_sell_price(
+    virtual_sol_reserves: u64,
+    virtual_token_reserves: u64,
+    token_amount: u64,
+) -> Result<u64> {
+    require!(
+        virtual_sol_reserves > 0 && virtual_token_reserves > 0,
+        ErrorCode::InvalidReserves
+    );
+
+    // Use u128 for intermediate calculations to prevent overflow
+    let numerator = (virtual_sol_reserves as u128)
+        .checked_mul(token_amount as u128)
+        .ok_or(ErrorCode::Overflow)?;
+
+    let denominator = (virtual_token_reserves as u128)
+        .checked_add(token_amount as u128)
+        .ok_or(ErrorCode::Overflow)?;
+
+    let sol_out = numerator
+        .checked_div(denominator)
+        .ok_or(ErrorCode::DivisionByZero)?;
+
+    // Ensure result fits in u64
+    u64::try_from(sol_out).map_err(|_| ErrorCode::Overflow.into())
 }
 
 // ============================================================================

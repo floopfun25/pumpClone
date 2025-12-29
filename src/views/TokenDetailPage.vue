@@ -620,10 +620,7 @@ const handleTrade = async (tradeData: {
         });
         return;
       }
-      
-      // Run diagnostic before sell transaction
-      await bondingCurveProgram.diagnoseSOLFlow(new PublicKey(mintAddress));
-      
+
       // Execute sell transaction using pump trading service
       const result = await pumpTradingService.sellTokens(mintAddress, BigInt(amount));
       signature = result.signature;

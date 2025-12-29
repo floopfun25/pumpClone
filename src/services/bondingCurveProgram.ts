@@ -51,12 +51,12 @@ class CreateArgs {
 }
 
 class BuyArgs {
-  solAmount: bigint;
-  minTokensReceived: bigint;
+  tokenAmount: bigint;
+  maxSolCost: bigint;
 
-  constructor(solAmount: bigint, minTokensReceived: bigint) {
-    this.solAmount = solAmount;
-    this.minTokensReceived = minTokensReceived;
+  constructor(tokenAmount: bigint, maxSolCost: bigint) {
+    this.tokenAmount = tokenAmount;
+    this.maxSolCost = maxSolCost;
   }
 }
 
@@ -70,7 +70,7 @@ class SellArgs {
   }
 }
 
-const SCHEMAS = new Map([
+const SCHEMAS = new Map<any, any>([
   [
     CreateArgs,
     {
@@ -87,8 +87,8 @@ const SCHEMAS = new Map([
     {
       kind: "struct",
       fields: [
-        ["solAmount", "u64"],
-        ["minTokensReceived", "u64"],
+        ["tokenAmount", "u64"],
+        ["maxSolCost", "u64"],
       ],
     },
   ],
@@ -131,6 +131,117 @@ export class BondingCurveProgramProduction {
       [Buffer.from(BONDING_CURVE_SEED), mintAddress.toBuffer()],
       this.programId
     );
+  }
+
+  /**
+   * Check if global configuration is initialized
+   */
+  async isGlobalInitialized(): Promise<boolean> {
+    try {
+      const [globalPda] = this.getGlobalPda();
+      const accountInfo = await this.connection.getAccountInfo(globalPda);
+      return accountInfo !== null && accountInfo.owner.equals(this.programId);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get global state from on-chain account
+   */
+  async getGlobalState(): Promise<{
+    authority: PublicKey;
+    feeRecipient: PublicKey;
+    migrationAuthority: PublicKey;
+    feeBasisPoints: number;
+  }> {
+    const [globalPda] = this.getGlobalPda();
+    const accountInfo = await this.connection.getAccountInfo(globalPda);
+
+    if (!accountInfo) {
+      throw new Error("Global configuration not initialized");
+    }
+
+    // Parse account data based on Global struct layout:
+    // discriminator: 8 bytes (0-7)
+    // authority: 32 bytes (8-39)
+    // fee_recipient: 32 bytes (40-71)
+    // migration_authority: 32 bytes (72-103)
+    // initial_virtual_token_reserves: 8 bytes (104-111)
+    // initial_virtual_sol_reserves: 8 bytes (112-119)
+    // initial_real_token_reserves: 8 bytes (120-127)
+    // token_total_supply: 8 bytes (128-135)
+    // creator_allocation: 8 bytes (136-143)
+    // fee_basis_points: 2 bytes (144-145)
+    // paused: 1 byte (146)
+    // bump: 1 byte (147)
+    const data = accountInfo.data;
+
+    return {
+      authority: new PublicKey(data.subarray(8, 40)),
+      feeRecipient: new PublicKey(data.subarray(40, 72)),
+      migrationAuthority: new PublicKey(data.subarray(72, 104)),
+      feeBasisPoints: data.readUInt16LE(144),
+    };
+  }
+
+  /**
+   * Get bonding curve state from on-chain account
+   */
+  async getBondingCurveState(mintAddress: PublicKey): Promise<{
+    complete: boolean;
+    realTokenReserves: bigint;
+    realSolReserves: bigint;
+  }> {
+    const [bondingCurvePda] = this.getBondingCurvePda(mintAddress);
+    const accountInfo = await this.connection.getAccountInfo(bondingCurvePda);
+
+    if (!accountInfo) {
+      throw new Error("Bonding curve not found");
+    }
+
+    // Parse account data - adjust offsets based on actual BondingCurve struct
+    const data = accountInfo.data;
+
+    return {
+      complete: false, // TODO: Parse from actual account data
+      realTokenReserves: BigInt(0), // TODO: Parse from actual account data
+      realSolReserves: BigInt(0), // TODO: Parse from actual account data
+    };
+  }
+
+  /**
+   * Initialize global configuration (one-time setup, admin only)
+   * This must be called once before anyone can trade
+   */
+  async initializeGlobal(feeBasisPoints: number = 100): Promise<string> {
+    if (!this.walletService.connected || !this.walletService.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    const [globalPda] = this.getGlobalPda();
+    const authority = this.walletService.publicKey;
+    const feeRecipient = new PublicKey(config.platform.feeWallet);
+
+    // Create instruction data for initializeGlobal
+    const data = Buffer.alloc(10);
+    // Write discriminator (first 8 bytes) - we need to calculate this
+    // For now, use placeholder
+    data.writeUInt16LE(feeBasisPoints, 8);
+
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: globalPda, isSigner: false, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: true },
+        { pubkey: feeRecipient, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: this.programId,
+      data,
+    });
+
+    const transaction = new Transaction().add(instruction);
+    return await this.sendTransaction(transaction);
   }
 
   /**
@@ -222,13 +333,13 @@ export class BondingCurveProgramProduction {
   /**
    * Buy tokens from bonding curve
    * @param mintAddress - Token mint address
-   * @param solAmount - Amount of SOL to spend (in lamports)
-   * @param minTokensReceived - Minimum tokens expected (slippage protection)
+   * @param tokenAmount - Exact amount of tokens to buy (with decimals)
+   * @param maxSolCost - Maximum SOL willing to spend (slippage protection, in lamports)
    */
   async buyTokens(
     mintAddress: PublicKey,
-    solAmount: bigint,
-    minTokensReceived: bigint
+    tokenAmount: bigint,
+    maxSolCost: bigint
   ): Promise<string> {
     if (!this.walletService.connected || !this.walletService.publicKey) {
       throw new Error("Wallet not connected");
@@ -253,8 +364,8 @@ export class BondingCurveProgramProduction {
     // Get fee recipient from config
     const feeRecipient = new PublicKey(config.platform.feeWallet);
 
-    // Create instruction data (IDL: solAmount, minTokensReceived)
-    const buyArgs = new BuyArgs(solAmount, minTokensReceived);
+    // Create instruction data (Rust params: token_amount, max_sol_cost)
+    const buyArgs = new BuyArgs(tokenAmount, maxSolCost);
     const data = Buffer.concat([
       INSTRUCTION_DISCRIMINATORS.buy,
       Buffer.from(borsh.serialize(SCHEMAS, buyArgs)),
@@ -262,6 +373,9 @@ export class BondingCurveProgramProduction {
 
     // Build transaction
     const transaction = new Transaction();
+
+    // Get global PDA - REQUIRED by the deployed program
+    const [globalPda] = this.getGlobalPda();
 
     // Check if buyer token account exists
     const buyerTokenAccountInfo = await this.connection.getAccountInfo(
@@ -278,18 +392,22 @@ export class BondingCurveProgramProduction {
       );
     }
 
-    // Buy instruction - must match IDL account order exactly
-    // IDL order: buyer, bondingCurve, mint, buyerTokenAccount, platformFee, vault, tokenProgram, systemProgram
+    // Buy instruction - must match Rust struct order EXACTLY
+    // Order from lib.rs: global, bondingCurve, buyer, mint, buyerTokenAccount, vault, feeRecipient,
+    //                    tokenProgram, associatedTokenProgram, systemProgram, rent
     const instruction = new TransactionInstruction({
       keys: [
-        { pubkey: buyer, isSigner: true, isWritable: true },
+        { pubkey: globalPda, isSigner: false, isWritable: false },
         { pubkey: bondingCurvePda, isSigner: false, isWritable: true },
-        { pubkey: mintAddress, isSigner: false, isWritable: true }, // FIXED: mint must be writable
+        { pubkey: buyer, isSigner: true, isWritable: true },
+        { pubkey: mintAddress, isSigner: false, isWritable: true },
         { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: feeRecipient, isSigner: false, isWritable: true },
         { pubkey: vaultAccount, isSigner: false, isWritable: true },
+        { pubkey: feeRecipient, isSigner: false, isWritable: true },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }, // Rent sysvar
       ],
       programId: this.programId,
       data,
@@ -318,8 +436,17 @@ export class BondingCurveProgramProduction {
 
     const seller = this.walletService.publicKey;
 
+    console.log("💸 [SELL] Starting sell transaction");
+    console.log("💸 [SELL] Mint:", mintAddress.toBase58());
+    console.log("💸 [SELL] Token amount:", tokenAmount.toString());
+    console.log("💸 [SELL] Min SOL:", minSolReceived.toString());
+
     // Get PDAs
     const [bondingCurvePda] = this.getBondingCurvePda(mintAddress);
+    const [globalPda] = this.getGlobalPda();
+
+    console.log("💸 [SELL] Bonding curve PDA:", bondingCurvePda.toBase58());
+    console.log("💸 [SELL] Global PDA:", globalPda.toBase58());
 
     // Get accounts
     const sellerTokenAccount = await getAssociatedTokenAddress(
@@ -332,29 +459,38 @@ export class BondingCurveProgramProduction {
       true
     );
 
-    // Get fee recipient from config
-    const feeRecipient = new PublicKey(config.platform.feeWallet);
+    // Get fee recipient from global config
+    const globalState = await this.getGlobalState();
+    const feeRecipient = globalState.feeRecipient;
 
-    // Create instruction data (IDL: tokenAmount, minSolReceived)
+    console.log("💸 [SELL] Seller token account:", sellerTokenAccount.toBase58());
+    console.log("💸 [SELL] Vault account:", vaultAccount.toBase58());
+    console.log("💸 [SELL] Fee recipient:", feeRecipient.toBase58());
+
+    // Create instruction data (Rust params: token_amount, min_sol_received)
     const sellArgs = new SellArgs(tokenAmount, minSolReceived);
     const data = Buffer.concat([
       INSTRUCTION_DISCRIMINATORS.sell,
       Buffer.from(borsh.serialize(SCHEMAS, sellArgs)),
     ]);
 
+    console.log("💸 [SELL] Instruction data length:", data.length);
+
     // Build transaction
     const transaction = new Transaction();
 
-    // Sell instruction - must match IDL account order exactly
-    // IDL order: seller, bondingCurve, mint, sellerTokenAccount, platformFee, vault, tokenProgram, systemProgram
+    // Sell instruction - must match Rust struct order EXACTLY
+    // Order from lib.rs: global, bondingCurve, seller, mint, sellerTokenAccount, vault, feeRecipient,
+    //                    tokenProgram, systemProgram
     const instruction = new TransactionInstruction({
       keys: [
-        { pubkey: seller, isSigner: true, isWritable: true },
+        { pubkey: globalPda, isSigner: false, isWritable: false },
         { pubkey: bondingCurvePda, isSigner: false, isWritable: true },
+        { pubkey: seller, isSigner: true, isWritable: true },
         { pubkey: mintAddress, isSigner: false, isWritable: true },
         { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
-        { pubkey: feeRecipient, isSigner: false, isWritable: true },
         { pubkey: vaultAccount, isSigner: false, isWritable: true },
+        { pubkey: feeRecipient, isSigner: false, isWritable: true },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
@@ -362,9 +498,11 @@ export class BondingCurveProgramProduction {
       data,
     });
 
+    console.log("💸 [SELL] Instruction created with 9 accounts");
     transaction.add(instruction);
 
     // Send transaction
+    console.log("💸 [SELL] Sending transaction...");
     return await this.sendTransaction(transaction);
   }
 
