@@ -480,8 +480,8 @@ const initLightweightChart = async () => {
       borderColor: "#2b3139",
       textColor: "#848e9c",
       scaleMargins: {
-        top: 0.1,
-        bottom: 0.2,
+        top: 0.05,
+        bottom: 0.3,
       },
       autoScale: true,
     },
@@ -489,11 +489,11 @@ const initLightweightChart = async () => {
       borderColor: "#2b3139",
       timeVisible: true,
       secondsVisible: false,
-      rightOffset: 12,
-      barSpacing: 3,
-      minBarSpacing: 1,
-      fixLeftEdge: true,
-      lockVisibleTimeRangeOnResize: true,
+      rightOffset: 5,
+      barSpacing: 8,
+      minBarSpacing: 3,
+      fixLeftEdge: false,
+      lockVisibleTimeRangeOnResize: false,
       rightBarStaysOnScroll: true,
       visible: true,
       tickMarkFormatter: (time: number) => {
@@ -520,6 +520,8 @@ const initLightweightChart = async () => {
   // Add series with the loaded data
   try {
     addSeries();
+    // Fit content to show all data properly
+    lightweightChart.timeScale().fitContent();
   } catch (error) {
     console.error("Failed to add chart series:", error);
     throw error;
@@ -578,7 +580,7 @@ const addSeries = () => {
       },
       priceScaleId: "", // Set as an overlay
       scaleMargins: {
-        top: 0.8,
+        top: 0.7,
         bottom: 0.0,
       },
     });
@@ -726,19 +728,29 @@ const refreshChart = async () => {
 
 const setTimeframe = async (timeframe: string) => {
   selectedTimeframe.value = timeframe;
+  loading.value = true;
 
-  // Clear existing data
-  priceData.value = [];
-  volumeData.value = [];
+  try {
+    // Clear existing data
+    priceData.value = [];
+    volumeData.value = [];
 
-  // Reload chart data with new timeframe
-  await loadRealChartData();
+    // Reload chart data with new timeframe
+    await loadRealChartData();
 
-  // Force chart update
-  if (lightweightChart) {
-    nextTick(() => {
-      addSeries();
-    });
+    // Force chart update
+    if (lightweightChart) {
+      nextTick(() => {
+        addSeries();
+        // Fit content after data is loaded
+        lightweightChart.timeScale().fitContent();
+      });
+    }
+  } catch (err: any) {
+    console.error('Error changing timeframe:', err);
+    error.value = 'Failed to load chart data for this timeframe';
+  } finally {
+    loading.value = false;
   }
 };
 

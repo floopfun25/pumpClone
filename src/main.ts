@@ -63,6 +63,17 @@ async function createVueApp() {
     app.use(router);
     app.use(i18n);
 
+    // Initialize WebSocket connection for real-time updates
+    import("./services/webSocketService")
+      .then(({ webSocketService }) => {
+        webSocketService.connect().catch((err) => {
+          console.warn("WebSocket connection failed, will retry on subscription:", err);
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to import WebSocket service:", err);
+      });
+
     // Mount the app
     app.mount("#app");
 

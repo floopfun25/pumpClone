@@ -2,6 +2,7 @@ import { ref, type Ref } from "vue";
 import { tradingAPI } from "./api";
 import { getTokenPriceHistory } from "./backendApi";
 import { BondingCurveService, type EnhancedTradeResult } from "./bondingCurve";
+import { webSocketService, type PriceUpdate } from "./webSocketService";
 
 export interface RealPriceData {
   tokenId: string;
@@ -33,7 +34,10 @@ class RealTimePriceService {
   >();
   private static priceCache = new Map<string, RealPriceData>();
   private static chartDataCache = new Map<string, ChartDataPoint[]>();
-  private static updateIntervals = new Map<string, NodeJS.Timeout>();
+  private static wsUnsubscribers = new Map<string, () => void>();
+  private static lastUpdateTime = new Map<string, number>();
+  private static readonly UPDATE_THROTTLE_MS = 1000; // Max 1 update per second
+  private static readonly MAX_CANDLES = 1000; // Limit memory usage
 
   /**
    * Subscribe to real-time price updates for a token
@@ -66,38 +70,137 @@ class RealTimePriceService {
   }
 
   /**
-   * Start monitoring a token for price changes
+   * Start monitoring a token for price changes via WebSocket
    */
   private static startMonitoring(tokenId: string) {
-    if (this.updateIntervals.has(tokenId)) {
+    if (this.wsUnsubscribers.has(tokenId)) {
       return; // Already monitoring
     }
 
     // Fetch initial data
     this.fetchAndUpdatePrice(tokenId);
 
-    // Set up interval to check for updates every 5 seconds
-    const interval = setInterval(() => {
-      this.fetchAndUpdatePrice(tokenId);
-    }, 5000);
+    // Subscribe to WebSocket price updates
+    const unsubscribe = webSocketService.subscribeToPrice(tokenId, (update: PriceUpdate) => {
+      this.handleWebSocketPriceUpdate(tokenId, update);
+    });
 
-    this.updateIntervals.set(tokenId, interval);
-
-    // Also subscribe to real-time transaction updates
-    this.subscribeToTransactionUpdates(tokenId);
+    this.wsUnsubscribers.set(tokenId, unsubscribe);
+    console.log(`[RealTimePriceService] Started monitoring token ${tokenId} via WebSocket`);
   }
 
   /**
    * Stop monitoring a token
    */
   private static stopMonitoring(tokenId: string) {
-    const interval = this.updateIntervals.get(tokenId);
-    if (interval) {
-      clearInterval(interval);
-      this.updateIntervals.delete(tokenId);
+    const unsubscribe = this.wsUnsubscribers.get(tokenId);
+    if (unsubscribe) {
+      unsubscribe();
+      this.wsUnsubscribers.delete(tokenId);
     }
     this.subscribers.delete(tokenId);
     this.priceCache.delete(tokenId);
+    this.lastUpdateTime.delete(tokenId);
+    console.log(`[RealTimePriceService] Stopped monitoring token ${tokenId}`);
+  }
+
+  /**
+   * Handle WebSocket price update with throttling and candle updates
+   */
+  private static async handleWebSocketPriceUpdate(tokenId: string, update: PriceUpdate) {
+    const now = Date.now();
+    const lastUpdate = this.lastUpdateTime.get(tokenId) || 0;
+
+    // Throttle updates to max 1 per second
+    if (now - lastUpdate < this.UPDATE_THROTTLE_MS) {
+      return;
+    }
+
+    this.lastUpdateTime.set(tokenId, now);
+
+    try {
+      const currentPrice = update.price;
+      const currentTime = now;
+
+      // Update candles for all timeframes
+      const timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "24h"];
+
+      for (const timeframe of timeframes) {
+        const periodMs = this.getIntervalMs(timeframe);
+        const periodStart = Math.floor(currentTime / periodMs) * periodMs;
+
+        // Get or create candle data for this timeframe
+        let timeframeData =
+          this.chartDataCache.get(`${tokenId}_${timeframe}`) || [];
+        const currentCandle = timeframeData.find((c) => c.time === periodStart);
+
+        if (currentCandle) {
+          // Update existing candle
+          currentCandle.close = currentPrice;
+          currentCandle.high = Math.max(currentCandle.high, currentPrice);
+          currentCandle.low = Math.min(currentCandle.low, currentPrice);
+          currentCandle.volume += update.volume24h;
+        } else {
+          // Create new candle
+          const newCandle: ChartDataPoint = {
+            time: periodStart,
+            open:
+              timeframeData.length > 0
+                ? timeframeData[timeframeData.length - 1].close
+                : currentPrice,
+            high: currentPrice,
+            low: currentPrice,
+            close: currentPrice,
+            volume: update.volume24h,
+          };
+          timeframeData.push(newCandle);
+
+          // Trim old data to prevent memory bloat
+          const maxPeriods = Math.min(this.getPeriodsForTimeframe(timeframe), this.MAX_CANDLES);
+          if (timeframeData.length > maxPeriods) {
+            timeframeData = timeframeData.slice(-maxPeriods);
+          }
+        }
+
+        // Update cache with trimmed data
+        this.chartDataCache.set(`${tokenId}_${timeframe}`, timeframeData);
+      }
+
+      // Calculate price change (use cached data if available)
+      const priceChange24h = await this.calculatePriceChange24h(tokenId, currentPrice);
+
+      // Create price update data
+      const priceData: RealPriceData = {
+        tokenId,
+        price: currentPrice,
+        volume: update.volume24h,
+        marketCap: update.marketCap,
+        priceChange24h,
+        timestamp: currentTime,
+        open: currentPrice,
+        high: currentPrice,
+        low: currentPrice,
+        close: currentPrice,
+        progress: 0, // Will be updated by bonding curve service if needed
+      };
+
+      // Update price cache
+      this.priceCache.set(tokenId, priceData);
+
+      // Notify subscribers
+      const subscribers = this.subscribers.get(tokenId);
+      if (subscribers) {
+        subscribers.forEach((callback) => {
+          try {
+            callback(priceData);
+          } catch (error) {
+            console.error("Error in price update callback:", error);
+          }
+        });
+      }
+    } catch (error) {
+      console.error(`Error handling WebSocket price update for token ${tokenId}:`, error);
+    }
   }
 
   /**
@@ -212,42 +315,6 @@ class RealTimePriceService {
     await this.fetchAndUpdatePrice(tokenId);
   }
 
-  /**
-   * Subscribe to real-time transaction updates (DISABLED - using polling instead)
-   */
-  private static subscribeToTransactionUpdates(tokenId: string) {
-    // DISABLED: Supabase Realtime causing WebSocket errors
-    // Using polling-based updates instead which work reliably
-    /*
-    try {
-      // TODO: Real-time subscriptions now handled by Spring Boot backend WebSocket
-      // SupabaseService.subscribeToTransactions(tokenId, (transaction: any) => {
-        // When a new transaction occurs, immediately update the price
-        this.handleNewTransaction(tokenId, transaction)
-      })
-    } catch (error) {
-      console.error('Failed to subscribe to transaction updates:', error)
-    }
-    */
-  }
-
-  /**
-   * Handle a new transaction and update price immediately
-   */
-  private static async handleNewTransaction(tokenId: string, transaction: any) {
-    try {
-      // Calculate new price based on the trade
-      const state =
-        await BondingCurveService.getTokenBondingCurveState(tokenId);
-
-      // Update price data immediately
-      await this.fetchAndUpdatePrice(tokenId);
-
-      console.log(`Price updated for token ${tokenId} after new transaction`);
-    } catch (error) {
-      console.error("Error handling new transaction:", error);
-    }
-  }
 
   /**
    * Get cached price data for a token
