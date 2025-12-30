@@ -2,11 +2,13 @@ package com.floppfun.controller;
 
 import com.floppfun.dto.PricePointDTO;
 import com.floppfun.dto.TokenHolderDTO;
+import com.floppfun.model.dto.PriceHistoryDTO;
 import com.floppfun.model.dto.TokenCreateRequest;
 import com.floppfun.model.dto.TokenDTO;
 import com.floppfun.model.entity.Token;
 import com.floppfun.service.TokenService;
 import com.floppfun.service.TokenPriceService;
+import com.floppfun.service.PriceHistoryService;
 import com.floppfun.service.TokenHolderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class TokenController {
 
     private final TokenService tokenService;
     private final TokenPriceService tokenPriceService;
+    private final PriceHistoryService priceHistoryService;
     private final TokenHolderService tokenHolderService;
 
     /**
@@ -134,15 +137,18 @@ public class TokenController {
     }
 
     /**
-     * Get price history for a token
-     * Timeframe options: 5m, 1h, 24h, 7d, 30d
+     * Get price history for a token (OHLCV candlestick data)
+     * Timeframe options: 1m, 5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d
      */
     @GetMapping("/{id}/price-history")
-    public ResponseEntity<List<PricePointDTO>> getPriceHistory(
+    public ResponseEntity<List<PriceHistoryDTO>> getPriceHistory(
             @PathVariable Long id,
             @RequestParam(defaultValue = "24h") String timeframe) {
 
-        List<PricePointDTO> priceHistory = tokenPriceService.getPriceHistory(id, timeframe);
+        Token token = tokenService.getTokenById(id)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        List<PriceHistoryDTO> priceHistory = priceHistoryService.getPriceHistory(token, timeframe);
         return ResponseEntity.ok(priceHistory);
     }
 
@@ -179,6 +185,31 @@ public class TokenController {
     }
 
     /**
+     * Record price point after a trade (called by frontend after blockchain transaction)
+     */
+    @PostMapping("/{id}/record-trade")
+    public ResponseEntity<Void> recordTradePrice(
+            @PathVariable Long id,
+            @RequestBody TradePriceRequest request) {
+
+        Token token = tokenService.getTokenById(id)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        priceHistoryService.recordPricePoint(
+                token,
+                request.getPrice(),
+                request.getVolume(),
+                request.getMarketCap(),
+                request.getTradeType()
+        );
+
+        log.info("Recorded price point for token {}: price={}, type={}",
+                id, request.getPrice(), request.getTradeType());
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * DTO for token statistics
      */
     @lombok.Data
@@ -194,5 +225,16 @@ public class TokenController {
     @lombok.AllArgsConstructor
     public static class HoldersCountDTO {
         private Long count;
+    }
+
+    /**
+     * DTO for recording trade price
+     */
+    @lombok.Data
+    public static class TradePriceRequest {
+        private java.math.BigDecimal price;
+        private java.math.BigDecimal volume;
+        private java.math.BigDecimal marketCap;
+        private String tradeType; // "BUY" or "SELL"
     }
 }

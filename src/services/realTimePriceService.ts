@@ -127,7 +127,8 @@ class RealTimePriceService {
 
       for (const timeframe of timeframes) {
         const periodMs = this.getIntervalMs(timeframe);
-        const periodStart = Math.floor(currentTime / periodMs) * periodMs;
+        const periodStartMs = Math.floor(currentTime / periodMs) * periodMs;
+        const periodStart = Math.floor(periodStartMs / 1000); // Convert to Unix seconds
 
         // Get or create candle data for this timeframe
         let timeframeData =
@@ -143,7 +144,7 @@ class RealTimePriceService {
         } else {
           // Create new candle
           const newCandle: ChartDataPoint = {
-            time: periodStart,
+            time: periodStart, // Already in Unix seconds
             open:
               timeframeData.length > 0
                 ? timeframeData[timeframeData.length - 1].close
@@ -230,7 +231,8 @@ class RealTimePriceService {
 
       for (const timeframe of timeframes) {
         const periodMs = this.getIntervalMs(timeframe);
-        const periodStart = Math.floor(currentTime / periodMs) * periodMs;
+        const periodStartMs = Math.floor(currentTime / periodMs) * periodMs;
+        const periodStart = Math.floor(periodStartMs / 1000); // Convert to Unix seconds
 
         // Get or create candle data for this timeframe
         let timeframeData =
@@ -251,7 +253,7 @@ class RealTimePriceService {
         } else {
           // Create new candle
           const newCandle: ChartDataPoint = {
-            time: periodStart,
+            time: periodStart, // Already in Unix seconds
             open:
               timeframeData.length > 0
                 ? timeframeData[timeframeData.length - 1].close
@@ -347,95 +349,57 @@ class RealTimePriceService {
       const priceHistory = await getTokenPriceHistory(tokenId, timeframe);
 
       if (priceHistory.length === 0) {
-        // If no historical data, generate initial state with trend
-        const state =
-          await BondingCurveService.getTokenBondingCurveState(tokenId);
-        const now = Date.now();
-        const basePrice = state.currentPrice;
-        const points: ChartDataPoint[] = [];
-
-        // Create data points for the last period to show some trend
-        const periods = this.getPeriodsForTimeframe(timeframe);
-        const periodMs = this.getIntervalMs(timeframe);
-
-        for (let i = periods - 1; i >= 0; i--) {
-          const time = now - i * periodMs;
-          const volatility = 0.005; // 0.5% volatility for mock data
-          const randomChange = (Math.random() - 0.5) * volatility;
-          const price = basePrice * (1 + randomChange);
-
-          points.push({
-            time,
-            open: price * (1 - volatility / 4),
-            high: price * (1 + volatility / 2),
-            low: price * (1 - volatility / 2),
-            close: price,
-            volume: Math.random() * state.marketCap * 0.001, // Small mock volume based on market cap
-          });
-        }
-
-        // Update cache with initial data
-        this.chartDataCache.set(tokenId, points);
-        return points;
+        // No trading history yet - return empty array
+        console.log(`[RealTimePriceService] No trading history available for token ${tokenId}`);
+        return [];
       }
 
       if (priceHistory.length === 1) {
-        // If only one data point, duplicate it to create a line
+        // If only one data point, create two candles: one at trade time, one at current time
         const point = priceHistory[0];
-        const now = new Date(point.timestamp).getTime();
-        const candle: ChartDataPoint = {
-          time: now,
-          open: point.price,
-          high: point.price,
-          low: point.price,
-          close: point.price,
+        const timestampMs = new Date(point.timestamp).getTime();
+        const time = Math.floor(timestampMs / 1000); // Convert to Unix seconds
+
+        // First candle: the actual trade data
+        const tradeCandle: ChartDataPoint = {
+          time,
+          open: point.open || point.price,
+          high: point.high || point.price,
+          low: point.low || point.price,
+          close: point.close || point.price,
           volume: point.volume || 0,
         };
 
-        // Create a second point 5 minutes ago for a flat line
-        const fiveMinAgo = new Date(now - 5 * 60 * 1000).getTime();
-        const prevCandle: ChartDataPoint = { ...candle, time: fiveMinAgo };
+        // Second candle: current price at current time
+        const now = Math.floor(Date.now() / 1000);
+        const currentCandle: ChartDataPoint = {
+          time: now,
+          open: point.close || point.price,
+          high: point.close || point.price,
+          low: point.close || point.price,
+          close: point.close || point.price,
+          volume: 0,
+        };
 
-        const chartData = [prevCandle, candle];
+        const chartData = [tradeCandle, currentCandle];
         this.chartDataCache.set(tokenId, chartData);
         return chartData;
       }
 
-      // Convert price history to OHLCV format
-      const intervalMs = this.getIntervalMs(timeframe);
-      const chartData: ChartDataPoint[] = [];
-
-      // Group price points into candles
-      const grouped = new Map<number, any[]>();
-
-      priceHistory.forEach((point: any) => {
-        const timestamp = new Date(point.timestamp).getTime();
-        const candleTime = Math.floor(timestamp / intervalMs) * intervalMs;
-
-        if (!grouped.has(candleTime)) {
-          grouped.set(candleTime, []);
-        }
-        grouped.get(candleTime)!.push(point);
+      // Backend already returns OHLCV aggregated data, just convert format
+      const chartData: ChartDataPoint[] = priceHistory.map((point: any) => {
+        const timestampMs = new Date(point.timestamp).getTime();
+        return {
+          time: Math.floor(timestampMs / 1000), // Convert to Unix seconds
+          open: point.open || point.price,
+          high: point.high || point.price,
+          low: point.low || point.price,
+          close: point.close || point.price,
+          volume: point.volume || 0,
+        };
       });
 
-      // Convert grouped data to OHLCV candles
-      for (const [time, points] of grouped.entries()) {
-        if (points.length === 0) continue;
-
-        const prices = points.map((p) => p.price).sort((a, b) => a - b);
-        const volumes = points.map((p) => p.volume || 0);
-
-        chartData.push({
-          time,
-          open: points[0].price,
-          high: Math.max(...prices),
-          low: Math.min(...prices),
-          close: points[points.length - 1].price,
-          volume: volumes.reduce((sum, v) => sum + v, 0),
-        });
-      }
-
-      // Sort by time
+      // Sort by time (should already be sorted from backend)
       chartData.sort((a, b) => a.time - b.time);
 
       // Cache the data

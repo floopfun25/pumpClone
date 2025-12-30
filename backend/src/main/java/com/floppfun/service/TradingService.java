@@ -27,6 +27,7 @@ public class TradingService {
     private final BondingCurveService bondingCurveService;
     private final SolanaService solanaService;
     private final WebSocketService webSocketService;
+    private final PriceHistoryService priceHistoryService;
     private final TransactionRepository transactionRepository;
     private final UserHoldingRepository userHoldingRepository;
 
@@ -94,6 +95,10 @@ public class TradingService {
 
         // Update user stats
         user.setTotalVolumeTraded(user.getTotalVolumeTraded().add(BigDecimal.valueOf(totalSolCost)));
+
+        // Record price history for charts
+        priceHistoryService.recordPricePoint(token, token.getCurrentPrice(),
+                BigDecimal.valueOf(totalSolCost), token.getMarketCap(), "BUY");
 
         // Broadcast real-time update
         webSocketService.broadcastPriceUpdate(token.getId(), token.getCurrentPrice(),
@@ -183,6 +188,10 @@ public class TradingService {
 
         // Update user stats
         user.setTotalVolumeTraded(user.getTotalVolumeTraded().add(BigDecimal.valueOf(netSolReceived)));
+
+        // Record price history for charts
+        priceHistoryService.recordPricePoint(token, token.getCurrentPrice(),
+                BigDecimal.valueOf(netSolReceived), token.getMarketCap(), "SELL");
 
         // Broadcast real-time update
         webSocketService.broadcastPriceUpdate(token.getId(), token.getCurrentPrice(),

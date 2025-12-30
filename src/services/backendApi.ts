@@ -38,6 +38,22 @@ export async function getTokenPriceHistory(tokenId: string, timeframe: string = 
   return await response.json();
 }
 
+export async function recordTradePrice(tokenId: string, price: number, volume: number, marketCap: number, tradeType: 'BUY' | 'SELL') {
+  const response = await fetch(`${API_BASE_URL}/tokens/${tokenId}/record-trade`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      price,
+      volume,
+      marketCap,
+      tradeType
+    })
+  });
+  if (!response.ok) {
+    console.warn('Failed to record trade price, but continuing');
+  }
+}
+
 export async function getToken24hStats(tokenId: string) {
   const response = await fetch(`${API_BASE_URL}/tokens/${tokenId}/stats`, {
     headers: getAuthHeaders()

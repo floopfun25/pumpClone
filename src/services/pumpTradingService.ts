@@ -17,6 +17,7 @@ import {
 import { getWalletService } from "./wallet";
 import { config } from "@/config";
 import { bondingCurveProgram } from "./bondingCurveProgram";
+import { recordTradePrice, getTokenByMintAddress } from "./backendApi";
 
 export interface TradeResult {
   signature: string;
@@ -41,7 +42,7 @@ export class PumpTradingService {
   async buyTokens(
     mintAddress: PublicKey,
     solAmount: number,
-    slippagePercent: number = 3,
+    slippagePercent: number = 15,
   ): Promise<TradeResult> {
     console.log("💰 [PUMP BUY] Starting buy transaction...");
     console.log(`💰 [PUMP BUY] Buying ${solAmount} SOL worth of tokens`);
@@ -102,6 +103,8 @@ export class PumpTradingService {
         this.walletService.publicKey.toBase58(),
         solAmountLamports,
         expectedTokens,
+        newPrice,
+        marketCap,
       );
 
       return result;
@@ -117,7 +120,7 @@ export class PumpTradingService {
   async sellTokens(
     mintAddress: PublicKey,
     tokenAmount: bigint, // Token amount in base units
-    slippagePercent: number = 3,
+    slippagePercent: number = 15,
   ): Promise<TradeResult> {
     console.log("💸 [PUMP SELL] Starting sell transaction...");
     console.log(`💸 [PUMP SELL] Selling ${Number(tokenAmount) / 1e9} tokens`);
@@ -174,6 +177,8 @@ export class PumpTradingService {
         this.walletService.publicKey.toBase58(),
         expectedSol,
         tokenAmount,
+        newPrice,
+        marketCap,
       );
 
       return result;
@@ -261,17 +266,36 @@ export class PumpTradingService {
     userAddress: string,
     solAmount: bigint,
     tokenAmount: bigint,
+    price: number,
+    marketCap: number,
   ): Promise<void> {
     try {
-      // TODO: Database operations now handled by Spring Boot backend
-      console.log('Trade recorded:', {
-        type,
-        signature,
-        mintAddress,
-        userAddress,
-        solAmount: Number(solAmount) / LAMPORTS_PER_SOL,
-        tokenAmount: Number(tokenAmount),
-      });
+      // Get token from backend by mint address
+      const token = await getTokenByMintAddress(mintAddress);
+
+      if (token && token.id) {
+        const volumeSOL = Number(solAmount) / LAMPORTS_PER_SOL;
+
+        console.log(`📊 Recording price history:`, {
+          tokenId: token.id,
+          type: type.toUpperCase(),
+          price,
+          volume: volumeSOL,
+          marketCap,
+        });
+
+        // Record price history in backend
+        await recordTradePrice(
+          token.id.toString(),
+          price,
+          volumeSOL, // Volume in SOL
+          marketCap,
+          type.toUpperCase() as 'BUY' | 'SELL'
+        );
+        console.log(`✅ Price history recorded for token ${token.id}: ${type} at ${price} SOL`);
+      } else {
+        console.warn('⚠️ Token not found in backend, skipping price recording');
+      }
     } catch (error) {
       console.warn("⚠️ Failed to record trade:", error);
       // Don't throw - transaction succeeded even if recording failed

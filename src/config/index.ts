@@ -176,7 +176,7 @@ export const config = {
   trading: {
     minTradeAmount: 1000000, // 0.001 SOL minimum
     // maxTradeAmount removed
-    slippageToleranceDefault: 3.0, // 3% default slippage
+    slippageToleranceDefault: 10.0, // 10% default slippage (pump.fun style - handles rapid price movement)
     maxSlippageTolerance: 20.0, // 20% maximum slippage
     // Price impact warnings
     priceImpactWarning: 5.0, // Warn at 5% price impact

@@ -489,11 +489,12 @@ const initLightweightChart = async () => {
       borderColor: "#2b3139",
       timeVisible: true,
       secondsVisible: false,
-      rightOffset: 5,
-      barSpacing: 8,
-      minBarSpacing: 3,
+      rightOffset: 12,
+      barSpacing: 12,
+      minBarSpacing: 8,
       fixLeftEdge: false,
-      lockVisibleTimeRangeOnResize: false,
+      fixRightEdge: false,
+      lockVisibleTimeRangeOnResize: true,
       rightBarStaysOnScroll: true,
       visible: true,
       tickMarkFormatter: (time: number) => {
@@ -520,8 +521,54 @@ const initLightweightChart = async () => {
   // Add series with the loaded data
   try {
     addSeries();
-    // Fit content to show all data properly
-    lightweightChart.timeScale().fitContent();
+
+    // Improved dynamic spacing calculation based on target visible candles
+    if (priceData.value.length > 0 && lightweightChart) {
+      const candleCount = priceData.value.length;
+      const chartWidth = chartContainer.value?.clientWidth || 800;
+
+      // Get target visible candles for this timeframe
+      const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
+
+      // Calculate optimal spacing to fit target candles comfortably
+      let optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
+
+      // Enforce reasonable bounds (8-25px) to prevent unreadable candles
+      optimalSpacing = Math.max(8, Math.min(25, optimalSpacing));
+
+      // Set minBarSpacing to prevent extreme compression but allow some zoom
+      const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.4));
+
+      lightweightChart.applyOptions({
+        timeScale: {
+          barSpacing: optimalSpacing,
+          minBarSpacing: minSpacing,
+        },
+      });
+
+      console.log(`[Chart] Config for ${candleCount} candles: barSpacing=${optimalSpacing}px, min=${minSpacing}px, targetVisible=${targetVisible}`);
+
+      // Set visible range to show target number of candles
+      setTimeout(() => {
+        if (lightweightChart && priceData.value.length > 0) {
+          const timeScale = lightweightChart.timeScale();
+          const lastIndex = priceData.value.length - 1;
+          const lastTime = priceData.value[lastIndex].time;
+
+          // Show only target visible candles (not all data)
+          const visibleCount = Math.min(targetVisible, candleCount);
+          const startIndex = Math.max(0, lastIndex - visibleCount + 1);
+          const startTime = priceData.value[startIndex].time;
+
+          timeScale.setVisibleRange({
+            from: startTime as any,
+            to: lastTime as any,
+          });
+
+          console.log(`[Chart] Showing ${visibleCount} of ${candleCount} candles (indices ${startIndex}-${lastIndex})`);
+        }
+      }, 100);
+    }
   } catch (error) {
     console.error("Failed to add chart series:", error);
     throw error;
@@ -563,8 +610,8 @@ const addSeries = () => {
       wickDownColor: "#f6465d",
       priceFormat: {
         type: "price",
-        precision: 8,
-        formatter: (price: number) => `${convertToUSD(price).toFixed(8)}`,
+        precision: 10,
+        minMove: 0.0000000001,
       },
     });
 
@@ -626,53 +673,70 @@ const loadRealChartData = async () => {
       selectedTimeframe.value,
     );
 
-    // Ensure we have valid data, create a single point if empty
+    // If no data, show the "No Data" state instead of creating mock data
     if (chartData.length === 0) {
-      const now = Date.now();
-      const currentPrice = bondingCurveState.currentPrice;
-
-      chartData.push({
-        time: now,
-        open: currentPrice,
-        high: currentPrice,
-        low: currentPrice,
-        close: currentPrice,
-        volume: 0,
-      });
+      priceData.value = [];
+      loading.value = false;
+      return;
     }
 
+    // Limit data based on timeframe to prevent overcrowding
+    const maxCandles = getMaxCandlesForTimeframe(selectedTimeframe.value);
+    const limitedChartData = chartData.length > maxCandles
+      ? chartData.slice(-maxCandles)
+      : chartData;
+
+    console.log(`[Chart] Loading ${limitedChartData.length} candles for ${selectedTimeframe.value} timeframe`);
+
     // Convert chart data to lightweight charts format with validation
-    priceData.value = chartData.map((candle, index) => {
+    priceData.value = limitedChartData.map((candle, index) => {
       const candleData = {
-        time: Math.floor(candle.time / 1000), // Convert to seconds
+        time: candle.time, // Already in Unix seconds from realTimePriceService
         open: Number(candle.open) || bondingCurveState.currentPrice,
         high: Number(candle.high) || bondingCurveState.currentPrice,
         low: Number(candle.low) || bondingCurveState.currentPrice,
         close: Number(candle.close) || bondingCurveState.currentPrice,
       };
 
-      // Validate OHLC data
+      // Debug first candle
+      if (index === 0) {
+        console.log('[Chart] First candle data:', {
+          time: candleData.time,
+          timeISO: new Date(candleData.time * 1000).toISOString(),
+          open: candleData.open,
+          high: candleData.high,
+          low: candleData.low,
+          close: candleData.close,
+        });
+      }
+
+      // Validate OHLC data - fix invalid ranges without collapsing to single values
       if (candleData.high < candleData.low) {
+        // Swap if high is less than low
+        const temp = candleData.high;
         candleData.high = candleData.low;
+        candleData.low = temp;
       }
-      if (
-        candleData.open < candleData.low ||
-        candleData.open > candleData.high
-      ) {
-        candleData.open = candleData.close;
+
+      // Ensure open/close are within high/low range, but preserve spread
+      if (candleData.open < candleData.low) {
+        candleData.low = candleData.open;
       }
-      if (
-        candleData.close < candleData.low ||
-        candleData.close > candleData.high
-      ) {
-        candleData.close = (candleData.high + candleData.low) / 2;
+      if (candleData.open > candleData.high) {
+        candleData.high = candleData.open;
+      }
+      if (candleData.close < candleData.low) {
+        candleData.low = candleData.close;
+      }
+      if (candleData.close > candleData.high) {
+        candleData.high = candleData.close;
       }
 
       return candleData;
     });
 
-    volumeData.value = chartData.map((candle) => ({
-      time: Math.floor(candle.time / 1000),
+    volumeData.value = limitedChartData.map((candle) => ({
+      time: candle.time, // Already in Unix seconds from realTimePriceService
       value: Number(candle.volume) || 0,
       color: candle.close > candle.open ? "#2ebd85" : "#f6465d",
     }));
@@ -742,8 +806,54 @@ const setTimeframe = async (timeframe: string) => {
     if (lightweightChart) {
       nextTick(() => {
         addSeries();
-        // Fit content after data is loaded
-        lightweightChart.timeScale().fitContent();
+
+        // Improved dynamic spacing calculation based on target visible candles
+        if (priceData.value.length > 0) {
+          const candleCount = priceData.value.length;
+          const chartWidth = chartContainer.value?.clientWidth || 800;
+
+          // Get target visible candles for this timeframe
+          const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
+
+          // Calculate optimal spacing to fit target candles comfortably
+          let optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
+
+          // Enforce reasonable bounds (8-25px)
+          optimalSpacing = Math.max(8, Math.min(25, optimalSpacing));
+
+          // Set minBarSpacing to prevent extreme compression
+          const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.4));
+
+          lightweightChart.applyOptions({
+            timeScale: {
+              barSpacing: optimalSpacing,
+              minBarSpacing: minSpacing,
+            },
+          });
+
+          console.log(`[Chart] Timeframe ${selectedTimeframe.value}: barSpacing=${optimalSpacing}px, min=${minSpacing}px, targetVisible=${targetVisible}, total=${candleCount}`);
+
+          // Set visible range to show target candles
+          setTimeout(() => {
+            if (lightweightChart && priceData.value.length > 0) {
+              const timeScale = lightweightChart.timeScale();
+              const lastIndex = priceData.value.length - 1;
+              const lastTime = priceData.value[lastIndex].time;
+
+              // Show only target visible candles
+              const visibleCount = Math.min(targetVisible, candleCount);
+              const startIndex = Math.max(0, lastIndex - visibleCount + 1);
+              const startTime = priceData.value[startIndex].time;
+
+              timeScale.setVisibleRange({
+                from: startTime as any,
+                to: lastTime as any,
+              });
+
+              console.log(`[Chart] Showing ${visibleCount} of ${candleCount} candles (indices ${startIndex}-${lastIndex})`);
+            }
+          }, 100);
+        }
       });
     }
   } catch (err: any) {
@@ -768,6 +878,63 @@ const toggleFullscreen = () => {
 };
 
 // Utility functions
+const getMaxCandlesForTimeframe = (timeframe: string): number => {
+  switch (timeframe) {
+    case "1m":
+      return 120; // 2 hours of 1-minute candles
+    case "5m":
+      return 144; // 12 hours of 5-minute candles
+    case "15m":
+      return 96; // 24 hours of 15-minute candles
+    case "30m":
+      return 96; // 48 hours of 30-minute candles
+    case "1h":
+      return 72; // 3 days of 1-hour candles
+    case "4h":
+      return 90; // 15 days of 4-hour candles
+    case "24h":
+      return 30; // 30 days of daily candles
+    case "7d":
+      return 30; // 30 weeks
+    case "30d":
+      return 24; // 24 months
+    default:
+      return 100;
+  }
+};
+
+const getTargetVisibleCandles = (timeframe: string): number => {
+  // Detect mobile vs desktop
+  const isMobile = chartContainer.value?.clientWidth && chartContainer.value.clientWidth < 768;
+
+  const mobileTargets = {
+    '1m': 40,
+    '5m': 48,
+    '15m': 36,
+    '30m': 36,
+    '1h': 36,
+    '4h': 30,
+    '24h': 20,
+    '7d': 20,
+    '30d': 16,
+  } as Record<string, number>;
+
+  const desktopTargets = {
+    '1m': 60,
+    '5m': 72,
+    '15m': 48,
+    '30m': 48,
+    '1h': 48,
+    '4h': 42,
+    '24h': 30,
+    '7d': 30,
+    '30d': 24,
+  } as Record<string, number>;
+
+  const targets = isMobile ? mobileTargets : desktopTargets;
+  return targets[timeframe] || 50;
+};
+
 const getHighPrice = (): number => {
   if (priceData.value.length === 0) return 0;
   return Math.max(...priceData.value.map((p) => p.high));
