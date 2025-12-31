@@ -81,10 +81,27 @@ export class PumpTradingService {
 
       console.log("✅ [PUMP BUY] Buy transaction completed:", signature);
 
-      // Get updated price and market cap
-      const newPrice = await bondingCurveProgram.getCurrentPrice(mintAddress);
-      const solPriceUSD = 100; // TODO: Get real SOL price from oracle
-      const marketCap = await bondingCurveProgram.getMarketCap(mintAddress, solPriceUSD);
+      // CRITICAL: Calculate the new price instead of reading from chain
+      // Reading from chain immediately after transaction returns stale data
+      // because the blockchain state hasn't fully propagated yet
+
+      // Get token from backend to get numeric ID
+      const token = await getTokenByMintAddress(mintAddress.toBase58());
+      if (!token || !token.id) {
+        throw new Error("Token not found in backend");
+      }
+
+      // Get current bonding curve state to calculate new reserves
+      const { BondingCurveService } = await import("./bondingCurve");
+      const currentState = await BondingCurveService.getTokenBondingCurveState(token.id.toString());
+
+      // The price after the buy is the current bonding curve price
+      // (which includes this trade's effect on the reserves)
+      const newPrice = currentState.currentPrice;
+      const marketCap = currentState.marketCap;
+
+      console.log(`💰 [PUMP BUY] Calculated new price: ${newPrice} SOL per token`);
+      console.log(`💰 [PUMP BUY] Calculated market cap: $${marketCap}`);
 
       // Create result object
       const result: TradeResult = {
@@ -155,10 +172,27 @@ export class PumpTradingService {
 
       console.log("✅ [PUMP SELL] Sell transaction completed:", signature);
 
-      // Get updated price and market cap
-      const newPrice = await bondingCurveProgram.getCurrentPrice(mintAddress);
-      const solPriceUSD = 100; // TODO: Get real SOL price from oracle
-      const marketCap = await bondingCurveProgram.getMarketCap(mintAddress, solPriceUSD);
+      // CRITICAL: Calculate the new price instead of reading from chain
+      // Reading from chain immediately after transaction returns stale data
+      // because the blockchain state hasn't fully propagated yet
+
+      // Get token from backend to get numeric ID
+      const token = await getTokenByMintAddress(mintAddress.toBase58());
+      if (!token || !token.id) {
+        throw new Error("Token not found in backend");
+      }
+
+      // Get current bonding curve state to calculate new reserves
+      const { BondingCurveService } = await import("./bondingCurve");
+      const currentState = await BondingCurveService.getTokenBondingCurveState(token.id.toString());
+
+      // The price after the sell is the current bonding curve price
+      // (which includes this trade's effect on the reserves)
+      const newPrice = currentState.currentPrice;
+      const marketCap = currentState.marketCap;
+
+      console.log(`💸 [PUMP SELL] Calculated new price: ${newPrice} SOL per token`);
+      console.log(`💸 [PUMP SELL] Calculated market cap: $${marketCap}`);
 
       // Create result object
       const result: TradeResult = {
@@ -276,13 +310,19 @@ export class PumpTradingService {
       if (token && token.id) {
         const volumeSOL = Number(solAmount) / LAMPORTS_PER_SOL;
 
-        console.log(`📊 Recording price history:`, {
+        console.log(`📊 [RECORD TRADE] Recording price history:`, {
           tokenId: token.id,
           type: type.toUpperCase(),
           price,
           volume: volumeSOL,
           marketCap,
+          signature,
+          solAmount: Number(solAmount),
+          tokenAmount: Number(tokenAmount),
         });
+
+        console.warn(`⚠️ [PRICE CHECK] Price being recorded: ${price} SOL per token`);
+        console.warn(`⚠️ [PRICE CHECK] Market cap being recorded: $${marketCap}`);
 
         // Record price history in backend
         await recordTradePrice(

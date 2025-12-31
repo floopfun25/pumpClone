@@ -874,6 +874,17 @@ class WalletService {
         if (!phantomWallet.isPhantom) {
           throw new WalletConnectionError('Phantom wallet is locked. Please unlock your Phantom extension and try again.');
         }
+
+        // Try to disconnect first to clear any stale state
+        if (phantomWallet.isConnected) {
+          console.log('🔍 DEBUG: Disconnecting existing Phantom connection...');
+          try {
+            await phantomWallet.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait for disconnect
+          } catch (e) {
+            console.warn('Failed to disconnect existing connection:', e);
+          }
+        }
       }
 
       await wallet.adapter.connect();
@@ -887,9 +898,11 @@ class WalletService {
         fullError: error
       });
 
-      // Provide better error message for common issues
+      // Provide better error messages for common issues
       if (error.message === 'Unexpected error' || !error.message) {
-        error.message = 'Failed to connect to wallet. Please make sure your wallet is unlocked and try again.';
+        throw new WalletConnectionError('Failed to connect to wallet. Please unlock your Phantom wallet and try again. If the problem persists, try refreshing the page.');
+      } else if (error.message?.includes('User rejected')) {
+        throw new WalletConnectionError('Connection request was rejected. Please try again.');
       }
 
       this.handleError(error);

@@ -285,6 +285,9 @@ const tokenDecimals = ref(6); // Default to 6 decimals (pump.fun standard)
 onMounted(async () => {
   await loadPublicTokenData();
 
+  // Load bonding curve data after token data is loaded
+  await loadBondingCurveData();
+
   // Load token balance if wallet is already connected
   if (walletStore.isConnected && walletStore.walletAddress && token.value?.mint_address) {
     try {
@@ -1010,6 +1013,11 @@ const loadBondingCurveData = async () => {
   try {
     console.log("🔄 Loading bonding curve data for token:", token.value.id);
 
+    // CRITICAL: Clear price service cache to force fresh data fetch
+    const { RealTimePriceService } = await import("../services/realTimePriceService");
+    RealTimePriceService.clearCacheForToken(token.value.id);
+    console.log("🗑️ Cleared price cache for token:", token.value.id);
+
     // Load real bonding curve state using the service
     const curveState = await BondingCurveService.getTokenBondingCurveState(
       token.value.id,
@@ -1031,6 +1039,9 @@ const loadBondingCurveData = async () => {
       progress: curveState.progress,
       marketCap: curveState.marketCap,
       graduated: curveState.isGraduated,
+      virtualSolReserves: curveState.virtualSolReserves,
+      virtualTokenReserves: curveState.virtualTokenReserves,
+      realTokenReserves: curveState.realTokenReserves,
     });
 
     // Set up real-time price updates every 10 seconds

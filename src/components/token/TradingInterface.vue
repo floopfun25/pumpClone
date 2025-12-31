@@ -341,14 +341,32 @@ const isValidQuickAmount = (amount: string): boolean => {
 };
 
 const calculateTradePreview = () => {
+  console.log('[TRADE PREVIEW DEBUG] Input:', {
+    tradeAmountValue: tradeAmount.value,
+    tradeType: tradeType.value,
+    bondingCurveState: props.bondingCurveState
+  });
+
   const amount = parseFloat(tradeAmount.value);
+  console.log('[TRADE PREVIEW DEBUG] Parsed amount:', amount);
+
   if (!amount || amount <= 0 || !props.bondingCurveState) {
+    console.log('[TRADE PREVIEW DEBUG] Validation failed:', {
+      hasAmount: !!amount,
+      amountPositive: amount > 0,
+      hasBondingCurveState: !!props.bondingCurveState
+    });
     tradePreview.value = null;
     return;
   }
 
   try {
     const currentState = props.bondingCurveState;
+    console.log('[TRADE PREVIEW DEBUG] Calculating with state:', {
+      virtualSolReserves: currentState.virtualSolReserves,
+      virtualTokenReserves: currentState.virtualTokenReserves,
+      realTokenReserves: currentState.realTokenReserves
+    });
 
     if (tradeType.value === "buy") {
       tradePreview.value = BondingCurveService.calculateBuyTrade(
@@ -365,8 +383,10 @@ const calculateTradePreview = () => {
         currentState.realTokenReserves,
       );
     }
+
+    console.log('[TRADE PREVIEW DEBUG] Result:', tradePreview.value);
   } catch (err) {
-    console.warn("Failed to calculate trade preview:", err);
+    console.error("[TRADE PREVIEW DEBUG] Error calculating preview:", err);
     tradePreview.value = null;
     error.value = "Failed to calculate trade preview";
   }

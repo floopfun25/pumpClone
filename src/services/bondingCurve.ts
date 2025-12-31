@@ -264,15 +264,33 @@ export class BondingCurveService {
     virtualTokenReserves: number,
     realTokenReserves: number,
   ): EnhancedTradeResult {
+    console.log('[BONDING CURVE DEBUG] calculateBuyTrade input:', {
+      solAmount,
+      virtualSolReserves,
+      virtualTokenReserves,
+      realTokenReserves,
+    });
+
     // Apply platform fee
     const platformFee = solAmount * this.PLATFORM_FEE;
     const effectiveSolAmount = solAmount - platformFee;
+
+    console.log('[BONDING CURVE DEBUG] After fees:', {
+      platformFee,
+      effectiveSolAmount,
+    });
 
     // Calculate tokens received using constant product formula
     const tokensReceived =
       virtualTokenReserves -
       (virtualSolReserves * virtualTokenReserves) /
         (virtualSolReserves + effectiveSolAmount);
+
+    console.log('[BONDING CURVE DEBUG] Tokens calculated:', {
+      tokensReceived,
+      isNegative: tokensReceived < 0,
+      isInfinite: !isFinite(tokensReceived),
+    });
 
     // Update reserves
     const newVirtualSolReserves = virtualSolReserves + effectiveSolAmount;
@@ -292,7 +310,7 @@ export class BondingCurveService {
     // Calculate price impact
     const priceImpact = ((newPrice - oldPrice) / oldPrice) * 100;
 
-    return {
+    const result = {
       newPrice,
       newSupply: this.INITIAL_REAL_TOKEN_RESERVES - newRealTokenReserves,
       tokensReceived,
@@ -300,6 +318,10 @@ export class BondingCurveService {
       priceImpact,
       platformFee,
     };
+
+    console.log('[BONDING CURVE DEBUG] calculateBuyTrade result:', result);
+
+    return result;
   }
 
   /**
@@ -490,10 +512,11 @@ export class BondingCurveService {
       }, 0);
 
       // Use SCALED reserves (crucial for custom supply tokens!)
+      // IMPORTANT: Convert from base units (with 6 decimals) to whole tokens
       const scaledInitialVirtualTokenReserves =
-        Number(INITIAL_VIRTUAL_TOKEN_RESERVES) * scalingFactor;
+        (Number(INITIAL_VIRTUAL_TOKEN_RESERVES) / 1e6) * scalingFactor;
       const scaledInitialRealTokenReserves =
-        this.INITIAL_REAL_TOKEN_RESERVES * scalingFactor;
+        (this.INITIAL_REAL_TOKEN_RESERVES / 1e6) * scalingFactor;
 
       const virtualTokenReserves =
         scaledInitialVirtualTokenReserves - tokensSold;

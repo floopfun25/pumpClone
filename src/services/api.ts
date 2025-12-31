@@ -70,7 +70,8 @@ export interface PageResponse<T> {
 
 // Helper function to get JWT token
 function getAuthHeader(): Record<string, string> {
-  const token = localStorage.getItem('jwtToken');
+  // Try both key formats for compatibility
+  const token = localStorage.getItem('jwtToken') || localStorage.getItem('jwt_token');
   if (token) {
     return { 'Authorization': `Bearer ${token}` };
   }
@@ -99,8 +100,9 @@ export const authAPI = {
     }
 
     const data = await response.json();
-    // Store JWT token
-    localStorage.setItem('jwt_token', data.token);
+    // Store JWT token (use consistent key)
+    localStorage.setItem('jwtToken', data.token);
+    localStorage.setItem('jwt_token', data.token); // Legacy support
     return data;
   },
 
@@ -240,8 +242,24 @@ export const tokenAPI = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create token');
+      // Enhanced error handling
+      let errorMessage = 'Failed to create token';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        // If response is not JSON (like 403 HTML response), use status text
+        errorMessage = `${response.status} ${response.statusText}`;
+      }
+
+      console.error('Token creation failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorMessage,
+        hasJWT: !!localStorage.getItem('jwtToken'),
+      });
+
+      throw new Error(errorMessage);
     }
 
     return response.json();

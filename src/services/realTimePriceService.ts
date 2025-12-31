@@ -36,7 +36,7 @@ class RealTimePriceService {
   private static chartDataCache = new Map<string, ChartDataPoint[]>();
   private static wsUnsubscribers = new Map<string, () => void>();
   private static lastUpdateTime = new Map<string, number>();
-  private static readonly UPDATE_THROTTLE_MS = 1000; // Max 1 update per second
+  private static readonly UPDATE_THROTTLE_MS = 300; // Max ~3 updates per second for smoother real-time feel
   private static readonly MAX_CANDLES = 1000; // Limit memory usage
 
   /**
@@ -237,6 +237,11 @@ class RealTimePriceService {
         // Get or create candle data for this timeframe
         let timeframeData =
           this.chartDataCache.get(`${tokenId}_${timeframe}`) || [];
+
+        if (timeframe === "24h") {
+          console.log(`[PRICE SERVICE] WebSocket update for ${tokenId}_${timeframe}: ${timeframeData.length} existing candles`);
+        }
+
         const currentCandle = timeframeData.find((c) => c.time === periodStart);
 
         if (currentCandle) {
@@ -348,6 +353,8 @@ class RealTimePriceService {
       // Get price history from Spring Boot backend
       const priceHistory = await getTokenPriceHistory(tokenId, timeframe);
 
+      console.log(`[PRICE SERVICE] Received ${priceHistory.length} price history entries from backend for token ${tokenId}, timeframe ${timeframe}`);
+
       if (priceHistory.length === 0) {
         // No trading history yet - return empty array
         console.log(`[RealTimePriceService] No trading history available for token ${tokenId}`);
@@ -355,46 +362,75 @@ class RealTimePriceService {
       }
 
       if (priceHistory.length === 1) {
-        // If only one data point, create two candles: one at trade time, one at current time
+        // If only one data point, create a single candle showing the trade
         const point = priceHistory[0];
+
+        console.log('[PRICE SERVICE] Single trade detected, backend data:', {
+          timestamp: point.timestamp,
+          price: point.price,
+          open: point.open,
+          high: point.high,
+          low: point.low,
+          close: point.close,
+          volume: point.volume,
+          tradeType: point.tradeType
+        });
+
         const timestampMs = new Date(point.timestamp).getTime();
         const time = Math.floor(timestampMs / 1000); // Convert to Unix seconds
 
-        // First candle: the actual trade data
+        // Use the actual price from the trade, ignore potentially stale OHLC values
+        // The backend might return aggregated OHLC that includes old bonding curve state
+        const actualPrice = point.price || point.close;
+
+        // Create single candle showing the actual trade
         const tradeCandle: ChartDataPoint = {
           time,
-          open: point.open || point.price,
-          high: point.high || point.price,
-          low: point.low || point.price,
-          close: point.close || point.price,
+          open: actualPrice,
+          high: actualPrice,
+          low: actualPrice,
+          close: actualPrice,
           volume: point.volume || 0,
         };
 
-        // Second candle: current price at current time
-        const now = Math.floor(Date.now() / 1000);
-        const currentCandle: ChartDataPoint = {
-          time: now,
-          open: point.close || point.price,
-          high: point.close || point.price,
-          low: point.close || point.price,
-          close: point.close || point.price,
-          volume: 0,
-        };
+        console.log(`[PRICE SERVICE] Created 1 candle for token ${tokenId} at price ${actualPrice}`);
 
-        const chartData = [tradeCandle, currentCandle];
-        this.chartDataCache.set(tokenId, chartData);
+        const chartData = [tradeCandle];
+        // Cache with timeframe suffix for consistency
+        this.chartDataCache.set(`${tokenId}_${timeframe}`, chartData);
         return chartData;
       }
 
       // Backend already returns OHLCV aggregated data, just convert format
-      const chartData: ChartDataPoint[] = priceHistory.map((point: any) => {
+      // Log all entries to understand what backend is returning
+      console.log('[PRICE SERVICE] Backend returned multiple price history entries:');
+      priceHistory.forEach((point: any, index: number) => {
+        console.log(`  [${index}] time=${point.timestamp}, price=${point.price}, open=${point.open}, high=${point.high}, low=${point.low}, close=${point.close}, volume=${point.volume}`);
+      });
+
+      const chartData: ChartDataPoint[] = priceHistory.map((point: any, index: number) => {
         const timestampMs = new Date(point.timestamp).getTime();
+
+        // Debug logging for negative values
+        if (index < 3 || point.open < 0 || point.high < 0 || point.low < 0 || point.close < 0) {
+          console.log('[PRICE SERVICE DEBUG] Processing price point:', {
+            index,
+            timestamp: point.timestamp,
+            open: point.open,
+            high: point.high,
+            low: point.low,
+            close: point.close,
+            volume: point.volume,
+            hasNegative: point.open < 0 || point.high < 0 || point.low < 0 || point.close < 0
+          });
+        }
+
         return {
           time: Math.floor(timestampMs / 1000), // Convert to Unix seconds
-          open: point.open || point.price,
-          high: point.high || point.price,
-          low: point.low || point.price,
-          close: point.close || point.price,
+          open: Math.abs(point.open || point.price),
+          high: Math.abs(point.high || point.price),
+          low: Math.abs(point.low || point.price),
+          close: Math.abs(point.close || point.price),
           volume: point.volume || 0,
         };
       });
@@ -402,8 +438,24 @@ class RealTimePriceService {
       // Sort by time (should already be sorted from backend)
       chartData.sort((a, b) => a.time - b.time);
 
-      // Cache the data
-      this.chartDataCache.set(tokenId, chartData);
+      // WORKAROUND: Remove stale "current" candles that have dramatically different prices
+      // This happens when backend creates a current-period candle with old price data
+      if (chartData.length >= 2) {
+        const lastCandle = chartData[chartData.length - 1];
+        const prevCandle = chartData[chartData.length - 2];
+
+        // If last candle's price is more than 50x smaller than previous, it's likely stale data
+        const priceRatio = prevCandle.close / lastCandle.close;
+        if (priceRatio > 50) {
+          console.warn(`[PRICE SERVICE] Removing stale candle: prev=${prevCandle.close}, last=${lastCandle.close}, ratio=${priceRatio}`);
+          chartData.pop(); // Remove the last stale candle
+        }
+      }
+
+      console.log(`[PRICE SERVICE] Caching ${chartData.length} candles for token ${tokenId}, timeframe ${timeframe}`);
+
+      // Cache the data with timeframe suffix for consistency
+      this.chartDataCache.set(`${tokenId}_${timeframe}`, chartData);
 
       return chartData;
     } catch (error) {

@@ -52,10 +52,59 @@ export const useWalletStore = defineStore("wallet", () => {
     try {
       // Try to auto-connect to previously connected wallet
       await walletService.autoConnect();
+
+      // After auto-reconnect, authenticate user if wallet is connected
+      if (walletState.value.connected && walletState.value.publicKey) {
+        console.log('🔄 [WALLET STORE] Wallet auto-reconnected, authenticating...');
+        await authenticateUser();
+      }
     } catch (error) {
       console.error("Failed to initialize wallet:", error);
     }
   };
+
+  /**
+   * Authenticate user with backend after wallet connection
+   * This ensures JWT token is set for API calls
+   */
+  async function authenticateUser(): Promise<boolean> {
+    // Check if already authenticated
+    const hasJWT = localStorage.getItem('jwtToken') || localStorage.getItem('jwt_token');
+    if (hasJWT) {
+      console.log('✅ [WALLET STORE] User already authenticated');
+      return true;
+    }
+
+    // Need wallet connection to authenticate
+    if (!walletState.value.connected || !walletState.value.publicKey) {
+      console.warn('⚠️ [WALLET STORE] Cannot authenticate - wallet not connected');
+      return false;
+    }
+
+    try {
+      console.log('🔐 [WALLET STORE] Authenticating user with backend...');
+
+      const walletAddress = walletState.value.publicKey.toBase58();
+      const message = `Sign this message to authenticate with FloppFun.\n\nWallet: ${walletAddress}\nTimestamp: ${Date.now()}`;
+
+      // Sign the message
+      const encodedMessage = new TextEncoder().encode(message);
+      const signature = await signMessage(encodedMessage);
+
+      // Convert signature to base64
+      const signatureBase64 = btoa(String.fromCharCode(...signature));
+
+      // Authenticate with backend
+      const { authAPI } = await import('@/services/api');
+      await authAPI.login(walletAddress, message, signatureBase64);
+
+      console.log('✅ [WALLET STORE] User authenticated successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ [WALLET STORE] Authentication failed:', error);
+      return false;
+    }
+  }
 
   /**
    * Connect to wallet
@@ -66,9 +115,13 @@ export const useWalletStore = defineStore("wallet", () => {
       await walletService.connect(walletName);
       // State will be updated automatically via watchEffect
 
-      // Load cached token balances after wallet connection
+      // After wallet connection, authenticate user and load balances
       if (walletState.value.connected && walletState.value.publicKey) {
         try {
+          // Authenticate user (get JWT token)
+          await authenticateUser();
+
+          // Load cached token balances
           const walletAddress = walletState.value.publicKey.toBase58();
           await tokenBalanceCache.loadUserBalances(walletAddress);
           console.log(
@@ -247,6 +300,7 @@ export const useWalletStore = defineStore("wallet", () => {
     initializeWallet,
     connectWallet,
     disconnectWallet,
+    authenticateUser,
     getAvailableWallets,
     getAllWallets,
     updateBalance,

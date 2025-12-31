@@ -51,13 +51,36 @@ public class PriceHistoryService {
         List<PriceHistory> pricePoints = priceHistoryRepository
                 .findByTokenAndTimestampBetweenOrderByTimestampAsc(token, startTime, endTime);
 
+        log.info("📊 [PRICE HISTORY] Token {} ({}) - Found {} raw price points from {} to {}",
+                token.getId(), timeframe, pricePoints.size(), startTime, endTime);
+
+        if (!pricePoints.isEmpty()) {
+            log.info("📊 [PRICE HISTORY] Raw price points:");
+            for (int i = 0; i < pricePoints.size(); i++) {
+                PriceHistory point = pricePoints.get(i);
+                log.info("  [{}] timestamp={}, price={}, volume={}, marketCap={}, tradeType={}",
+                        i, point.getTimestamp(), point.getPrice(), point.getVolume(),
+                        point.getMarketCap(), point.getTradeType());
+            }
+        }
+
         if (pricePoints.isEmpty()) {
             log.warn("No price history found for token {}, timeframe {}", token.getId(), timeframe);
             return Collections.emptyList();
         }
 
         // Aggregate into OHLCV candles based on timeframe
-        return aggregateToOHLCV(pricePoints, timeframe);
+        List<PriceHistoryDTO> aggregated = aggregateToOHLCV(pricePoints, timeframe);
+
+        log.info("📊 [PRICE HISTORY] Aggregated into {} candles:", aggregated.size());
+        for (int i = 0; i < aggregated.size(); i++) {
+            PriceHistoryDTO candle = aggregated.get(i);
+            log.info("  [{}] timestamp={}, open={}, high={}, low={}, close={}, price={}, volume={}",
+                    i, candle.getTimestamp(), candle.getOpen(), candle.getHigh(),
+                    candle.getLow(), candle.getClose(), candle.getPrice(), candle.getVolume());
+        }
+
+        return aggregated;
     }
 
     /**

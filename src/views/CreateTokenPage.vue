@@ -687,6 +687,21 @@ const createToken = async () => {
       return;
     }
 
+    // Check wallet connection
+    if (!walletStore.isConnected || !walletStore.publicKey) {
+      validationErrors.value.push("Please connect your wallet first");
+      return;
+    }
+
+    // Ensure user is authenticated with JWT token
+    // The wallet store handles authentication automatically on connect/reconnect
+    // But we call it here to be safe in case it hasn't run yet
+    const authenticated = await walletStore.authenticateUser();
+    if (!authenticated) {
+      validationErrors.value.push("Failed to authenticate. Please try reconnecting your wallet.");
+      return;
+    }
+
     // Create token with pump.fun-style bonding curve
     const result = await tokenCreationService.createToken(tokenForm.value);
 

@@ -1,6 +1,7 @@
 <template>
   <div
-    class="lightweight-chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden"
+    ref="chartContainerWrapper"
+    class="chart-container bg-[#0b0e11] border border-[#2b3139] rounded-xl overflow-hidden"
   >
     <!-- Chart Header -->
     <div
@@ -15,43 +16,23 @@
         </div>
       </div>
 
-      <!-- OHLC Data -->
+      <!-- OHLC Data (crosshair-synced) -->
       <div
-        v-if="priceData.length > 0"
+        v-if="displayOHLC.time"
         class="flex items-center gap-3"
         style="font-size: 10px"
       >
         <span class="text-[#848e9c]" title="Open">
-          O:
-          <span class="text-[#d1d4dc]"
-            >${{
-              convertToUSD(priceData[priceData.length - 1]?.open || 0).toFixed(
-                8,
-              )
-            }}</span
-          >
+          O: <span class="text-[#d1d4dc]">{{ formatDisplayPrice(displayOHLC.open) }}</span>
         </span>
         <span class="text-[#848e9c]" title="High">
-          H:
-          <span class="text-[#2ebd85]"
-            >${{ convertToUSD(getHighPrice()).toFixed(8) }}</span
-          >
+          H: <span class="text-green-400">{{ formatDisplayPrice(displayOHLC.high) }}</span>
         </span>
         <span class="text-[#848e9c]" title="Low">
-          L:
-          <span class="text-[#f6465d]"
-            >${{ convertToUSD(getLowPrice()).toFixed(8) }}</span
-          >
+          L: <span class="text-red-400">{{ formatDisplayPrice(displayOHLC.low) }}</span>
         </span>
         <span class="text-[#848e9c]" title="Close">
-          C:
-          <span class="text-[#d1d4dc]"
-            >${{
-              convertToUSD(priceData[priceData.length - 1]?.close || 0).toFixed(
-                8,
-              )
-            }}</span
-          >
+          C: <span class="text-[#d1d4dc]">{{ formatDisplayPrice(displayOHLC.close) }}</span>
         </span>
       </div>
     </div>
@@ -63,7 +44,7 @@
       <div class="flex items-center gap-2">
         <span class="text-sm text-[#848e9c]">{{ tokenSymbol }}/SOL</span>
         <span :class="['text-lg font-bold', priceChangeColor]">
-          ${{ convertToUSD(currentPrice).toFixed(8) }}
+          {{ formatDisplayPrice(currentPrice) }}
         </span>
         <span
           v-if="priceChange24h !== 0"
@@ -74,23 +55,29 @@
       </div>
 
       <div class="flex items-center gap-4">
+        <!-- Scale Mode Toggle -->
+        <button
+          @click="toggleScaleMode"
+          class="px-2 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded hover:border-[#f0b90b] transition-colors"
+          :title="scaleMode === 0 ? 'Switch to Logarithmic' : 'Switch to Linear'"
+        >
+          {{ scaleMode === 0 ? 'Linear' : 'Log' }}
+        </button>
+
         <!-- Timeframe Selection -->
-        <div class="flex items-center">
-          <select
-            v-model="selectedTimeframe"
-            @change="setTimeframe(selectedTimeframe)"
-            class="px-3 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded focus:outline-none focus:border-[#f0b90b] transition-colors min-w-[80px]"
+        <select
+          v-model="selectedTimeframe"
+          @change="setTimeframe(selectedTimeframe)"
+          class="px-3 py-1 text-xs bg-[#2b3139] text-[#d1d4dc] border border-[#3c4043] rounded focus:outline-none focus:border-[#f0b90b] transition-colors min-w-[80px]"
+        >
+          <option
+            v-for="timeframe in timeframes"
+            :key="timeframe.value"
+            :value="timeframe.value"
           >
-            <option
-              v-for="timeframe in timeframes"
-              :key="timeframe.value"
-              :value="timeframe.value"
-              class="bg-[#2b3139] text-[#d1d4dc]"
-            >
-              {{ timeframe.label }}
-            </option>
-          </select>
-        </div>
+            {{ timeframe.label }}
+          </option>
+        </select>
 
         <!-- Fullscreen Toggle -->
         <button
@@ -132,33 +119,24 @@
 
     <!-- Chart Container -->
     <div class="relative">
-      <!-- Enhanced Lightweight Charts -->
+      <!-- Chart Area -->
       <div
+        ref="chartContainer"
         :class="[
-          isFullscreen
-            ? 'fixed inset-0 z-50 bg-[#0b0e11] p-4'
-            : 'h-[400px] md:h-[500px]',
+          'chart-area relative w-full',
+          isFullscreen ? 'h-screen' : 'h-[400px] md:h-[500px]'
         ]"
-      >
-        <!-- Chart Area -->
-        <div
-          ref="chartContainer"
-          class="chart-area relative w-full h-full"
-        ></div>
-      </div>
+      ></div>
 
-      <!-- Loading Overlay -->
+      <!-- Skeleton Loading State -->
       <div
-        v-if="loading"
-        class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20"
+        v-if="loading && !error"
+        class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-95 z-20"
       >
-        <div class="flex flex-col items-center gap-3">
-          <div
-            class="w-8 h-8 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin"
-          ></div>
-          <span class="text-sm text-[#848e9c]">{{ loadingMessage }}</span>
-          <div class="text-xs text-[#848e9c] opacity-75">
-            Loading {{ selectedTimeframe }} data...
+        <div class="w-full h-full p-4">
+          <!-- Skeleton chart bars -->
+          <div class="flex items-end justify-around h-full gap-1">
+            <div v-for="i in 20" :key="i" class="flex-1 bg-[#2b3139] animate-pulse rounded-t" :style="{ height: `${20 + Math.random() * 60}%` }"></div>
           </div>
         </div>
       </div>
@@ -171,27 +149,25 @@
         <div class="text-center max-w-sm">
           <div class="text-[#f6465d] text-lg mb-2">⚠️ Chart Error</div>
           <div class="text-xs text-[#848e9c] mb-4">{{ error }}</div>
-          <div class="flex gap-2 justify-center">
-            <button
-              @click="retryChart"
-              class="px-4 py-2 text-sm bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
-            >
-              Retry Chart
-            </button>
-          </div>
+          <button
+            @click="retryChart"
+            class="px-4 py-2 text-sm bg-[#2ebd85] text-white rounded hover:bg-[#26a069] transition-colors"
+          >
+            Retry Chart
+          </button>
         </div>
       </div>
 
-      <!-- No Data State -->
+      <!-- Enhanced Empty State -->
       <div
         v-if="!loading && !error && priceData.length === 0"
         class="absolute inset-0 flex items-center justify-center bg-[#0b0e11] bg-opacity-90 z-20"
       >
         <div class="text-center">
           <div class="text-4xl mb-2">📈</div>
-          <div class="text-[#848e9c] text-sm mb-2">No price data available</div>
+          <div class="text-[#848e9c] text-sm mb-2">No trading data yet</div>
           <div class="text-[#848e9c] text-xs opacity-75">
-            Start trading to see price movements
+            Chart will appear after the first trade
           </div>
         </div>
       </div>
@@ -201,21 +177,15 @@
     <div class="p-3 bg-[#1e2329] border-t border-[#2b3139]">
       <div class="flex items-center justify-between text-xs">
         <div class="flex items-center gap-4">
-          <span class="text-[#848e9c]"
-            >Volume:
-            <span class="text-[#d1d4dc]">{{
-              formatVolume(totalVolume)
-            }}</span></span
-          >
-          <span class="text-[#848e9c]"
-            >Market Cap:
-            <span class="text-[#d1d4dc]"
-              >${{ formatMarketCap(marketCap) }}</span
-            ></span
-          >
-          <span v-if="lastUpdate" class="text-[#848e9c]"
-            >Updated: {{ lastUpdate }}</span
-          >
+          <span class="text-[#848e9c]">
+            Volume: <span class="text-[#d1d4dc]">{{ formatVolume(totalVolume) }}</span>
+          </span>
+          <span class="text-[#848e9c]">
+            Market Cap: <span class="text-[#d1d4dc]">${{ formatMarketCap(marketCap) }}</span>
+          </span>
+          <span v-if="lastUpdate" class="text-[#848e9c]">
+            Updated: {{ lastUpdate }}
+          </span>
         </div>
 
         <!-- Chart Controls -->
@@ -251,10 +221,12 @@ import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
 import {
   createChart,
   ColorType,
+  CrosshairMode,
+  PriceScaleMode,
   CandlestickSeries,
   HistogramSeries,
 } from "lightweight-charts";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, CandlestickData, HistogramData } from "lightweight-charts";
 
 interface Props {
   tokenId: string;
@@ -265,33 +237,48 @@ interface Props {
 const props = defineProps<Props>();
 
 // Chart state
+const chartContainerWrapper = ref<HTMLElement>();
 const chartContainer = ref<HTMLElement>();
 const loading = ref(true);
-const loadingMessage = ref("Initializing chart...");
 const error = ref("");
 const isFullscreen = ref(false);
 
 // Chart instances
-let lightweightChart: any = null;
-let mainSeries: any = null;
-let volumeSeries: any = null;
+let lightweightChart: IChartApi | null = null;
+let mainSeries: ISeriesApi<"Candlestick"> | null = null;
+let volumeSeries: ISeriesApi<"Histogram"> | null = null;
 
 // Chart data
-const priceData = ref<any[]>([]);
-const volumeData = ref<any[]>([]);
+const priceData = ref<CandlestickData[]>([]);
+const volumeData = ref<HistogramData[]>([]);
 const currentPrice = ref(0);
 const totalVolume = ref(0);
 const marketCap = ref(0);
-const solPriceUSD = ref(0); // Store current SOL price for conversion
+const solPriceUSD = ref(0);
 
 // Enhanced chart state
 const isLive = ref(false);
 const lastUpdate = ref("");
 const priceChange24h = ref(0);
+const scaleMode = ref<0 | 1>(0); // 0 = Normal, 1 = Logarithmic
+
+// OHLC display state (synced with crosshair)
+const displayOHLC = ref<{
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}>({
+  time: 0,
+  open: 0,
+  high: 0,
+  low: 0,
+  close: 0,
+});
 
 // Chart configuration
 const selectedTimeframe = ref("24h");
-
 const timeframes = [
   { label: "1M", value: "1m" },
   { label: "5M", value: "5m" },
@@ -304,17 +291,14 @@ const timeframes = [
   { label: "30D", value: "30d" },
 ];
 
-// Computed
-const priceChangeColor = computed(() => {
-  if (priceData.value.length === 0) return "text-[#d1d4dc]";
-  const latest = priceData.value[priceData.value.length - 1];
-  const previous = priceData.value[priceData.value.length - 2];
-  if (!previous) return "text-[#d1d4dc]";
-  return latest.close > previous.close ? "text-[#2ebd85]" : "text-[#f6465d]";
-});
-
 // Real-time price subscription
 let priceSubscription: (() => void) | null = null;
+
+// Computed
+const priceChangeColor = computed(() => {
+  if (priceChange24h.value === 0) return "text-[#d1d4dc]";
+  return priceChange24h.value > 0 ? "text-[#2ebd85]" : "text-[#f6465d]";
+});
 
 // Get current SOL price for USD conversion
 const getSolPriceUSD = async () => {
@@ -322,19 +306,32 @@ const getSolPriceUSD = async () => {
     const { priceOracleService } = await import("../../services/priceOracle");
     const solPriceData = await priceOracleService.getSOLPrice();
     solPriceUSD.value = solPriceData.price;
-    console.log(
-      "💰 [CHART] Using SOL price for conversion:",
-      `${solPriceUSD.value.toFixed(2)}`,
-    );
   } catch (error) {
-    console.error("Failed to get SOL price:", error);
-    solPriceUSD.value = 140; // Fallback SOL price
+    console.warn("Failed to get SOL price, using fallback:", error);
+    solPriceUSD.value = 140; // Fallback
   }
 };
 
 // Convert SOL price to USD
 const convertToUSD = (solPrice: number): number => {
   return solPrice * solPriceUSD.value;
+};
+
+// Format price for display with intelligent precision
+const formatDisplayPrice = (price: number): string => {
+  const usdPrice = convertToUSD(price);
+
+  if (usdPrice >= 1) {
+    return `$${usdPrice.toFixed(2)}`;
+  } else if (usdPrice >= 0.01) {
+    return `$${usdPrice.toFixed(4)}`;
+  } else if (usdPrice >= 0.00001) {
+    return `$${usdPrice.toFixed(6)}`;
+  } else if (usdPrice > 0) {
+    return `$${usdPrice.toFixed(8)}`;
+  } else {
+    return `$0.00`;
+  }
 };
 
 // Initialize chart
@@ -352,7 +349,6 @@ const initChart = async () => {
     setupRealTimePriceUpdates();
   } catch (err: any) {
     console.error("Chart initialization failed:", err);
-
     error.value = `Chart initialization failed: ${err.message}`;
     loading.value = false;
   }
@@ -375,7 +371,7 @@ const setupRealTimePriceUpdates = async () => {
     priceSubscription = RealTimePriceService.subscribe(
       props.tokenId,
       async (realPriceData) => {
-        // Update current price display (price comes in SOL, will be converted to USD in template)
+        // Update current price display
         currentPrice.value = realPriceData.price;
         marketCap.value = realPriceData.marketCap;
         priceChange24h.value = realPriceData.priceChange24h || 0;
@@ -389,58 +385,63 @@ const setupRealTimePriceUpdates = async () => {
         );
 
         if (chartData.length > 0) {
-          // Convert to lightweight charts format with validation
-          priceData.value = chartData.map((candle, index) => {
-            const candleData = {
-              time: Math.floor(candle.time / 1000), // Convert to seconds
-              open: Number(candle.open) || realPriceData.price,
-              high: Number(candle.high) || realPriceData.price,
-              low: Number(candle.low) || realPriceData.price,
-              close: Number(candle.close) || realPriceData.price,
-            };
-
-            // Validate OHLC data
-            if (candleData.high < candleData.low) {
-              candleData.high = candleData.low;
-            }
-            if (
-              candleData.open < candleData.low ||
-              candleData.open > candleData.high
-            ) {
-              candleData.open = candleData.close;
-            }
-            if (
-              candleData.close < candleData.low ||
-              candleData.close > candleData.high
-            ) {
-              candleData.close = (candleData.high + candleData.low) / 2;
-            }
-
-            return candleData;
-          });
-
-          volumeData.value = chartData.map((candle) => ({
-            time: Math.floor(candle.time / 1000),
-            value: Number(candle.volume) || 0,
-            color: candle.close > candle.open ? "#2ebd85" : "#f6465d",
+          // Convert to lightweight charts format
+          const newPriceData: CandlestickData[] = chartData.map((candle) => ({
+            time: Number(candle.time) as any,
+            open: Math.abs(Number(candle.open) || realPriceData.price),
+            high: Math.abs(Number(candle.high) || realPriceData.price),
+            low: Math.abs(Number(candle.low) || realPriceData.price),
+            close: Math.abs(Number(candle.close) || realPriceData.price),
           }));
 
-          // Update chart if using lightweight charts
-          if (lightweightChart && mainSeries) {
-            mainSeries.setData(priceData.value);
+          const newVolumeData: HistogramData[] = chartData.map((candle, index) => ({
+            time: Number(candle.time) as any,
+            value: Number(candle.volume) || 0,
+            // Volume color based on close vs previous close
+            color: index > 0 && candle.close >= chartData[index - 1].close ? "#2ebd85" : "#f6465d",
+          }));
+
+          priceData.value = newPriceData;
+          volumeData.value = newVolumeData;
+
+          // Update chart - use setData for full refresh to avoid time ordering issues
+          if (lightweightChart && mainSeries && volumeSeries) {
+            // Create plain objects array to avoid Vue Proxy issues
+            const cleanPriceData = newPriceData.map(candle => ({
+              time: Number(candle.time),
+              open: Number(candle.open),
+              high: Number(candle.high),
+              low: Number(candle.low),
+              close: Number(candle.close),
+            }));
+
+            const cleanVolumeData = newVolumeData.map(vol => ({
+              time: Number(vol.time),
+              value: Number(vol.value),
+              color: vol.color,
+            }));
+
+            console.log('[CHART] Updating chart with real-time data:', {
+              priceDataLength: cleanPriceData.length,
+              volumeDataLength: cleanVolumeData.length,
+              firstCandle: cleanPriceData[0],
+              lastCandle: cleanPriceData[cleanPriceData.length - 1],
+              allPrices: cleanPriceData.map(c => c.close)
+            });
+
+            mainSeries.setData(cleanPriceData as any);
+            volumeSeries.setData(cleanVolumeData as any);
           }
         }
       },
     );
   } catch (error) {
-    console.error("Failed to setup real-time price updates:", error);
+    console.warn("Failed to setup real-time price updates:", error);
   }
 };
 
 // Lightweight Charts initialization
 const initLightweightChart = async () => {
-  loadingMessage.value = "Initializing enhanced chart...";
-
   if (!chartContainer.value) {
     throw new Error("Chart container not found");
   }
@@ -462,7 +463,7 @@ const initLightweightChart = async () => {
       horzLines: { color: "#1e2329", style: 1 },
     },
     crosshair: {
-      mode: 1,
+      mode: CrosshairMode.Normal,
       vertLine: {
         color: "#848e9c",
         width: 1,
@@ -481,30 +482,28 @@ const initLightweightChart = async () => {
       textColor: "#848e9c",
       scaleMargins: {
         top: 0.05,
-        bottom: 0.3,
+        bottom: 0.25, // Increased from 0.3 for better volume visibility
       },
       autoScale: true,
-      minimumWidth: 0,
-      mode: 0, // Normal price scale mode
+      mode: PriceScaleMode.Normal,
+      minimumWidth: 80, // Ensure enough space for small values
+      alignLabels: true,
+      borderVisible: true,
     },
     timeScale: {
       borderColor: "#2b3139",
       timeVisible: true,
       secondsVisible: false,
       rightOffset: 12,
-      barSpacing: 12,
-      minBarSpacing: 8,
+      barSpacing: 6,
+      minBarSpacing: 3,
       fixLeftEdge: false,
       fixRightEdge: false,
       lockVisibleTimeRangeOnResize: true,
       rightBarStaysOnScroll: true,
       visible: true,
       tickMarkFormatter: (time: number) => {
-        const date = new Date(time * 1000);
-        return date.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        return formatTimeAxisLabel(time, selectedTimeframe.value);
       },
     },
     handleScroll: {
@@ -520,69 +519,87 @@ const initLightweightChart = async () => {
     },
   });
 
-  // Add series with the loaded data
-  try {
-    addSeries();
+  // Add series
+  addSeries();
 
-    // Improved dynamic spacing calculation based on target visible candles
-    if (priceData.value.length > 0 && lightweightChart) {
-      const candleCount = priceData.value.length;
-      const chartWidth = chartContainer.value?.clientWidth || 800;
-
-      // Get target visible candles for this timeframe
-      const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
-
-      // For very few candles, use a fixed reasonable spacing instead of stretching
-      let optimalSpacing;
-      if (candleCount < 10) {
-        // With < 10 candles, use fixed 15px spacing to avoid overstretching
-        optimalSpacing = 15;
-      } else {
-        // Calculate optimal spacing to fit target candles comfortably
-        optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
-        // Enforce reasonable bounds (10-20px) to prevent unreadable candles
-        optimalSpacing = Math.max(10, Math.min(20, optimalSpacing));
+  // Subscribe to crosshair move for OHLC sync
+  lightweightChart.subscribeCrosshairMove((param) => {
+    if (!param.time || !mainSeries) {
+      // Show latest candle when not hovering
+      if (priceData.value.length > 0) {
+        const latest = priceData.value[priceData.value.length - 1];
+        displayOHLC.value = {
+          time: latest.time as number,
+          open: latest.open,
+          high: latest.high,
+          low: latest.low,
+          close: latest.close,
+        };
       }
-
-      // Set minBarSpacing to prevent extreme compression but allow some zoom
-      const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.5));
-
-      lightweightChart.applyOptions({
-        timeScale: {
-          barSpacing: optimalSpacing,
-          minBarSpacing: minSpacing,
-        },
-      });
-
-      console.log(`[Chart] Config for ${candleCount} candles: barSpacing=${optimalSpacing}px, min=${minSpacing}px, targetVisible=${targetVisible}`);
-
-      // Set visible range to show target number of candles
-      setTimeout(() => {
-        if (lightweightChart && priceData.value.length > 0) {
-          const timeScale = lightweightChart.timeScale();
-          const lastIndex = priceData.value.length - 1;
-          const lastTime = priceData.value[lastIndex].time;
-
-          // Show only target visible candles (not all data)
-          const visibleCount = Math.min(targetVisible, candleCount);
-          const startIndex = Math.max(0, lastIndex - visibleCount + 1);
-          const startTime = priceData.value[startIndex].time;
-
-          timeScale.setVisibleRange({
-            from: startTime as any,
-            to: lastTime as any,
-          });
-
-          console.log(`[Chart] Showing ${visibleCount} of ${candleCount} candles (indices ${startIndex}-${lastIndex})`);
-        }
-      }, 100);
+      return;
     }
-  } catch (error) {
-    console.error("Failed to add chart series:", error);
-    throw error;
+
+    const data = param.seriesData.get(mainSeries) as CandlestickData | undefined;
+    if (data) {
+      displayOHLC.value = {
+        time: param.time as number,
+        open: data.open,
+        high: data.high,
+        low: data.low,
+        close: data.close,
+      };
+    }
+  });
+
+  // Auto-fit data
+  if (priceData.value.length > 0) {
+    lightweightChart.timeScale().fitContent();
   }
 
   loading.value = false;
+};
+
+// Format time axis labels based on timeframe
+const formatTimeAxisLabel = (time: number, timeframe: string): string => {
+  const date = new Date(time * 1000);
+
+  switch (timeframe) {
+    case "1m":
+    case "5m":
+    case "15m":
+    case "30m":
+      // HH:mm for intraday
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    case "1h":
+    case "4h":
+      // MMM DD HH:mm for hourly
+      return date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+      }) + " " + date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    case "24h":
+    case "7d":
+      // MMM DD for daily
+      return date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+      });
+    case "30d":
+      // MMM DD YYYY for monthly
+      return date.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    default:
+      return date.toLocaleDateString();
+  }
 };
 
 const addSeries = () => {
@@ -590,62 +607,117 @@ const addSeries = () => {
 
   // Remove existing series
   if (mainSeries) {
-    try {
-      lightweightChart.removeSeries(mainSeries);
-    } catch (error) {
-      console.warn("Error removing main series:", error);
-    }
+    lightweightChart.removeSeries(mainSeries);
     mainSeries = null;
   }
 
   if (volumeSeries) {
-    try {
-      lightweightChart.removeSeries(volumeSeries);
-    } catch (error) {
-      console.warn("Error removing volume series:", error);
-    }
+    lightweightChart.removeSeries(volumeSeries);
     volumeSeries = null;
   }
 
-  try {
-    // Add candlestick series using correct API
-    mainSeries = lightweightChart.addSeries(CandlestickSeries, {
-      upColor: "#2ebd85",
-      downColor: "#f6465d",
-      borderUpColor: "#2ebd85",
-      borderDownColor: "#f6465d",
-      wickUpColor: "#2ebd85",
-      wickDownColor: "#f6465d",
-      priceFormat: {
-        type: "price",
-        precision: 10,
-        minMove: 0.0000000001,
+  // Add candlestick series (using v5 API)
+  mainSeries = lightweightChart.addSeries(CandlestickSeries, {
+    upColor: "#2ebd85",
+    downColor: "#f6465d",
+    borderUpColor: "#2ebd85",
+    borderDownColor: "#f6465d",
+    wickUpColor: "#2ebd85",
+    wickDownColor: "#f6465d",
+    priceFormat: {
+      type: "custom",
+      minMove: 0.00000001,
+      formatter: (price: number) => {
+        // Format very small prices with appropriate precision
+        if (price === 0) return '0';
+        if (price < 0.00000001) return price.toExponential(2);
+        if (price < 0.000001) return price.toFixed(8);
+        if (price < 0.01) return price.toFixed(6);
+        return price.toFixed(4);
       },
+    },
+    autoscaleInfoProvider: () => {
+      // Calculate min and max from actual data
+      if (priceData.value.length === 0) {
+        return { priceRange: { minValue: 0, maxValue: 1 } };
+      }
+
+      const prices = priceData.value.flatMap(candle => [
+        candle.high,
+        candle.low
+      ]);
+
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+
+      // If all prices are identical or very close, create a range around them
+      const priceRange = maxPrice - minPrice;
+      if (priceRange === 0 || priceRange < maxPrice * 0.01) {
+        // Add 10% padding above and below when prices are identical/similar
+        const padding = maxPrice * 0.1;
+        const result = {
+          priceRange: {
+            minValue: Math.max(0, minPrice - padding), // Never go below 0
+            maxValue: maxPrice + padding,
+          },
+        };
+        console.log('[CHART] Autoscale for identical prices:', {
+          actualPrice: maxPrice,
+          padding,
+          minValue: result.priceRange.minValue,
+          maxValue: result.priceRange.maxValue
+        });
+        return result;
+      }
+
+      // Normal case: use actual min/max with 5% padding
+      const padding = priceRange * 0.05;
+      const result = {
+        priceRange: {
+          minValue: Math.max(0, minPrice - padding), // Never go below 0
+          maxValue: maxPrice + padding,
+        },
+      };
+      console.log('[CHART] Autoscale for varying prices:', {
+        minPrice,
+        maxPrice,
+        priceRange,
+        padding,
+        minValue: result.priceRange.minValue,
+        maxValue: result.priceRange.maxValue
+      });
+      return result;
+    },
+  });
+
+  if (priceData.value.length > 0) {
+    console.log('[CHART] Setting candlestick data:', {
+      dataLength: priceData.value.length,
+      firstCandle: priceData.value[0],
+      lastCandle: priceData.value[priceData.value.length - 1]
     });
+    mainSeries.setData(priceData.value);
+  }
 
-    if (priceData.value.length > 0) {
-      mainSeries.setData(priceData.value);
-    }
+  // Add volume histogram series (using v5 API)
+  volumeSeries = lightweightChart.addSeries(HistogramSeries, {
+    color: "#26a69a",
+    priceFormat: {
+      type: "volume",
+    },
+    priceScaleId: "", // Use separate price scale for volume
+  });
 
-    // Add volume histogram series using correct API
-    volumeSeries = lightweightChart.addSeries(HistogramSeries, {
-      color: "#26a69a",
-      priceFormat: {
-        type: "volume",
-      },
-      priceScaleId: "", // Set as an overlay
-      scaleMargins: {
-        top: 0.7,
-        bottom: 0.0,
-      },
-    });
+  // Configure the volume price scale with margins
+  volumeSeries.priceScale().applyOptions({
+    scaleMargins: {
+      top: 0.8, // Volume takes 20% at bottom
+      bottom: 0.0,
+    },
+  });
 
-    if (volumeData.value.length > 0) {
-      volumeSeries.setData(volumeData.value);
-    }
-  } catch (error) {
-    console.error("Error creating chart series:", error);
-    throw error;
+  if (volumeData.value.length > 0) {
+    volumeSeries.setData(volumeData.value);
   }
 };
 
@@ -661,18 +733,7 @@ const loadRealChartData = async () => {
       await getSolPriceUSD();
     }
 
-    // Get bonding curve state first to ensure we have a valid price
-    const { BondingCurveService } = await import("../../services/bondingCurve");
-    const bondingCurveState =
-      await BondingCurveService.getTokenBondingCurveState(props.tokenId);
-
-    // If price is 0, there's an issue with the bonding curve
-    if (bondingCurveState.currentPrice === 0) {
-      console.warn("Bonding curve returned price of 0, using fallback price");
-      bondingCurveState.currentPrice = 0.000001; // Fallback price
-    }
-
-    // Get historical chart data from real-time price service
+    // Get historical chart data from backend
     const { RealTimePriceService } = await import(
       "../../services/realTimePriceService"
     );
@@ -681,105 +742,66 @@ const loadRealChartData = async () => {
       selectedTimeframe.value,
     );
 
-    // If no data, show the "No Data" state instead of creating mock data
+    // If no data, show empty state
     if (chartData.length === 0) {
       priceData.value = [];
+      volumeData.value = [];
       loading.value = false;
       return;
     }
 
-    // Limit data based on timeframe to prevent overcrowding
-    const maxCandles = getMaxCandlesForTimeframe(selectedTimeframe.value);
-    const limitedChartData = chartData.length > maxCandles
-      ? chartData.slice(-maxCandles)
-      : chartData;
-
-    console.log(`[Chart] Loading ${limitedChartData.length} candles for ${selectedTimeframe.value} timeframe`);
-
-    // Convert chart data to lightweight charts format with validation
-    priceData.value = limitedChartData.map((candle, index) => {
-      const candleData = {
-        time: candle.time, // Already in Unix seconds from realTimePriceService
-        open: Number(candle.open) || bondingCurveState.currentPrice,
-        high: Number(candle.high) || bondingCurveState.currentPrice,
-        low: Number(candle.low) || bondingCurveState.currentPrice,
-        close: Number(candle.close) || bondingCurveState.currentPrice,
+    // Convert chart data to lightweight charts format
+    priceData.value = chartData.map((candle) => {
+      const data = {
+        time: Number(candle.time) as any,
+        open: Math.abs(Number(candle.open)),
+        high: Math.abs(Number(candle.high)),
+        low: Math.abs(Number(candle.low)),
+        close: Math.abs(Number(candle.close)),
       };
 
-      // Filter out extremely small outlier prices (likely from bugs)
-      // Calculate median price for this candle
-      const prices = [candleData.open, candleData.high, candleData.low, candleData.close];
-      const validPrices = prices.filter(p => p > 0);
-      const medianPrice = validPrices.sort((a, b) => a - b)[Math.floor(validPrices.length / 2)] || bondingCurveState.currentPrice;
-
-      // If any OHLC value is more than 100x smaller than median, replace it with median
-      // This filters out bad data from earlier bugs (e.g., 3e-14 when real price is 3e-8)
-      const OUTLIER_THRESHOLD = 100;
-      if (medianPrice > 0) {
-        if (candleData.open < medianPrice / OUTLIER_THRESHOLD) candleData.open = medianPrice;
-        if (candleData.high < medianPrice / OUTLIER_THRESHOLD) candleData.high = medianPrice;
-        if (candleData.low < medianPrice / OUTLIER_THRESHOLD) candleData.low = medianPrice;
-        if (candleData.close < medianPrice / OUTLIER_THRESHOLD) candleData.close = medianPrice;
-      }
-
-      // Debug first candle
-      if (index === 0) {
-        console.log('[Chart] First candle data:', {
-          time: candleData.time,
-          timeISO: new Date(candleData.time * 1000).toISOString(),
-          open: candleData.open,
-          high: candleData.high,
-          low: candleData.low,
-          close: candleData.close,
+      // Debug log for first few candles
+      if (priceData.value.length < 3) {
+        console.log('[CHART DEBUG] Candle data:', {
+          raw: {
+            time: candle.time,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close
+          },
+          converted: {
+            time: data.time,
+            open: data.open,
+            high: data.high,
+            low: data.low,
+            close: data.close
+          }
         });
       }
 
-      // Validate OHLC data - fix invalid ranges without collapsing to single values
-      if (candleData.high < candleData.low) {
-        // Swap if high is less than low
-        const temp = candleData.high;
-        candleData.high = candleData.low;
-        candleData.low = temp;
-      }
-
-      // Ensure open/close are within high/low range, but preserve spread
-      if (candleData.open < candleData.low) {
-        candleData.low = candleData.open;
-      }
-      if (candleData.open > candleData.high) {
-        candleData.high = candleData.open;
-      }
-      if (candleData.close < candleData.low) {
-        candleData.low = candleData.close;
-      }
-      if (candleData.close > candleData.high) {
-        candleData.high = candleData.close;
-      }
-
-      // Final safety check: ensure all values are positive
-      const minPositivePrice = bondingCurveState.currentPrice * 0.0001; // Allow down to 0.01% of current price
-      if (candleData.open <= 0) candleData.open = bondingCurveState.currentPrice;
-      if (candleData.high <= 0) candleData.high = bondingCurveState.currentPrice;
-      if (candleData.low <= 0) candleData.low = minPositivePrice;
-      if (candleData.close <= 0) candleData.close = bondingCurveState.currentPrice;
-
-      return candleData;
+      return data;
     });
 
-    volumeData.value = limitedChartData.map((candle) => ({
-      time: candle.time, // Already in Unix seconds from realTimePriceService
+    volumeData.value = chartData.map((candle, index) => ({
+      time: Number(candle.time) as any,
       value: Number(candle.volume) || 0,
-      color: candle.close > candle.open ? "#2ebd85" : "#f6465d",
+      // Color based on close vs previous close
+      color: index > 0 && candle.close >= chartData[index - 1].close ? "#2ebd85" : "#f6465d",
     }));
 
     // Update current stats
     const latestCandle = chartData[chartData.length - 1];
-    currentPrice.value = latestCandle.close || bondingCurveState.currentPrice;
+    currentPrice.value = latestCandle.close;
     totalVolume.value = chartData.reduce(
       (sum, candle) => sum + (candle.volume || 0),
       0,
     );
-    marketCap.value = bondingCurveState.marketCap;
+
+    // Get market cap from bonding curve
+    const { BondingCurveService } = await import("../../services/bondingCurve");
+    const state = await BondingCurveService.getTokenBondingCurveState(props.tokenId);
+    marketCap.value = state.marketCap;
 
     // Calculate 24h price change
     if (chartData.length > 1) {
@@ -789,23 +811,31 @@ const loadRealChartData = async () => {
         ((lastCandle.close - firstCandle.open) / firstCandle.open) * 100;
     }
 
+    // Set initial OHLC display
+    if (priceData.value.length > 0) {
+      const latest = priceData.value[priceData.value.length - 1];
+      displayOHLC.value = {
+        time: latest.time as number,
+        open: latest.open,
+        high: latest.high,
+        low: latest.low,
+        close: latest.close,
+      };
+    }
+
     lastUpdate.value = new Date().toLocaleTimeString();
   } catch (err: any) {
     console.error("Failed to load chart data:", err);
     error.value = `Failed to load chart data: ${err.message}`;
-    // No longer creating emergency fallback data, will show error overlay instead.
   }
 };
 
 // Chart controls
-
-// Retry chart initialization
 const retryChart = async () => {
   error.value = "";
   await initChart();
 };
 
-// Refresh chart data
 const refreshChart = async () => {
   if (loading.value) return;
 
@@ -815,6 +845,9 @@ const refreshChart = async () => {
   if (lightweightChart) {
     nextTick(() => {
       addSeries();
+      if (priceData.value.length > 0) {
+        lightweightChart?.timeScale().fitContent();
+      }
     });
   }
 
@@ -826,162 +859,56 @@ const setTimeframe = async (timeframe: string) => {
   loading.value = true;
 
   try {
-    // Clear existing data
     priceData.value = [];
     volumeData.value = [];
 
-    // Reload chart data with new timeframe
     await loadRealChartData();
 
-    // Force chart update
     if (lightweightChart) {
       nextTick(() => {
         addSeries();
-
-        // Improved dynamic spacing calculation based on target visible candles
         if (priceData.value.length > 0) {
-          const candleCount = priceData.value.length;
-          const chartWidth = chartContainer.value?.clientWidth || 800;
-
-          // Get target visible candles for this timeframe
-          const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
-
-          // For very few candles, use a fixed reasonable spacing instead of stretching
-          let optimalSpacing;
-          if (candleCount < 10) {
-            // With < 10 candles, use fixed 15px spacing to avoid overstretching
-            optimalSpacing = 15;
-          } else {
-            // Calculate optimal spacing to fit target candles comfortably
-            optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
-            // Enforce reasonable bounds (10-20px) to prevent unreadable candles
-            optimalSpacing = Math.max(10, Math.min(20, optimalSpacing));
-          }
-
-          // Set minBarSpacing to prevent extreme compression but allow some zoom
-          const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.5));
-
-          lightweightChart.applyOptions({
-            timeScale: {
-              barSpacing: optimalSpacing,
-              minBarSpacing: minSpacing,
-            },
-          });
-
-          console.log(`[Chart] Timeframe ${selectedTimeframe.value}: barSpacing=${optimalSpacing}px, min=${minSpacing}px, targetVisible=${targetVisible}, total=${candleCount}`);
-
-          // Set visible range to show target candles
-          setTimeout(() => {
-            if (lightweightChart && priceData.value.length > 0) {
-              const timeScale = lightweightChart.timeScale();
-              const lastIndex = priceData.value.length - 1;
-              const lastTime = priceData.value[lastIndex].time;
-
-              // Show only target visible candles
-              const visibleCount = Math.min(targetVisible, candleCount);
-              const startIndex = Math.max(0, lastIndex - visibleCount + 1);
-              const startTime = priceData.value[startIndex].time;
-
-              timeScale.setVisibleRange({
-                from: startTime as any,
-                to: lastTime as any,
-              });
-
-              console.log(`[Chart] Showing ${visibleCount} of ${candleCount} candles (indices ${startIndex}-${lastIndex})`);
-            }
-          }, 100);
+          lightweightChart?.timeScale().fitContent();
         }
       });
     }
   } catch (err: any) {
-    console.error('Error changing timeframe:', err);
-    error.value = 'Failed to load chart data for this timeframe';
+    console.error("Error changing timeframe:", err);
+    error.value = "Failed to load chart data for this timeframe";
   } finally {
     loading.value = false;
   }
 };
 
-const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value;
+const toggleScaleMode = () => {
+  scaleMode.value = scaleMode.value === 0 ? 1 : 0;
 
-  nextTick(() => {
-    if (lightweightChart) {
-      lightweightChart.resize(
-        chartContainer.value?.clientWidth || 800,
-        chartContainer.value?.clientHeight || 500,
-      );
-    }
-  });
-};
-
-// Utility functions
-const getMaxCandlesForTimeframe = (timeframe: string): number => {
-  switch (timeframe) {
-    case "1m":
-      return 120; // 2 hours of 1-minute candles
-    case "5m":
-      return 144; // 12 hours of 5-minute candles
-    case "15m":
-      return 96; // 24 hours of 15-minute candles
-    case "30m":
-      return 96; // 48 hours of 30-minute candles
-    case "1h":
-      return 72; // 3 days of 1-hour candles
-    case "4h":
-      return 90; // 15 days of 4-hour candles
-    case "24h":
-      return 30; // 30 days of daily candles
-    case "7d":
-      return 30; // 30 weeks
-    case "30d":
-      return 24; // 24 months
-    default:
-      return 100;
+  if (lightweightChart) {
+    lightweightChart.applyOptions({
+      rightPriceScale: {
+        mode: scaleMode.value === 0 ? PriceScaleMode.Normal : PriceScaleMode.Logarithmic,
+      },
+    });
   }
 };
 
-const getTargetVisibleCandles = (timeframe: string): number => {
-  // Detect mobile vs desktop
-  const isMobile = chartContainer.value?.clientWidth && chartContainer.value.clientWidth < 768;
+const toggleFullscreen = () => {
+  if (!chartContainerWrapper.value) return;
 
-  const mobileTargets = {
-    '1m': 40,
-    '5m': 48,
-    '15m': 36,
-    '30m': 36,
-    '1h': 36,
-    '4h': 30,
-    '24h': 20,
-    '7d': 20,
-    '30d': 16,
-  } as Record<string, number>;
-
-  const desktopTargets = {
-    '1m': 60,
-    '5m': 72,
-    '15m': 48,
-    '30m': 48,
-    '1h': 48,
-    '4h': 42,
-    '24h': 30,
-    '7d': 30,
-    '30d': 24,
-  } as Record<string, number>;
-
-  const targets = isMobile ? mobileTargets : desktopTargets;
-  return targets[timeframe] || 50;
+  if (!isFullscreen.value) {
+    // Enter fullscreen
+    if (chartContainerWrapper.value.requestFullscreen) {
+      chartContainerWrapper.value.requestFullscreen();
+    }
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
 };
 
-const getHighPrice = (): number => {
-  if (priceData.value.length === 0) return 0;
-  return Math.max(...priceData.value.map((p) => p.high));
-};
-
-const getLowPrice = (): number => {
-  if (priceData.value.length === 0) return 0;
-  return Math.min(...priceData.value.map((p) => p.low));
-};
-
+// Utility functions
 const formatVolume = (volume: number): string => {
   if (volume >= 1000000) return (volume / 1000000).toFixed(1) + "M";
   if (volume >= 1000) return (volume / 1000).toFixed(1) + "K";
@@ -995,48 +922,64 @@ const formatMarketCap = (cap: number): string => {
 };
 
 // Lifecycle
+let resizeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
-  console.log("[DEBUG] TokenChart mounted for tokenId:", props.tokenId);
   nextTick(() => {
     initChart().then(() => {
-      // Force chart resize after mount
-      if (lightweightChart && chartContainer.value) {
-        lightweightChart.resize(
-          chartContainer.value.clientWidth || 800,
-          chartContainer.value.clientHeight || 500,
-        );
-        console.log(
-          "[DEBUG] Chart forcibly resized:",
-          chartContainer.value.clientWidth,
-          chartContainer.value.clientHeight,
-        );
+      // Handle resize
+      resizeObserver = new ResizeObserver(() => {
+        if (lightweightChart && chartContainer.value) {
+          lightweightChart.resize(
+            chartContainer.value.clientWidth,
+            chartContainer.value.clientHeight,
+          );
+        }
+      });
+
+      if (chartContainer.value) {
+        resizeObserver.observe(chartContainer.value);
       }
     });
   });
+});
 
-  // Resize chart on window resize
-  window.addEventListener("resize", () => {
+// Listen for fullscreen changes
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement;
+
+  // Resize chart when fullscreen state changes
+  nextTick(() => {
     if (lightweightChart && chartContainer.value) {
       lightweightChart.resize(
-        chartContainer.value.clientWidth || 800,
-        chartContainer.value.clientHeight || 500,
-      );
-      console.log(
-        "[DEBUG] Chart resized on window resize:",
         chartContainer.value.clientWidth,
         chartContainer.value.clientHeight,
       );
     }
   });
+};
+
+onMounted(() => {
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
 });
 
 onUnmounted(() => {
+  // Clean up resize observer
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+
+  // Clean up fullscreen listener
+  document.removeEventListener("fullscreenchange", handleFullscreenChange);
+
   // Clean up price subscription
   if (priceSubscription) {
     priceSubscription();
     priceSubscription = null;
   }
 
+  // Remove chart
   if (lightweightChart) {
     lightweightChart.remove();
   }
@@ -1050,28 +993,13 @@ defineExpose({
 </script>
 
 <style scoped>
-.lightweight-chart-container {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+.chart-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .chart-area {
-  min-height: 500px;
+  min-height: 400px;
   cursor: crosshair;
-}
-
-.chart-area.cursor {
-  cursor: default;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
 }
 
 @keyframes pulse {
