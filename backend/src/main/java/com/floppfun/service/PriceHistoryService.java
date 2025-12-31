@@ -132,46 +132,63 @@ public class PriceHistoryService {
                         (PriceHistory point) -> (point.getTimestamp().toEpochMilli() / intervalMillis) * intervalMillis
                 ));
 
-        // Convert each group to an OHLCV candle
-        return groupedByInterval.entrySet().stream()
+        // Convert each group to an OHLCV candle, tracking previous close for proper candle bodies
+        List<PriceHistoryDTO> candles = new ArrayList<>();
+        BigDecimal previousClose = null;
+
+        for (Map.Entry<Long, List<PriceHistory>> entry : groupedByInterval.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(entry -> {
-                    Long intervalStart = entry.getKey();
-                    List<PriceHistory> points = entry.getValue();
+                .toList()) {
 
-                    // Sort by timestamp to ensure correct OHLC
-                    points.sort(Comparator.comparing(PriceHistory::getTimestamp));
+            Long intervalStart = entry.getKey();
+            List<PriceHistory> points = entry.getValue();
 
-                    BigDecimal open = points.get(0).getPrice();
-                    BigDecimal close = points.get(points.size() - 1).getPrice();
-                    BigDecimal high = points.stream()
-                            .map(PriceHistory::getPrice)
-                            .max(BigDecimal::compareTo)
-                            .orElse(open);
-                    BigDecimal low = points.stream()
-                            .map(PriceHistory::getPrice)
-                            .min(BigDecimal::compareTo)
-                            .orElse(open);
-                    BigDecimal totalVolume = points.stream()
-                            .map(PriceHistory::getVolume)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Sort by timestamp to ensure correct OHLC
+            points.sort(Comparator.comparing(PriceHistory::getTimestamp));
 
-                    // Use the last market cap in the interval
-                    BigDecimal marketCap = points.get(points.size() - 1).getMarketCap();
+            BigDecimal firstPrice = points.get(0).getPrice();
+            BigDecimal close = points.get(points.size() - 1).getPrice();
 
-                    PriceHistoryDTO dto = new PriceHistoryDTO();
-                    dto.setTimestamp(Instant.ofEpochMilli(intervalStart));
-                    dto.setOpen(open);
-                    dto.setHigh(high);
-                    dto.setLow(low);
-                    dto.setClose(close);
-                    dto.setVolume(totalVolume);
-                    dto.setMarketCap(marketCap);
-                    dto.setPrice(close); // Set current price to close price
+            // For proper candle visualization:
+            // - If we have a previous candle, use its close as this candle's open
+            // - Otherwise, use the first price in this interval
+            BigDecimal open = (previousClose != null) ? previousClose : firstPrice;
 
-                    return dto;
-                })
-                .collect(Collectors.toList());
+            BigDecimal high = points.stream()
+                    .map(PriceHistory::getPrice)
+                    .max(BigDecimal::compareTo)
+                    .orElse(close);
+            BigDecimal low = points.stream()
+                    .map(PriceHistory::getPrice)
+                    .min(BigDecimal::compareTo)
+                    .orElse(close);
+
+            // Ensure high/low include the open price for correct visualization
+            high = high.max(open);
+            low = low.min(open);
+
+            BigDecimal totalVolume = points.stream()
+                    .map(PriceHistory::getVolume)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Use the last market cap in the interval
+            BigDecimal marketCap = points.get(points.size() - 1).getMarketCap();
+
+            PriceHistoryDTO dto = new PriceHistoryDTO();
+            dto.setTimestamp(Instant.ofEpochMilli(intervalStart));
+            dto.setOpen(open);
+            dto.setHigh(high);
+            dto.setLow(low);
+            dto.setClose(close);
+            dto.setVolume(totalVolume);
+            dto.setMarketCap(marketCap);
+            dto.setPrice(close); // Set current price to close price
+
+            candles.add(dto);
+            previousClose = close; // Remember this close for next candle's open
+        }
+
+        return candles;
     }
 
     /**
