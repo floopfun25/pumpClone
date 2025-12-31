@@ -121,12 +121,36 @@
     <div class="relative">
       <!-- Chart Area -->
       <div
-        ref="chartContainer"
         :class="[
-          'chart-area relative w-full',
+          'relative w-full',
           isFullscreen ? 'h-screen' : 'h-[400px] md:h-[500px]'
         ]"
-      ></div>
+      >
+        <!-- Main chart background (top area above volume) -->
+        <div
+          class="absolute top-0 left-0 right-0 bg-[#0b0e11] pointer-events-none"
+          style="height: calc(88% - 28px); z-index: 0;"
+        ></div>
+
+        <!-- Volume area background (from separator to just above time scale) -->
+        <div
+          class="absolute left-0 bg-[#6a7080] pointer-events-none"
+          style="top: calc(88% - 28px); bottom: 28px; right: 80px; z-index: 0;"
+        ></div>
+
+        <!-- Horizontal separator line between chart and volume -->
+        <div
+          class="absolute left-0 bg-white pointer-events-none"
+          style="top: calc(88% - 28px); right: 80px; height: 1px; z-index: 2;"
+        ></div>
+
+        <!-- Chart container -->
+        <div
+          ref="chartContainer"
+          class="chart-area relative w-full h-full"
+          style="z-index: 1;"
+        ></div>
+      </div>
 
       <!-- Skeleton Loading State -->
       <div
@@ -454,7 +478,7 @@ const initLightweightChart = async () => {
     width: chartContainer.value.clientWidth,
     height: chartContainer.value.clientHeight || 500,
     layout: {
-      background: { type: ColorType.Solid, color: "#0b0e11" },
+      background: { type: ColorType.Solid, color: "transparent" },
       textColor: "#d1d4dc",
       fontSize: 12,
     },
@@ -711,8 +735,8 @@ const addSeries = () => {
   // Configure the volume price scale with margins
   volumeSeries.priceScale().applyOptions({
     scaleMargins: {
-      top: 0.8, // Volume takes 20% at bottom
-      bottom: 0.0,
+      top: 0.88, // Volume takes ~10% at bottom with extra headroom to prevent bars exceeding the separator
+      bottom: 0.02, // Small bottom margin for better spacing
     },
   });
 
