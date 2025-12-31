@@ -484,6 +484,8 @@ const initLightweightChart = async () => {
         bottom: 0.3,
       },
       autoScale: true,
+      minimumWidth: 0,
+      mode: 0, // Normal price scale mode
     },
     timeScale: {
       borderColor: "#2b3139",
@@ -530,14 +532,20 @@ const initLightweightChart = async () => {
       // Get target visible candles for this timeframe
       const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
 
-      // Calculate optimal spacing to fit target candles comfortably
-      let optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
-
-      // Enforce reasonable bounds (8-25px) to prevent unreadable candles
-      optimalSpacing = Math.max(8, Math.min(25, optimalSpacing));
+      // For very few candles, use a fixed reasonable spacing instead of stretching
+      let optimalSpacing;
+      if (candleCount < 10) {
+        // With < 10 candles, use fixed 15px spacing to avoid overstretching
+        optimalSpacing = 15;
+      } else {
+        // Calculate optimal spacing to fit target candles comfortably
+        optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
+        // Enforce reasonable bounds (10-20px) to prevent unreadable candles
+        optimalSpacing = Math.max(10, Math.min(20, optimalSpacing));
+      }
 
       // Set minBarSpacing to prevent extreme compression but allow some zoom
-      const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.4));
+      const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.5));
 
       lightweightChart.applyOptions({
         timeScale: {
@@ -698,6 +706,22 @@ const loadRealChartData = async () => {
         close: Number(candle.close) || bondingCurveState.currentPrice,
       };
 
+      // Filter out extremely small outlier prices (likely from bugs)
+      // Calculate median price for this candle
+      const prices = [candleData.open, candleData.high, candleData.low, candleData.close];
+      const validPrices = prices.filter(p => p > 0);
+      const medianPrice = validPrices.sort((a, b) => a - b)[Math.floor(validPrices.length / 2)] || bondingCurveState.currentPrice;
+
+      // If any OHLC value is more than 100x smaller than median, replace it with median
+      // This filters out bad data from earlier bugs (e.g., 3e-14 when real price is 3e-8)
+      const OUTLIER_THRESHOLD = 100;
+      if (medianPrice > 0) {
+        if (candleData.open < medianPrice / OUTLIER_THRESHOLD) candleData.open = medianPrice;
+        if (candleData.high < medianPrice / OUTLIER_THRESHOLD) candleData.high = medianPrice;
+        if (candleData.low < medianPrice / OUTLIER_THRESHOLD) candleData.low = medianPrice;
+        if (candleData.close < medianPrice / OUTLIER_THRESHOLD) candleData.close = medianPrice;
+      }
+
       // Debug first candle
       if (index === 0) {
         console.log('[Chart] First candle data:', {
@@ -731,6 +755,13 @@ const loadRealChartData = async () => {
       if (candleData.close > candleData.high) {
         candleData.high = candleData.close;
       }
+
+      // Final safety check: ensure all values are positive
+      const minPositivePrice = bondingCurveState.currentPrice * 0.0001; // Allow down to 0.01% of current price
+      if (candleData.open <= 0) candleData.open = bondingCurveState.currentPrice;
+      if (candleData.high <= 0) candleData.high = bondingCurveState.currentPrice;
+      if (candleData.low <= 0) candleData.low = minPositivePrice;
+      if (candleData.close <= 0) candleData.close = bondingCurveState.currentPrice;
 
       return candleData;
     });
@@ -815,14 +846,20 @@ const setTimeframe = async (timeframe: string) => {
           // Get target visible candles for this timeframe
           const targetVisible = getTargetVisibleCandles(selectedTimeframe.value);
 
-          // Calculate optimal spacing to fit target candles comfortably
-          let optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
+          // For very few candles, use a fixed reasonable spacing instead of stretching
+          let optimalSpacing;
+          if (candleCount < 10) {
+            // With < 10 candles, use fixed 15px spacing to avoid overstretching
+            optimalSpacing = 15;
+          } else {
+            // Calculate optimal spacing to fit target candles comfortably
+            optimalSpacing = Math.floor(chartWidth / Math.min(candleCount, targetVisible));
+            // Enforce reasonable bounds (10-20px) to prevent unreadable candles
+            optimalSpacing = Math.max(10, Math.min(20, optimalSpacing));
+          }
 
-          // Enforce reasonable bounds (8-25px)
-          optimalSpacing = Math.max(8, Math.min(25, optimalSpacing));
-
-          // Set minBarSpacing to prevent extreme compression
-          const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.4));
+          // Set minBarSpacing to prevent extreme compression but allow some zoom
+          const minSpacing = Math.max(6, Math.floor(optimalSpacing * 0.5));
 
           lightweightChart.applyOptions({
             timeScale: {

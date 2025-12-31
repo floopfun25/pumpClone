@@ -611,17 +611,47 @@ export class BondingCurveProgramProduction {
         return 0;
       }
 
-      // Parse bonding curve data (simplified - you may need to adjust based on actual account layout)
-      // Assuming the account stores virtualSolReserves and virtualTokenReserves
-      // Price = virtualSolReserves / virtualTokenReserves
+      // Deserialize bonding curve account data
+      // Account layout (after 8-byte discriminator):
+      // - mint: Pubkey (32 bytes)
+      // - creator: Pubkey (32 bytes)
+      // - virtual_token_reserves: u64 (8 bytes)
+      // - virtual_sol_reserves: u64 (8 bytes)
+      // - real_token_reserves: u64 (8 bytes)
+      // - real_sol_reserves: u64 (8 bytes)
+      // - token_total_supply: u64 (8 bytes)
+      // - complete: bool (1 byte)
+      // - migrated: bool (1 byte)
+      // - created_at: i64 (8 bytes)
+      // - bump: u8 (1 byte)
 
-      // For now, return a placeholder that uses the constant product formula
-      // You'll need to deserialize the actual bonding curve account data
-      const virtualSolReserves = 30; // 30 SOL in base units
-      const virtualTokenReserves = 1073000000; // 1.073B tokens
+      const data = accountInfo.data;
 
-      return virtualSolReserves / virtualTokenReserves;
+      // Skip 8-byte discriminator + 32 bytes mint + 32 bytes creator = 72 bytes offset
+      const offset = 8 + 32 + 32;
+
+      // Read virtual_token_reserves (u64 at offset 72)
+      const virtualTokenReservesRaw = Number(
+        data.readBigUInt64LE(offset)
+      );
+
+      // Read virtual_sol_reserves (u64 at offset 80)
+      const virtualSolReservesRaw = Number(
+        data.readBigUInt64LE(offset + 8)
+      );
+
+      // Calculate price per FULL token in SOL
+      // virtualSolReservesRaw is in lamports (9 decimals), convert to SOL
+      // virtualTokenReservesRaw is in base units (6 decimals), convert to full tokens
+      const virtualSolReservesInSOL = virtualSolReservesRaw / LAMPORTS_PER_SOL;
+      const virtualTokenReservesInTokens = virtualTokenReservesRaw / 1_000_000; // 6 decimals
+
+      // Price = SOL / Tokens
+      const pricePerTokenInSOL = virtualSolReservesInSOL / virtualTokenReservesInTokens;
+
+      return pricePerTokenInSOL;
     } catch (error) {
+      console.warn("Error getting current price from bonding curve:", error);
       // Silently return 0 for tokens without bonding curves
       return 0;
     }
