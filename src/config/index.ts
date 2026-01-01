@@ -31,15 +31,11 @@ const getEnvVar = (key: string, fallback?: string): string => {
 };
 
 export const config = {
-  // Supabase configuration for backend integration
-  supabase: {
-    url: getEnvVar(
-      "VITE_SUPABASE_URL",
-      "https://osqniqjbbenjmhehoykv.supabase.co",
-    ),
-    anonKey: getEnvVar(
-      "VITE_SUPABASE_ANON_KEY",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc",
+  // Backend API configuration
+  api: {
+    baseUrl: getEnvVar(
+      "VITE_API_BASE_URL",
+      "http://localhost:8080/api",
     ),
   },
 
@@ -194,7 +190,7 @@ export const config = {
 
 // Export individual configurations for easier imports
 export const {
-  supabase: supabaseConfig,
+  api: apiConfig,
   solana: solanaConfig,
   programs: programConfig,
   platform: platformConfig,

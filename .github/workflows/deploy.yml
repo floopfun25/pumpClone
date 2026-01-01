@@ -46,9 +46,8 @@ jobs:
         VITE_I18N_LOCALE: en
         VITE_I18N_FALLBACK_LOCALE: en
         VITE_BASE_URL: /pumpClone/
-        # Supabase Configuration
-        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://osqniqjbbenjmhehoykv.supabase.co' }}
-        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcW5pcWpiYmVuam1oZWhveWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDM5NzYsImV4cCI6MjA2NDExOTk3Nn0.hHkHKivLHqOx4Ne9Bn9BOb6dAsCh_StBJ0YHGw0qwOc' }}
+        # Backend API Configuration
+        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'http://localhost:8080/api' }}
         # Solana Network Configuration
         VITE_SOLANA_NETWORK: devnet
         VITE_SOLANA_RPC_URL: https://api.devnet.solana.com
