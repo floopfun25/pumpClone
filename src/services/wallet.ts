@@ -147,7 +147,7 @@ const saveConnectionData = (data: WalletConnectionData) => {
     // Use localStorage instead of sessionStorage for better mobile persistence
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeData));
   } catch (error) {
-    console.warn("Failed to save connection data:", error);
+    // Silent fail
   }
 };
 
@@ -168,7 +168,6 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
 
     return data;
   } catch (error) {
-    console.warn("Failed to load connection data:", error);
     return null;
   }
 };
@@ -176,9 +175,8 @@ const loadConnectionData = (): Partial<WalletConnectionData> | null => {
 const clearConnectionData = () => {
   try {
     localStorage.removeItem(STORAGE_KEY);
-    console.log("🗑️ Connection data cleared");
   } catch (error) {
-    console.warn("Failed to clear connection data:", error);
+    // Silent fail
   }
 };
 
@@ -246,16 +244,10 @@ export const handlePhantomConnectResponse = () => {
 
     // Check for errors first
     if (errorCode) {
-      console.error("Phantom returned error:", errorCode, "-", errorMessage);
       throw new Error(`Phantom error: ${errorCode} - ${errorMessage}`);
     }
 
     if (!phantomPublicKey || !nonce || !data) {
-      console.error("Missing required Phantom response parameters:", {
-        phantomPublicKey: !!phantomPublicKey,
-        nonce: !!nonce,
-        data: !!data,
-      });
       throw new Error("Missing required parameters from Phantom response");
     }
 
@@ -263,9 +255,6 @@ export const handlePhantomConnectResponse = () => {
     let connectionData = mobileWalletState.connectionData;
 
     if (!connectionData) {
-      console.log(
-        "No connection data in memory, trying to load from storage...",
-      );
       const savedData = loadConnectionData();
 
       if (savedData?.dappKeyPair) {
@@ -277,15 +266,12 @@ export const handlePhantomConnectResponse = () => {
             savedData.phantomEncryptionPublicKey || null,
         };
         mobileWalletState.connectionData = connectionData;
-        console.log("✅ Connection data restored from storage");
       } else {
-        console.error("No connection data found in storage");
         throw new Error("No connection data available");
       }
     }
 
     if (!connectionData?.dappKeyPair) {
-      console.error("No dapp keypair available");
       throw new Error("No dapp keypair available - cannot decrypt response");
     }
 
@@ -345,7 +331,6 @@ export const handlePhantomConnectResponse = () => {
       cleanUrl.searchParams.delete("errorMessage");
       window.history.replaceState({}, document.title, cleanUrl.toString());
     } catch (decryptError) {
-      console.error("Decryption failed:", decryptError);
       throw decryptError;
     }
   } catch (error) {
@@ -482,7 +467,6 @@ class WalletService {
         /Chrome/.test(navigator.userAgent) &&
         /Android/.test(navigator.userAgent);
       if (!isChrome) {
-        console.log("Mobile Wallet Adapter only supports Chrome on Android");
         return;
       }
 
@@ -506,10 +490,8 @@ class WalletService {
           solanaConfig.commitment === "confirmed" ? "mainnet-beta" : "devnet",
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
       });
-
-      console.log("Mobile Wallet Adapter initialized for mobile Chrome");
     } catch (error) {
-      console.warn("Failed to initialize Mobile Wallet Adapter:", error);
+      // Silent fail
     }
   }
 
@@ -564,9 +546,6 @@ class WalletService {
 
     if (mobile) {
       // On mobile, all wallets are potentially available via deep linking
-      console.log(
-        "Mobile detected: showing all wallets (deep linking compatible)",
-      );
       return walletAdapters;
     }
 
@@ -585,32 +564,19 @@ class WalletService {
 
   // Connect to specific wallet
   async connect(walletName?: string): Promise<void> {
-    console.log('🔍 DEBUG: connect() called with wallet:', walletName);
-    console.log('🔍 DEBUG: Current state:', {
-      connecting: this.connecting,
-      connected: this.connected,
-      isMobile: isMobile(),
-      phantomDetected: !!(window as any).phantom?.solana,
-      solflareDetected: !!(window as any).solflare
-    });
-
     if (this.connecting || this.connected) {
-      console.log('⚠️ DEBUG: Already connecting or connected, skipping');
       return;
     }
 
     this._connecting.value = true;
     try {
       if (isMobile()) {
-        console.log('📱 DEBUG: Using mobile connection');
         await this.connectMobile(walletName);
       } else {
-        console.log('💻 DEBUG: Using desktop connection');
         await this.connectDesktop(walletName);
       }
       this.notifyStateChange();
     } catch (error: any) {
-      console.error('❌ DEBUG: Connection failed in connect():', error);
       this.handleError(error);
       throw error;
     } finally {
@@ -706,7 +672,6 @@ class WalletService {
 
   handleMobileWalletReturn = async (): Promise<void> => {
     // This logic might be needed for other mobile wallets besides Phantom
-    console.log("Handling mobile wallet return...");
   };
 
   autoConnect = async (): Promise<void> => {
@@ -720,9 +685,6 @@ class WalletService {
         mobileConnectionData.session &&
         mobileConnectionData.publicKey
       ) {
-        console.log(
-          "Found mobile session data, attempting to restore connection...",
-        );
         this.handleBroadcastConnect({
           publicKey: mobileConnectionData.publicKey, // Use the persisted public key
           session: mobileConnectionData.session,
@@ -760,7 +722,6 @@ class WalletService {
         }
       } catch (error) {
         localStorage.removeItem("walletName");
-        console.warn("Auto-connect failed:", error);
       } finally {
         this._connecting.value = false;
       }
@@ -777,37 +738,23 @@ class WalletService {
         // The browser navigates away, so code below will not be executed in this tab.
         return;
       } catch (error) {
-        console.error(`Failed to connect to Phantom on mobile:`, error);
+        console.error("Failed to connect to Phantom on mobile:", error);
         this._connecting.value = false;
         this.handleError(error as Error);
         throw error;
       }
     }
 
-    // Fallback for other wallets or if no name is specified
-    const isChrome =
-      /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
-
     // Use proper deeplink connection for mobile wallets
     if (walletName) {
       try {
         // This block will now handle non-Phantom wallets like Solflare
-        console.log(
-          `Attempting mobile connection to ${walletName} via deep linking...`,
-        );
-
-        // Show instructions to user
-        const instructions = getMobileConnectionInstructions(walletName);
-        console.log(instructions);
-
         // Use deep linking to open the wallet app for other wallets
         await connectMobileWallet(walletName, {
           dappUrl: window.location.origin,
           redirectUrl: window.location.href,
           cluster: "mainnet-beta",
         });
-
-        console.log(`Successfully opened ${walletName} app for connection`);
 
         // The actual connection will happen when the user returns from the app
         this.setupMobileReturnListener(walletName);
@@ -851,25 +798,10 @@ class WalletService {
     this.currentWallet.value = wallet.adapter;
     this.setupWalletListeners(wallet.adapter);
 
-    console.log('🔍 DEBUG: Attempting to connect to wallet:', {
-      walletName: wallet.name,
-      readyState: wallet.adapter.readyState,
-      publicKey: wallet.adapter.publicKey?.toString(),
-      connected: wallet.adapter.connected
-    });
-
     try {
-      console.log('🔍 DEBUG: Calling wallet.adapter.connect()...');
-
       // Check if Phantom is locked before trying to connect
       const phantomWallet = (window as any).phantom?.solana || (window as any).solana;
       if (walletName === 'Phantom' && phantomWallet) {
-        console.log('🔍 DEBUG: Phantom wallet state:', {
-          isPhantom: phantomWallet.isPhantom,
-          isConnected: phantomWallet.isConnected,
-          publicKey: phantomWallet.publicKey?.toString()
-        });
-
         // If Phantom wallet object doesn't have isPhantom property, it might be locked
         if (!phantomWallet.isPhantom) {
           throw new WalletConnectionError('Phantom wallet is locked. Please unlock your Phantom extension and try again.');
@@ -877,27 +809,17 @@ class WalletService {
 
         // Try to disconnect first to clear any stale state
         if (phantomWallet.isConnected) {
-          console.log('🔍 DEBUG: Disconnecting existing Phantom connection...');
           try {
             await phantomWallet.disconnect();
             await new Promise(resolve => setTimeout(resolve, 500)); // Wait for disconnect
           } catch (e) {
-            console.warn('Failed to disconnect existing connection:', e);
+            // Silent fail
           }
         }
       }
 
       await wallet.adapter.connect();
-      console.log('✅ DEBUG: Wallet connected successfully');
     } catch (error: any) {
-      console.error('❌ DEBUG: Wallet connection failed:', {
-        errorName: error.name,
-        errorMessage: error.message,
-        errorStack: error.stack,
-        errorCode: error.code,
-        fullError: error
-      });
-
       // Provide better error messages for common issues
       if (error.message === 'Unexpected error' || !error.message) {
         throw new WalletConnectionError('Failed to connect to wallet. Please unlock your Phantom wallet and try again. If the problem persists, try refreshing the page.');
@@ -929,7 +851,6 @@ class WalletService {
       const balance = await this.connection.getBalance(this._publicKey.value);
       this._balance.value = balance / LAMPORTS_PER_SOL;
     } catch (error) {
-      console.error("Failed to update balance:", error);
       this._balance.value = 0;
     }
     this.notifyStateChange();
@@ -954,7 +875,6 @@ class WalletService {
       this._connecting.value = false;
       this._internalConnected.value = false; // Not a mobile broadcast connection
       localStorage.setItem("walletName", this.currentWallet.value.name); // Restore for desktop
-      console.log("✅ Wallet connected:", this._publicKey.value?.toBase58());
 
       notificationService.emit("showToast", {
         type: "success",
@@ -984,7 +904,6 @@ class WalletService {
     this.currentWallet.value = null;
     localStorage.removeItem("walletName");
     clearConnectionData();
-    console.log("🔌 Wallet disconnected");
 
     notificationService.emit("showToast", {
       type: "info",
@@ -996,8 +915,6 @@ class WalletService {
   };
 
   private handleError = (error: Error): void => {
-    console.error("Wallet error:", error);
-
     // Don't disconnect on sign message/transaction errors - these are user actions, not connection issues
     const errorName = error.name || '';
     const isSignError = errorName.includes('WalletSignMessageError') ||
@@ -1053,7 +970,7 @@ class WalletService {
       });
       this.notifyStateChange();
     } catch (e) {
-      console.error("Error handling broadcast connect", e);
+      // Silent fail
     }
   }
 

@@ -19,23 +19,17 @@ function handlePhantomResponse() {
   const phantomAction = urlParams.get("phantom_action");
 
   if (phantomAction === "connect") {
-    console.log("🔗 Phantom connect response detected in main.ts");
-
     // Import and handle the response immediately
     import("./services/wallet")
       .then(({ handlePhantomConnectResponse }) => {
         try {
           handlePhantomConnectResponse();
-          console.log("✅ Phantom response handled in main.ts");
         } catch (error) {
-          console.error(
-            "❌ Failed to handle Phantom response in main.ts:",
-            error,
-          );
+          console.error("Failed to handle Phantom response:", error);
         }
       })
       .catch((error) => {
-        console.error("❌ Failed to import wallet service in main.ts:", error);
+        console.error("Failed to import wallet service:", error);
       });
   }
 }
@@ -50,12 +44,8 @@ async function createVueApp() {
     const app = createApp(App);
 
     // Install global error handler
-    app.config.errorHandler = (err, instance, info) => {
-      console.error("Vue error:", err);
-      if (import.meta.env.DEV) {
-        console.error("Component:", instance);
-        console.error("Error Info:", info);
-      }
+    app.config.errorHandler = (err, _instance, info) => {
+      console.error("Vue error:", err, info);
     };
 
     // Install plugins
@@ -76,12 +66,8 @@ async function createVueApp() {
 
     // Mount the app
     app.mount("#app");
-
-    if (import.meta.env.DEV) {
-      console.log("✅ Application mounted successfully");
-    }
   } catch (error) {
-    console.error("❌ Failed to initialize app:", error);
+    console.error("Failed to initialize app:", error);
 
     // Show fallback error UI
     const appElement = document.getElementById("app");
