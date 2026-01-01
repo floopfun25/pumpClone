@@ -135,13 +135,13 @@
         <!-- Volume area background (from separator to just above time scale) -->
         <div
           class="absolute left-0 bg-[#6a7080] pointer-events-none"
-          style="top: calc(88% - 28px); bottom: 28px; right: 80px; z-index: 0;"
+          style="top: calc(88% - 28px); bottom: 28px; right: 92px; z-index: 0;"
         ></div>
 
         <!-- Horizontal separator line between chart and volume -->
         <div
           class="absolute left-0 bg-white pointer-events-none"
-          style="top: calc(88% - 28px); right: 80px; height: 1px; z-index: 2;"
+          style="top: calc(88% - 28px); right: 92px; height: 1px; z-index: 2;"
         ></div>
 
         <!-- Chart container -->
@@ -655,8 +655,10 @@ const addSeries = () => {
         // Format very small prices with appropriate precision
         if (price === 0) return '0';
         if (price < 0.00000001) return price.toExponential(2);
-        if (price < 0.000001) return price.toFixed(8);
-        if (price < 0.01) return price.toFixed(6);
+        if (price < 0.000001) return price.toFixed(9);
+        if (price < 0.0001) return price.toFixed(8);
+        if (price < 0.01) return price.toFixed(7);
+        if (price < 1) return price.toFixed(5);
         return price.toFixed(4);
       },
     },
