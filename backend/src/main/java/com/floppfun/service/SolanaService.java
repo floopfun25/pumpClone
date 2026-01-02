@@ -97,19 +97,51 @@ public class SolanaService {
 
     /**
      * Verify a wallet signature (for authentication)
-     *
-     * TODO: Implement actual signature verification
+     * Uses Ed25519 signature verification with TweetNaCl
      */
     public boolean verifyWalletSignature(String walletAddress, String message, String signature) {
-        log.debug("Verifying wallet signature for: {}", walletAddress);
+        try {
+            // Decode the public key (wallet address) from base58
+            byte[] publicKeyBytes = org.bitcoinj.core.Base58.decode(walletAddress);
 
-        // TODO: Actual implementation would:
-        // 1. Decode signature from base58
-        // 2. Recover public key from signature
-        // 3. Verify it matches wallet address
+            // Decode the signature from base58
+            byte[] signatureBytes = org.bitcoinj.core.Base58.decode(signature);
 
-        // For now, accept all signatures in development
-        return true;
+            // Convert message to bytes
+            byte[] messageBytes = message.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+            // Verify the Ed25519 signature using TweetNaCl
+            // Ed25519 signatures are 64 bytes, public keys are 32 bytes
+            if (signatureBytes.length != 64) {
+                log.warn("Invalid signature length for wallet {}: {} bytes (expected 64)", walletAddress, signatureBytes.length);
+                return false;
+            }
+
+            if (publicKeyBytes.length != 32) {
+                log.warn("Invalid public key length for wallet {}: {} bytes (expected 32)", walletAddress, publicKeyBytes.length);
+                return false;
+            }
+
+            // Create a new TweetNaCl signature instance for verification
+            // The constructor takes (publicKey, secretKey) - we only have public key for verification
+            org.p2p.solanaj.utils.TweetNaclFast.Signature signatureVerifier =
+                new org.p2p.solanaj.utils.TweetNaclFast.Signature(publicKeyBytes, null);
+
+            // Detached signature verification (takes message and signature)
+            boolean isValid = signatureVerifier.detached_verify(messageBytes, signatureBytes);
+
+            if (!isValid) {
+                log.warn("Invalid signature for wallet: {}", walletAddress);
+                return false;
+            }
+
+            log.info("Successfully verified signature for wallet: {}", walletAddress);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Error verifying wallet signature for {}: {}", walletAddress, e.getMessage(), e);
+            return false;
+        }
     }
 
     /**

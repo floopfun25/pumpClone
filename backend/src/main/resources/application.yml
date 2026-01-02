@@ -16,7 +16,7 @@ spring:
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate  # Changed from 'update' - Flyway manages schema, Hibernate only validates
     show-sql: false  # Disable SQL logging to reduce noise
     open-in-view: false  # Disable to avoid warning and improve performance
     properties:
@@ -27,6 +27,14 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
+
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true  # Allow Flyway to work with existing databases
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: true
 
   # Redis Configuration (used for caching only, not as a database)
   data:
@@ -64,14 +72,14 @@ floppfun:
 
   # IPFS Configuration
   ipfs:
-    pinata-api-key: ${PINATA_API_KEY:your_pinata_api_key}
-    pinata-secret-key: ${PINATA_SECRET_KEY:your_pinata_secret_key}
+    pinata-api-key: ${PINATA_API_KEY}
+    pinata-secret-key: ${PINATA_SECRET_KEY}
     gateway-url: ${IPFS_GATEWAY:https://ipfs.io/ipfs/}
 
   # JWT Configuration
   jwt:
-    secret: ${JWT_SECRET:your-super-secret-jwt-key-change-this-in-production}
-    expiration: 86400000 # 24 hours in milliseconds
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
 
   # Trading Configuration
   trading:
@@ -91,6 +99,26 @@ floppfun:
     token-ttl: 30 # seconds
     price-ttl: 10 # seconds
     user-ttl: 300 # seconds
+
+  # Rate Limiting Configuration
+  rate-limit:
+    enabled: true
+    # General API rate limit (per IP)
+    general:
+      requests: 100
+      duration: 60 # seconds
+    # Authentication endpoints (stricter)
+    auth:
+      requests: 10
+      duration: 60 # seconds
+    # Token creation (very strict)
+    token-create:
+      requests: 5
+      duration: 300 # 5 minutes
+    # Trading endpoints
+    trade:
+      requests: 30
+      duration: 60 # seconds
 
 # Logging Configuration
 logging:

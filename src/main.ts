@@ -13,6 +13,9 @@ import { i18n } from "./i18n";
 // Stores
 import { createPinia } from "pinia";
 
+// Error tracking
+import { initSentry } from "./services/sentry";
+
 // Handle Phantom wallet response immediately on page load
 function handlePhantomResponse() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -52,6 +55,9 @@ async function createVueApp() {
     app.use(createPinia());
     app.use(router);
     app.use(i18n);
+
+    // Initialize Sentry error tracking
+    initSentry(app, router);
 
     // Initialize WebSocket connection for real-time updates
     import("./services/webSocketService")
